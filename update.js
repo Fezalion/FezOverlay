@@ -6,6 +6,7 @@ const unzipper = require('unzipper'); // npm install unzipper
 const repo = 'yourusername/yourrepo'; // Change to your GitHub repo
 const exeName = 'fezoverlay.exe';     // Change to your exe name
 const distZipName = 'dist.zip';       // Name of your zipped dist asset
+const versionFile = path.join(__dirname, 'version.txt');
 
 function getLatestRelease(cb) {
   https.get(`https://api.github.com/repos/${repo}/releases/latest`, {
@@ -31,7 +32,29 @@ function extractZip(zipPath, destDir, cb) {
     .on('close', cb);
 }
 
+// Read current version
+function getCurrentVersion() {
+  try {
+    return fs.readFileSync(versionFile, 'utf8').trim();
+  } catch {
+    return '';
+  }
+}
+
+// Write new version
+function setCurrentVersion(version) {
+  fs.writeFileSync(versionFile, version);
+}
+
 getLatestRelease(release => {
+  const latestVersion = release.tag_name || release.name || '';
+  const currentVersion = getCurrentVersion();
+
+  if (latestVersion === currentVersion) {
+    console.log('Already up to date (version:', latestVersion, ')');
+    return;
+  }
+
   // Download exe
   const exeAsset = release.assets.find(a => a.name === exeName);
   if (exeAsset) {
@@ -58,4 +81,7 @@ getLatestRelease(release => {
   } else {
     console.log('No dist.zip found in latest release.');
   }
+
+  // Update version file
+  setCurrentVersion(latestVersion);
 });

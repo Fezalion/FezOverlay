@@ -1,3 +1,4 @@
+const { execFileSync } = require('child_process');
 const path = require('path');
 const express = require('express');
 const bodyParser = require('body-parser');
@@ -111,6 +112,14 @@ app.get('/api/lastfm/latest/:username', (req, res) => {
 app.get(/^\/(?!api).*/, (req, res) => {
   res.sendFile(path.join(distRoot, 'index.html'));
 });
+
+// Run updater synchronously before starting the server
+try {
+  execFileSync('node', [path.join(__dirname, 'update.js')], { stdio: 'inherit' });
+  console.log('Updater finished.');
+} catch (err) {
+  console.error('Updater failed:', err);
+}
 
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
