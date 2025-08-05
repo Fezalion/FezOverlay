@@ -55,8 +55,8 @@ jobs:
 
       - name: Build executables
         run: |
-          pkg server.js --targets node18-win-x64 --output fezoverlay.exe
-          pkg updater.js --targets node18-win-x64 --output updater.exe
+          pkg server.cjs --targets node18-win-x64 --output fezoverlay.exe
+          pkg updater.cjs --targets node18-win-x64 --output updater.exe
 
       - name: Verify build outputs
         run: |
