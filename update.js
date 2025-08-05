@@ -8,7 +8,14 @@ const isPackaged = typeof process.pkg !== 'undefined';
 const repo = 'Fezalion/FezOverlay'; // Change to your GitHub repo
 const exeName = 'fezoverlay.exe';     // Change to your exe name
 const distZipName = 'dist.zip';       // Name of your zipped dist asset
-const versionFile = path.join(__dirname, 'version.txt');
+
+// Fix for pkg: use process.execPath for base directory if packaged
+let baseDir = __dirname;
+if (process.pkg) {
+  baseDir = path.dirname(process.execPath);
+}
+
+const versionFile = path.join(baseDir, 'version.txt');
 
 function getLatestRelease(cb) {
   const url = `https://api.github.com/repos/${repo}/releases/latest`;
@@ -23,16 +30,24 @@ function getLatestRelease(cb) {
       try {
         console.log('GitHub API response status:', res.statusCode);
         const release = JSON.parse(data);
-        if (release.message && release.message.includes('Not Found')) {
-          return cb(new Error('Repository or release not found'));
-        }
+        
+        // Check for API errors
         if (release.message) {
+          if (release.message.includes('Not Found')) {
+            return cb(new Error('Repository or release not found'));
+          }
           return cb(new Error(`GitHub API error: ${release.message}`));
         }
+        
+        // Check if we have a valid release
+        if (!release.tag_name) {
+          return cb(new Error('No tag_name found in release'));
+        }
+        
         console.log('Latest release found:', release.tag_name);
         cb(null, release);
       } catch (err) {
-        console.error('Failed to parse response:', data);
+        console.error('Failed to parse response:', err.message);
         cb(new Error('Failed to parse GitHub API response'));
       }
     });
@@ -43,6 +58,7 @@ function getLatestRelease(cb) {
 }
 
 function downloadFile(url, dest, cb) {
+  console.log('Downloading to:', dest);
   const file = fs.createWriteStream(dest);
   https.get(url, { headers: { 'User-Agent': 'node' } }, response => {
     if (response.statusCode !== 200) {
@@ -51,13 +67,18 @@ function downloadFile(url, dest, cb) {
       return cb(new Error(`HTTP ${response.statusCode}: ${response.statusMessage}`));
     }
     response.pipe(file);
-    file.on('finish', () => file.close(cb));
+    file.on('finish', () => {
+      console.log('Download completed:', dest);
+      file.close(cb);
+    });
     file.on('error', (err) => {
+      console.error('File write error:', err.message);
       file.close();
       fs.unlink(dest, () => {}); // Delete partial file
       cb(err);
     });
   }).on('error', (err) => {
+    console.error('Download error:', err.message);
     file.close();
     fs.unlink(dest, () => {}); // Delete partial file
     cb(err);
@@ -106,6 +127,8 @@ function runUpdate() {
   console.log('Starting update process...');
   console.log('Repository:', repo);
   console.log('Is packaged:', isPackaged);
+  console.log('Base directory:', baseDir);
+  console.log('Current directory:', __dirname);
   
   getLatestRelease((err, release) => {
     if (err) {
@@ -122,7 +145,7 @@ function runUpdate() {
 
     const latestVersion = release.tag_name || release.name || '';
     const currentVersion = getCurrentVersion();
-    const distExists = fs.existsSync(path.join(__dirname, 'dist'));
+    const distExists = fs.existsSync(path.join(baseDir, 'dist'));
 
     // If dist folder doesn't exist, download regardless of version
     if (!distExists) {
@@ -136,13 +159,13 @@ function runUpdate() {
     const exeAsset = release.assets.find(a => a.name === exeName);
     if (exeAsset) {
       console.log('Downloading new exe...');
-      downloadFile(exeAsset.browser_download_url, path.join(__dirname, exeName + '.new'), (err) => {
+      downloadFile(exeAsset.browser_download_url, path.join(baseDir, exeName + '.new'), (err) => {
         if (err) {
           console.error('Failed to download exe:', err.message);
           return;
         }
         try {
-          fs.renameSync(path.join(__dirname, exeName + '.new'), path.join(__dirname, exeName));
+          fs.renameSync(path.join(baseDir, exeName + '.new'), path.join(baseDir, exeName));
           console.log('Exe update complete!');
         } catch (renameErr) {
           console.error('Failed to rename exe file:', renameErr.message);
@@ -156,15 +179,15 @@ function runUpdate() {
     const distAsset = release.assets.find(a => a.name === distZipName);
     if (distAsset) {
       console.log('Downloading new dist.zip...');
-      downloadFile(distAsset.browser_download_url, path.join(__dirname, distZipName), (err) => {
+      downloadFile(distAsset.browser_download_url, path.join(baseDir, distZipName), (err) => {
         if (err) {
           console.error('Failed to download dist.zip:', err.message);
           return;
         }
         console.log('Extracting dist.zip...');
-        extractZip(path.join(__dirname, distZipName), path.join(__dirname, 'dist'), () => {
+        extractZip(path.join(baseDir, distZipName), path.join(baseDir, 'dist'), () => {
           try {
-            fs.unlinkSync(path.join(__dirname, distZipName)); // Remove zip after extraction
+            fs.unlinkSync(path.join(baseDir, distZipName)); // Remove zip after extraction
             console.log('dist folder update complete!');
           } catch (unlinkErr) {
             console.warn('Warning: Could not remove zip file:', unlinkErr.message);
