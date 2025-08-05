@@ -491,7 +491,7 @@ exit /b 0
 
       if (updaterAsset) {
         console.log(`[1/${totalDownloads}] Updating  updater executable...`);
-        downloadFile(exeAsset.browser_download_url, path.join(baseDir, updaterName + '.new'), (err) => {
+        downloadFile(updaterAsset.browser_download_url, path.join(baseDir, updaterName + '.new'), (err) => {
           if (err) {
             console.error('✗ Failed to download updater.exe:', err.message);
             hasError = true;
