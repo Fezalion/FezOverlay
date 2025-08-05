@@ -1,7 +1,8 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
+// vite.config.js (CommonJS)
+export default async () => {
+  const { defineConfig } = await import('vite');
+  return defineConfig({
+    // config here
+  });
+};
 
-// https://vite.dev/config/
-export default defineConfig({
-  plugins: [react()],
-})
