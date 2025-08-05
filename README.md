@@ -1,12 +1,71 @@
-# React + Vite
+# FezOverlay
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A React-based overlay application for streaming with Last.fm integration and customizable settings.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- **Last.fm Integration**: Display currently playing tracks from Last.fm
+- **Customizable UI**: Adjust background color, font size, padding, and more
+- **Auto-Update System**: Automatically downloads and updates from the latest GitHub release
+- **Standalone Executable**: Can be packaged as a standalone .exe file
 
-## Expanding the ESLint configuration
+## Auto-Download Functionality
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+When you run `FezOverlay.exe`, the application will:
+
+1. **Check for dist folder**: If the `dist` folder doesn't exist, it will automatically download the latest release from GitHub
+2. **Download and extract**: Downloads the `dist.zip` file from the latest release and extracts it
+3. **Fallback handling**: If the download fails, the server will still start and provide helpful error messages
+4. **Regular updates**: If the dist folder exists, it will check for updates and download if a newer version is available
+
+### Requirements for Auto-Download
+
+- Internet connection to access GitHub releases
+- The GitHub repository must have releases with a `dist.zip` asset
+- The executable must have write permissions in its directory
+
+### Error Handling
+
+If the auto-download fails:
+- The application will log detailed error messages
+- The server will still start (if possible)
+- API endpoints will return a 503 status with helpful error messages
+- Users can manually download and extract the dist folder
+
+## Development
+
+### Prerequisites
+
+- Node.js (v16 or higher)
+- npm or yarn
+
+### Setup
+
+1. Clone the repository
+2. Install dependencies: `npm install`
+3. Set up environment variables (see below)
+4. Run development server: `npm run dev`
+
+### Environment Variables
+
+Create a `.env` file in the root directory:
+
+```
+LASTFM_API_KEY=your_lastfm_api_key_here
+PORT=48000
+```
+
+### Building
+
+- Development build: `npm run build`
+- Package as executable: Use pkg with the configuration in `package.json`
+
+## API Endpoints
+
+- `GET /api/settings` - Get current settings
+- `POST /api/settings` - Update settings
+- `GET /api/lastfm/latest/:username` - Get latest track for a Last.fm user
+
+## License
+
+[Add your license information here]

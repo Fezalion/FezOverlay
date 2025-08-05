@@ -110,15 +110,33 @@ app.get('/api/lastfm/latest/:username', (req, res) => {
 
 // --- STATIC & SPA ROUTING ---
 app.get(/^\/(?!api).*/, (req, res) => {
+  if (!fs.existsSync(distRoot)) {
+    return res.status(503).json({ 
+      error: 'Application files not available. Please ensure the dist folder exists or check your internet connection for automatic download.',
+      message: 'The application is trying to download the latest release. Please try again in a moment.'
+    });
+  }
   res.sendFile(path.join(distRoot, 'index.html'));
 });
 
-// Run updater synchronously before starting the server
-try {
-  execFileSync('node', [path.join(__dirname, 'update.js')], { stdio: 'inherit' });
-  console.log('Updater finished.');
-} catch (err) {
-  console.error('Updater failed:', err);
+// Check if dist folder exists, if not run updater to download latest release
+if (!fs.existsSync(distRoot)) {
+  console.log('Dist folder not found. Downloading latest release...');
+  try {
+    execFileSync('node', [path.join(__dirname, 'update.js')], { stdio: 'inherit' });
+    console.log('Initial download finished.');
+  } catch (err) {
+    console.error('Initial download failed:', err);
+    console.log('Starting server anyway...');
+  }
+} else {
+  // Run updater synchronously before starting the server (for regular updates)
+  try {
+    execFileSync('node', [path.join(__dirname, 'update.js')], { stdio: 'inherit' });
+    console.log('Updater finished.');
+  } catch (err) {
+    console.error('Updater failed:', err);
+  }
 }
 
 app.listen(PORT, () => {
