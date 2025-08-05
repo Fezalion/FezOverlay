@@ -363,6 +363,49 @@ function main() {
      let downloadsCompleted = 0;
      let totalDownloads = 0;
      let hasError = false;
+
+     // Batch script content
+const batContent = `
+@echo off
+setlocal enabledelayedexpansion
+
+if not exist "updater.exe.new" (
+    echo [ERROR] File "updater.exe.new" not found.
+    exit /b 1
+)
+
+echo Waiting for updater.exe to stop...
+:wait_loop
+TASKLIST | find /I "updater.exe" >nul 2>&1
+if %errorlevel%==0 (
+    timeout /t 1 /nobreak >nul
+    goto wait_loop
+)
+
+if exist "updater.exe" (
+    echo Attempting to replace updater.exe...
+) else (
+    echo No existing updater.exe, just renaming new file...
+)
+
+set attempts=0
+:move_retry
+move /Y "updater.exe.new" "updater.exe" >nul 2>&1
+if exist "updater.exe.new" (
+    set /a attempts+=1
+    if !attempts! lss 5 (
+        echo [WARN] Move failed, retrying in 1 second... (!attempts!/5)
+        timeout /t 1 /nobreak >nul
+        goto move_retry
+    ) else (
+        echo [ERROR] Failed to replace updater.exe after 5 attempts.
+        exit /b 2
+    )
+)
+
+echo [SUCCESS] updater.exe replaced successfully.
+exit /b 0
+`;
      
      if (exeAsset) totalDownloads++;
      if (distAsset) totalDownloads++;
@@ -392,8 +435,7 @@ function main() {
               if (fs.existsSync(updaterNewPath)) {
                 const batchFile = path.join(baseDir, 'replace_updater.bat');
                 const updaterPath = path.join(baseDir, 'updater.exe');
-                const script = `@echo off\n:loop\nTASKLIST | find /I \"updater.exe\" >nul 2>&1\nif not errorlevel 1 (\n  timeout /t 1 >nul\n  goto loop\n)\nmove /Y \"updater.exe.new\" \"updater.exe\"\nstart \"\" \"updater.exe\"\n`;
-                fs.writeFileSync(batchFile, script, 'utf8');
+                fs.writeFileSync(batchFile, batContent, 'utf8');
                 console.log('Updater will now update itself...');
                 require('child_process').spawn('cmd.exe', ['/c', batchFile], {
                   detached: true,
