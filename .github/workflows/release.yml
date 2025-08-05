@@ -18,6 +18,18 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get version from tag
+        id: get_version
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $version = $tag -replace '^v', ''
+          echo "version=$version" >> $env:GITHUB_OUTPUT
+          echo "tag=$tag" >> $env:GITHUB_OUTPUT
+          echo "Version: $version"
+          echo "Tag: $tag"
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -26,6 +38,14 @@ jobs:
 
       - name: Install dependencies
         run: npm install
+
+      - name: Update package.json version
+        run: |
+          $version = "${{ steps.get_version.outputs.version }}"
+          $packageJson = Get-Content package.json | ConvertFrom-Json
+          $packageJson.version = $version
+          $packageJson | ConvertTo-Json -Depth 10 | Set-Content package.json
+          echo "Updated package.json version to $version"
 
       - name: Build React app
         run: npm run build
@@ -36,29 +56,60 @@ jobs:
       - name: Build executable
         run: pkg server.js --targets node18-win-x64 --output fezoverlay.exe
 
+      - name: Verify build outputs
+        run: |
+          echo "Checking build outputs..."
+          if (-not (Test-Path "fezoverlay.exe")) {
+            Write-Error "fezoverlay.exe was not created"
+            exit 1
+          }
+          if (-not (Test-Path "dist")) {
+            Write-Error "dist folder was not created"
+            exit 1
+          }
+          echo "Build outputs verified successfully"
+
       - name: Zip dist folder
         run: Compress-Archive -Path dist/* -DestinationPath dist.zip
+
+      - name: List files for debugging
+        run: |
+          echo "Current directory:"
+          Get-Location
+          echo "Files in current directory:"
+          Get-ChildItem
+          echo "Size of fezoverlay.exe:"
+          if (Test-Path fezoverlay.exe) { (Get-Item fezoverlay.exe).Length }
+          echo "Size of dist.zip:"
+          if (Test-Path dist.zip) { (Get-Item dist.zip).Length }
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ github.run_number }}
-          name: "Release v${{ github.run_number }}"
+          tag_name: ${{ steps.get_version.outputs.tag }}
+          name: "FezOverlay v${{ steps.get_version.outputs.version }}"
+          body: |
+            ## FezOverlay v${{ steps.get_version.outputs.version }}
+            
+            ### What's New
+            - Auto-download functionality for packaged executables
+            - Last.fm integration for currently playing tracks
+            - Customizable overlay settings
+            
+            ### Downloads
+            - **fezoverlay.exe**: Standalone Windows executable
+            - **dist.zip**: Application files (extract to use with the executable)
+            
+            ### Installation
+            1. Download `fezoverlay.exe`
+            2. Download `dist.zip` and extract it to the same folder as the executable
+            3. Run `fezoverlay.exe`
+            
+            The application will automatically download the latest files if needed.
+          files: |
+            fezoverlay.exe
+            dist.zip
+          draft: false
+          prerelease: false
         env:
-          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
-
-
-      - name: Upload fezoverlay.exe
-        uses: softprops/action-gh-release@v2
-        with:
-          files: fezoverlay.exe
-        env:
-          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
-
-
-      - name: Upload dist.zip
-        uses: softprops/action-gh-release@v2
-        with:
-          files: dist.zip
-        env:
-          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
