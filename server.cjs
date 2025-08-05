@@ -25,6 +25,31 @@ app.use(express.static(distRoot));
 
 const LASTFM_API_KEY = process.env.LASTFM_API_KEY;
 
+// --- .env validation and cleaning ---
+const envPath = path.join(baseDir, '.env');
+if (fs.existsSync(envPath)) {
+  let envContent = fs.readFileSync(envPath, 'utf8');
+  let lines = envContent.split(/\r?\n/);
+  let cleanedLines = [];
+  let foundApiKey = false;
+  for (let line of lines) {
+    let trimmed = line.trim();
+    if (!trimmed) continue; // skip empty lines
+    if (trimmed.startsWith('LASTFM_API_KEY=')) {
+      let value = trimmed.split('=')[1] || '';
+      value = value.trim();
+      if (value) foundApiKey = true;
+      cleanedLines.push('LASTFM_API_KEY=' + value);
+    } else {
+      cleanedLines.push(trimmed);
+    }
+  }
+  fs.writeFileSync(envPath, cleanedLines.join('\n') + '\n', 'utf8');
+  if (!foundApiKey) {
+    console.warn('[.env] Warning: LASTFM_API_KEY is missing or empty after cleaning. The Last.fm API will not work.');
+  }
+}
+
 // --- SETTINGS API ---
 function loadSettings() {
   try {
@@ -76,13 +101,17 @@ function parseLatestTrack(data) {
 
 app.get('/api/lastfm/latest/:username', (req, res) => {
   const username = req.params?.username || '';
+  console.log('[LastFM API] Requested username:', username);
   if (!username) {
+    console.error('[LastFM API] No username provided');
     return res.status(400).json({ error: 'Username is required' });
   }
   if (!LASTFM_API_KEY) {
+    console.error('[LastFM API] LASTFM_API_KEY is not set');
     return res.status(500).json({ error: 'LASTFM_API_KEY is not set' });
   }
   const url = `https://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks&user=${username}&api_key=${LASTFM_API_KEY}&format=json&limit=1`;
+  console.log('[LastFM API] Fetching URL:', url);
 
   https.get(url, (response) => {
     let data = '';
@@ -91,19 +120,21 @@ app.get('/api/lastfm/latest/:username', (req, res) => {
     });
     response.on('end', () => {
       try {
+        console.log('[LastFM API] Raw response:', data);
         const jsonData = JSON.parse(data);
         const track = parseLatestTrack(jsonData);
         if (!track) {
+          console.warn('[LastFM API] No recent tracks found for user:', username);
           return res.status(404).json({ error: 'No recent tracks found' });
         }
         res.json({ track });
       } catch (error) {
-        console.error('Error parsing Last.fm response:', error);
+        console.error('[LastFM API] Error parsing Last.fm response:', error);
         res.status(500).json({ error: 'Internal server error' });
       }
     });
   }).on('error', (err) => {
-    console.error('Error fetching from Last.fm:', err);
+    console.error('[LastFM API] Error fetching from Last.fm:', err);
     res.status(500).json({ error: 'Error fetching from Last.fm' });
   });
 });
