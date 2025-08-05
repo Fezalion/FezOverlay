@@ -11,6 +11,13 @@ const distZipName = 'dist.zip';
 const baseDir = path.dirname(process.execPath);
 const versionFile = path.join(baseDir, 'version.txt');
 
+// Check for .env file and create if missing
+const envPath = path.join(baseDir, '.env');
+if (!fs.existsSync(envPath)) {
+  fs.writeFileSync(envPath, 'LASTFM_API_KEY=\n', 'utf8');
+  console.log('.env file was missing and has been created with default LASTFM_API_KEY.');
+}
+
 function getLatestRelease(cb) {
   const url = `https://api.github.com/repos/${repo}/releases/latest`;
   console.log('Fetching latest release from:', url);
