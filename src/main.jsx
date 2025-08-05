@@ -26,6 +26,7 @@ fetch('/api/settings')
         ? '3px solid rgb(var(--song-panel-bg))'
         : 'none'
     );
+    document.documentElement.style.setProperty('--song-panel-text-color', hexToRgb(data.fontColor || '#ffffff'));
   });
 
 createRoot(document.getElementById('root')).render(
