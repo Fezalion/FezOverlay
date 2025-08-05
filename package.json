@@ -8,7 +8,7 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "package": "npm run build && pkg . && pkg updater.js --targets node18-win-x64 --output updater.exe"
+    "package": "npm run build && pkg server.cjs --targets node18-win-x64 --output fezoverlay.exe && pkg updater.cjs --targets node18-win-x64 --output updater.exe"
   },
   "dependencies": {
     "dotenv": "^17.2.1",
@@ -34,5 +34,5 @@
       "settings.json"
     ]
   },
-  "main": "server.js"
+  "main": "server.cjs"
 }
