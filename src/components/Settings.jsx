@@ -1,4 +1,4 @@
-import { useState, useEffect, React } from 'react';
+import { useState, useEffect } from 'react';
 
 function hexToRgb(hex) {
   hex = hex.replace('#', '');
