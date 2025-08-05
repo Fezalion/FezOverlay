@@ -59,30 +59,55 @@ function getLatestRelease(cb) {
 
 function downloadFile(url, dest, cb) {
   console.log('Downloading to:', dest);
-  const file = fs.createWriteStream(dest);
-  https.get(url, { headers: { 'User-Agent': 'node' } }, response => {
-    if (response.statusCode !== 200) {
-      file.close();
-      fs.unlink(dest, () => {}); // Delete partial file
-      return cb(new Error(`HTTP ${response.statusCode}: ${response.statusMessage}`));
+  
+  function makeRequest(url, redirectCount = 0) {
+    // Prevent infinite redirect loops
+    if (redirectCount > 5) {
+      return cb(new Error('Too many redirects'));
     }
-    response.pipe(file);
-    file.on('finish', () => {
-      console.log('Download completed:', dest);
-      file.close(cb);
-    });
-    file.on('error', (err) => {
-      console.error('File write error:', err.message);
+    
+    const file = fs.createWriteStream(dest);
+    
+    https.get(url, { 
+      headers: { 'User-Agent': 'node' }
+    }, response => {
+      console.log('Response status:', response.statusCode);
+      
+      // Handle redirects
+      if (response.statusCode === 301 || response.statusCode === 302) {
+        const location = response.headers.location;
+        console.log('Redirecting to:', location);
+        file.close();
+        fs.unlink(dest, () => {}); // Delete partial file
+        return makeRequest(location, redirectCount + 1);
+      }
+      
+      if (response.statusCode !== 200) {
+        file.close();
+        fs.unlink(dest, () => {}); // Delete partial file
+        return cb(new Error(`HTTP ${response.statusCode}: ${response.statusMessage}`));
+      }
+      
+      response.pipe(file);
+      file.on('finish', () => {
+        console.log('Download completed:', dest);
+        file.close(cb);
+      });
+      file.on('error', (err) => {
+        console.error('File write error:', err.message);
+        file.close();
+        fs.unlink(dest, () => {}); // Delete partial file
+        cb(err);
+      });
+    }).on('error', (err) => {
+      console.error('Download error:', err.message);
       file.close();
       fs.unlink(dest, () => {}); // Delete partial file
       cb(err);
     });
-  }).on('error', (err) => {
-    console.error('Download error:', err.message);
-    file.close();
-    fs.unlink(dest, () => {}); // Delete partial file
-    cb(err);
-  });
+  }
+  
+  makeRequest(url);
 }
 
 function extractZip(zipPath, destDir, cb) {
