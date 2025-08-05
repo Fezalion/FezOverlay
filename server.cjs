@@ -48,7 +48,7 @@ const LASTFM_API_KEY = process.env.LASTFM_API_KEY;
     }
   }
   else {
-    console.log('new Updater does not exist on:', updaterNewPath);
+    console.log('✗ new Updater does not exist on: (if there is no new updater, this is normal)', updaterNewPath);
   }
 
 
