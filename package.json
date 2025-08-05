@@ -32,6 +32,9 @@
     "assets": [
       "dist/**/*",
       "settings.json"
+    ],
+    "dependencies": [
+      "unzipper"
     ]
   },
   "main": "server.js"
