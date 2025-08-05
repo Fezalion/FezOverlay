@@ -5,17 +5,6 @@ const path = require('path');
 // Check if we're in a packaged environment
 const isPackaged = typeof process.pkg !== 'undefined';
 
-// Only require unzipper if not packaged (it will be bundled in the exe)
-let unzipper;
-if (!isPackaged) {
-  try {
-    unzipper = require('unzipper');
-  } catch (err) {
-    console.error('unzipper module not found. Please run: npm install unzipper');
-    process.exit(1);
-  }
-}
-
 const repo = 'Fezalion/FezOverlay'; // Change to your GitHub repo
 const exeName = 'fezoverlay.exe';     // Change to your exe name
 const distZipName = 'dist.zip';       // Name of your zipped dist asset
@@ -73,10 +62,27 @@ function extractZip(zipPath, destDir, cb) {
     console.log('If you need to update, please download the latest release manually');
     cb();
   } else {
-    // Use unzipper in development
-    fs.createReadStream(zipPath)
-      .pipe(unzipper.Extract({ path: destDir }))
-      .on('close', cb);
+    // Since we can't easily extract zip files without external modules,
+    // we'll copy the zip file to the dist folder and provide instructions
+    try {
+      // Create destination directory if it doesn't exist
+      if (!fs.existsSync(destDir)) {
+        fs.mkdirSync(destDir, { recursive: true });
+      }
+      
+      // Copy the zip file to the dist folder
+      const destZipPath = path.join(destDir, 'dist.zip');
+      fs.copyFileSync(zipPath, destZipPath);
+      
+      console.log('Zip file copied to dist folder.');
+      console.log('Please extract the dist.zip file manually to get the application files.');
+      console.log('You can use Windows Explorer (right-click > Extract All) or any zip utility.');
+      
+      cb();
+    } catch (err) {
+      console.error('Failed to copy zip file:', err.message);
+      cb(err);
+    }
   }
 }
 

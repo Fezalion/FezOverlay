@@ -14,11 +14,18 @@ A React-based overlay application for streaming with Last.fm integration and cus
 When you run `FezOverlay.exe`, the application will:
 
 1. **Check for dist folder**: If the `dist` folder doesn't exist, it will automatically download the latest release from GitHub
-2. **Download and extract**: Downloads the `dist.zip` file from the latest release and extracts it
-3. **Fallback handling**: If the download fails, the server will still start and provide helpful error messages
-4. **Regular updates**: If the dist folder exists, it will check for updates and download if a newer version is available
+2. **Download zip file**: Downloads the `dist.zip` file from the latest release
+3. **Manual extraction**: Copies the zip file to the dist folder for manual extraction
+4. **Fallback handling**: If the download fails, the server will still start and provide helpful error messages
+5. **Regular updates**: If the dist folder exists, it will check for updates and download if a newer version is available
 
 **Note**: Auto-download functionality is only available when running the application in development mode (not packaged). Packaged executables include all necessary files and should be updated by downloading a new release from GitHub.
+
+### Manual Extraction Required
+
+After the zip file is downloaded, you'll need to extract it manually:
+- **Windows**: Right-click the `dist.zip` file in the `dist` folder and select "Extract All"
+- **Other systems**: Use any zip utility to extract the contents
 
 ### Requirements for Auto-Download
 
