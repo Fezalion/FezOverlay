@@ -307,6 +307,22 @@ function main() {
   }
   console.log('');
   
+  // Clean up old .js and .css files in the dist folder
+  const distDir = path.join(baseDir, 'dist');
+  if (fs.existsSync(distDir)) {
+    const files = fs.readdirSync(distDir);
+    for (const file of files) {
+      if (file.endsWith('.js') || file.endsWith('.css')) {
+        try {
+          fs.unlinkSync(path.join(distDir, file));
+          console.log('Deleted old file:', file);
+        } catch (err) {
+          console.warn('Failed to delete file:', file, err.message);
+        }
+      }
+    }
+  }
+
   getLatestRelease((err, release) => {
     if (err) {
       console.error('Error fetching latest release:', err.message);

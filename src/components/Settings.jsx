@@ -93,26 +93,39 @@ export function Settings() {
   };
 
   return (
-    <div>
-      <h2>Settings</h2>
-      <label>
-        Song Panel Background:
-        <input type="color" value={color} onChange={handleChange} />
+    <div className="settings-container" style={{
+      maxWidth: 400,
+      margin: '40px auto',
+      padding: 24,
+      background: 'rgba(255,255,255,0.95)',
+      borderRadius: 16,
+      boxShadow: '0 4px 24px rgba(0,0,0,0.10)',
+      fontFamily: 'Inter, Arial, sans-serif',
+      color: '#222',
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 20
+    }}>
+      <h2 style={{marginBottom: 16, fontWeight: 700, fontSize: 28, letterSpacing: -1}}>Overlay Settings</h2>
+      <label style={{display: 'flex', alignItems: 'center', gap: 12}}>
+        <span style={{minWidth: 120}}>Background</span>
+        <input type="color" value={color} onChange={handleChange} style={{width: 36, height: 36, border: 'none', background: 'none'}} />
       </label>
-      <br />
-      <label>
-        Font Size:
-        <input type="number" min="8" max="48" value={fontSize} onChange={handleFontSize} /> px
+      <label style={{display: 'flex', alignItems: 'center', gap: 12}}>
+        <span style={{minWidth: 120}}>Font Color</span>
+        <input type="color" value={fontColor} onChange={handleFontColor} style={{width: 36, height: 36, border: 'none', background: 'none'}} />
       </label>
-      <br />
-      <label>
-        Padding:
-        <input type="number" min="0" max="50" value={padding} onChange={handlePadding} /> px
+      <label style={{display: 'flex', alignItems: 'center', gap: 12}}>
+        <span style={{minWidth: 120}}>Font Size</span>
+        <input type="number" min="8" max="48" value={fontSize} onChange={handleFontSize} style={{width: 60}} /> px
       </label>
-      <br />
-      <label>
-        Font Family:
-        <select value={fontFamily} onChange={handleFontFamily}>
+      <label style={{display: 'flex', alignItems: 'center', gap: 12}}>
+        <span style={{minWidth: 120}}>Padding</span>
+        <input type="number" min="0" max="50" value={padding} onChange={handlePadding} style={{width: 60}} /> px
+      </label>
+      <label style={{display: 'flex', alignItems: 'center', gap: 12}}>
+        <span style={{minWidth: 120}}>Font Family</span>
+        <select value={fontFamily} onChange={handleFontFamily} style={{flex: 1, padding: 4, borderRadius: 6, border: '1px solid #ccc'}}>
           <option value="Arial, sans-serif">Arial</option>
           <option value="Verdana, Geneva, sans-serif">Verdana</option>
           <option value="Tahoma, Geneva, sans-serif">Tahoma</option>
@@ -120,20 +133,10 @@ export function Settings() {
           <option value="Times New Roman, Times, serif">Times New Roman</option>
         </select>
       </label>
-      <br />
-      <label>
-        Show Border Right:
+      <label style={{display: 'flex', alignItems: 'center', gap: 12}}>
+        <span style={{minWidth: 120}}>Show Border Right</span>
         <input type="checkbox" checked={borderRight} onChange={handleBorderRight} />
       </label>
-      <div>
-        <label htmlFor="fontColor">Font Color: </label>
-        <input
-          id="fontColor"
-          type="color"
-          value={fontColor}
-          onChange={handleFontColor}
-        />
-      </div>
     </div>
   );
 }
