@@ -13,6 +13,7 @@ export function Settings() {
   const [padding, setPadding] = useState(10);
   const [fontFamily, setFontFamily] = useState('Arial, sans-serif');
   const [borderRight, setBorderRight] = useState(true);
+  const [fontColor, setFontColor] = useState('#ffffff');
 
   // Fetch all settings from API on mount
   useEffect(() => {
@@ -24,6 +25,7 @@ export function Settings() {
         setPadding(parseInt(data.padding) || 10);
         setFontFamily(data.fontFamily || 'Arial, sans-serif');
         setBorderRight(data.borderRight !== undefined ? data.borderRight : true);
+        setFontColor(data.fontColor || '#ffffff');
 
         document.documentElement.style.setProperty('--song-panel-bg', hexToRgb(data.bgColor || '#800080'));
         document.documentElement.style.setProperty('--song-panel-font-size', (parseInt(data.fontSize) || 16) + 'px');
@@ -35,6 +37,7 @@ export function Settings() {
             ? '3px solid rgb(var(--song-panel-bg))'
             : 'none'
         );
+        document.documentElement.style.setProperty('--song-panel-text-color', data.fontColor || '#ffffff');
       });
   }, []);
 
@@ -83,6 +86,12 @@ export function Settings() {
     updateSetting('borderRight', e.target.checked);
   };
 
+  const handleFontColor = (e) => {
+    setFontColor(e.target.value);
+    document.documentElement.style.setProperty('--song-panel-text-color', e.target.value);
+    updateSetting('fontColor', e.target.value);
+  };
+
   return (
     <div>
       <h2>Settings</h2>
@@ -116,6 +125,15 @@ export function Settings() {
         Show Border Right:
         <input type="checkbox" checked={borderRight} onChange={handleBorderRight} />
       </label>
+      <div>
+        <label htmlFor="fontColor">Font Color: </label>
+        <input
+          id="fontColor"
+          type="color"
+          value={fontColor}
+          onChange={handleFontColor}
+        />
+      </div>
     </div>
   );
 }

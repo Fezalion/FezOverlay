@@ -61,7 +61,8 @@ function loadSettings() {
       fontSize: '16px',
       padding: '10px',
       fontFamily: 'Arial, sans-serif',
-      borderRight: true
+      borderRight: true,
+      fontColor: '#ffffff'
     };
   }
 }
