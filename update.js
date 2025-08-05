@@ -55,34 +55,26 @@ function downloadFile(url, dest, cb) {
 }
 
 function extractZip(zipPath, destDir, cb) {
-  if (isPackaged) {
-    // In packaged environment, we can't extract zip files
-    // The packaged exe should already have the latest version
-    console.log('Running in packaged environment - skipping zip extraction');
-    console.log('If you need to update, please download the latest release manually');
-    cb();
-  } else {
-    // Since we can't easily extract zip files without external modules,
-    // we'll copy the zip file to the dist folder and provide instructions
-    try {
-      // Create destination directory if it doesn't exist
-      if (!fs.existsSync(destDir)) {
-        fs.mkdirSync(destDir, { recursive: true });
-      }
-      
-      // Copy the zip file to the dist folder
-      const destZipPath = path.join(destDir, 'dist.zip');
-      fs.copyFileSync(zipPath, destZipPath);
-      
-      console.log('Zip file copied to dist folder.');
-      console.log('Please extract the dist.zip file manually to get the application files.');
-      console.log('You can use Windows Explorer (right-click > Extract All) or any zip utility.');
-      
-      cb();
-    } catch (err) {
-      console.error('Failed to copy zip file:', err.message);
-      cb(err);
+  // Since we can't easily extract zip files without external modules,
+  // we'll copy the zip file to the dist folder and provide instructions
+  try {
+    // Create destination directory if it doesn't exist
+    if (!fs.existsSync(destDir)) {
+      fs.mkdirSync(destDir, { recursive: true });
     }
+    
+    // Copy the zip file to the dist folder
+    const destZipPath = path.join(destDir, 'dist.zip');
+    fs.copyFileSync(zipPath, destZipPath);
+    
+    console.log('Zip file copied to dist folder.');
+    console.log('Please extract the dist.zip file manually to get the application files.');
+    console.log('You can use Windows Explorer (right-click > Extract All) or any zip utility.');
+    
+    cb();
+  } catch (err) {
+    console.error('Failed to copy zip file:', err.message);
+    cb(err);
   }
 }
 
@@ -106,10 +98,10 @@ getLatestRelease((err, release) => {
     process.exit(1);
   }
 
-  // If we're in a packaged environment, skip updates
-  if (isPackaged) {
-    console.log('Running in packaged environment - auto-updates disabled');
-    console.log('Please download the latest release manually from GitHub');
+  // Only run updates in packaged environment
+  if (!isPackaged) {
+    console.log('Running in development mode - auto-updates disabled');
+    console.log('Please build the application with: npm run build');
     return;
   }
 

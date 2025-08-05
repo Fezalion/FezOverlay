@@ -114,12 +114,12 @@ app.get(/^\/(?!api).*/, (req, res) => {
     if (process.pkg) {
       return res.status(503).json({ 
         error: 'Application files not available in packaged version.',
-        message: 'Please re-download the application from GitHub or contact support.'
+        message: 'The application is trying to download the latest release. Please try again in a moment.'
       });
     } else {
       return res.status(503).json({ 
-        error: 'Application files not available. Please ensure the dist folder exists or check your internet connection for automatic download.',
-        message: 'The application is trying to download the latest release. Please try again in a moment.'
+        error: 'Application files not available in development mode.',
+        message: 'Please run: npm run build'
       });
     }
   }
@@ -129,11 +129,7 @@ app.get(/^\/(?!api).*/, (req, res) => {
 // Check if dist folder exists, if not run updater to download latest release
 if (!fs.existsSync(distRoot)) {
   if (process.pkg) {
-    console.log('Dist folder not found in packaged application.');
-    console.log('This packaged version should include all necessary files.');
-    console.log('If files are missing, please re-download the application from GitHub.');
-  } else {
-    console.log('Dist folder not found. Downloading latest release...');
+    console.log('Dist folder not found in packaged application. Downloading latest release...');
     try {
       execFileSync('node', [path.join(__dirname, 'update.js')], { stdio: 'inherit' });
       console.log('Initial download finished.');
@@ -141,10 +137,13 @@ if (!fs.existsSync(distRoot)) {
       console.error('Initial download failed:', err);
       console.log('Starting server anyway...');
     }
+  } else {
+    console.log('Dist folder not found in development mode.');
+    console.log('Please run: npm run build');
   }
 } else {
   // Run updater synchronously before starting the server (for regular updates)
-  if (!process.pkg) {
+  if (process.pkg) {
     try {
       execFileSync('node', [path.join(__dirname, 'update.js')], { stdio: 'inherit' });
       console.log('Updater finished.');
