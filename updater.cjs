@@ -475,8 +475,8 @@ function main() {
 
     // After all downloads and updates are successful, check if updaterAsset was downloaded and perform self-update
     if (updaterAsset) {
-      const updaterNewPath = path.join(baseDir, 'updater_new.exe');
-      // If updater_new.exe exists (downloaded), create and run the batch file
+      const updaterNewPath = path.join(baseDir, 'updater.new.exe');
+      // If updater.new.exe exists (downloaded), create and run the batch file
       if (fs.existsSync(updaterNewPath)) {
         const batchFile = path.join(baseDir, 'replace_updater.bat');
         const updaterPath = path.join(baseDir, 'updater.exe');
