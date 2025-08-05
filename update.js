@@ -11,23 +11,33 @@ const distZipName = 'dist.zip';       // Name of your zipped dist asset
 const versionFile = path.join(__dirname, 'version.txt');
 
 function getLatestRelease(cb) {
-  https.get(`https://api.github.com/repos/${repo}/releases/latest`, {
+  const url = `https://api.github.com/repos/${repo}/releases/latest`;
+  console.log('Fetching latest release from:', url);
+  
+  https.get(url, {
     headers: { 'User-Agent': 'node' }
   }, res => {
     let data = '';
     res.on('data', chunk => data += chunk);
     res.on('end', () => {
       try {
+        console.log('GitHub API response status:', res.statusCode);
         const release = JSON.parse(data);
         if (release.message && release.message.includes('Not Found')) {
           return cb(new Error('Repository or release not found'));
         }
-        cb(release);
+        if (release.message) {
+          return cb(new Error(`GitHub API error: ${release.message}`));
+        }
+        console.log('Latest release found:', release.tag_name);
+        cb(null, release);
       } catch (err) {
+        console.error('Failed to parse response:', data);
         cb(new Error('Failed to parse GitHub API response'));
       }
     });
   }).on('error', (err) => {
+    console.error('Network error:', err.message);
     cb(new Error(`Failed to fetch latest release: ${err.message}`));
   });
 }
@@ -92,74 +102,88 @@ function setCurrentVersion(version) {
   fs.writeFileSync(versionFile, version);
 }
 
-getLatestRelease((err, release) => {
-  if (err) {
-    console.error('Error fetching latest release:', err.message);
-    process.exit(1);
-  }
+function runUpdate() {
+  console.log('Starting update process...');
+  console.log('Repository:', repo);
+  console.log('Is packaged:', isPackaged);
+  
+  getLatestRelease((err, release) => {
+    if (err) {
+      console.error('Error fetching latest release:', err.message);
+      return;
+    }
 
-  // Only run updates in packaged environment
-  if (!isPackaged) {
-    console.log('Running in development mode - auto-updates disabled');
-    console.log('Please build the application with: npm run build');
-    return;
-  }
+    // Only run updates in packaged environment
+    if (!isPackaged) {
+      console.log('Running in development mode - auto-updates disabled');
+      console.log('Please build the application with: npm run build');
+      return;
+    }
 
-  const latestVersion = release.tag_name || release.name || '';
-  const currentVersion = getCurrentVersion();
-  const distExists = fs.existsSync(path.join(__dirname, 'dist'));
+    const latestVersion = release.tag_name || release.name || '';
+    const currentVersion = getCurrentVersion();
+    const distExists = fs.existsSync(path.join(__dirname, 'dist'));
 
-  // If dist folder doesn't exist, download regardless of version
-  if (!distExists) {
-    console.log('Dist folder not found. Downloading latest release...');
-  } else if (latestVersion === currentVersion) {
-    console.log('Already up to date (version:', latestVersion, ')');
-    return;
-  }
+    // If dist folder doesn't exist, download regardless of version
+    if (!distExists) {
+      console.log('Dist folder not found. Downloading latest release...');
+    } else if (latestVersion === currentVersion) {
+      console.log('Already up to date (version:', latestVersion, ')');
+      return;
+    }
 
-  // Download exe
-  const exeAsset = release.assets.find(a => a.name === exeName);
-  if (exeAsset) {
-    console.log('Downloading new exe...');
-    downloadFile(exeAsset.browser_download_url, path.join(__dirname, exeName + '.new'), (err) => {
-      if (err) {
-        console.error('Failed to download exe:', err.message);
-        return;
-      }
-      try {
-        fs.renameSync(path.join(__dirname, exeName + '.new'), path.join(__dirname, exeName));
-        console.log('Exe update complete!');
-      } catch (renameErr) {
-        console.error('Failed to rename exe file:', renameErr.message);
-      }
-    });
-  } else {
-    console.log('No exe found in latest release.');
-  }
-
-  // Download dist.zip
-  const distAsset = release.assets.find(a => a.name === distZipName);
-  if (distAsset) {
-    console.log('Downloading new dist.zip...');
-    downloadFile(distAsset.browser_download_url, path.join(__dirname, distZipName), (err) => {
-      if (err) {
-        console.error('Failed to download dist.zip:', err.message);
-        return;
-      }
-      console.log('Extracting dist.zip...');
-      extractZip(path.join(__dirname, distZipName), path.join(__dirname, 'dist'), () => {
+    // Download exe
+    const exeAsset = release.assets.find(a => a.name === exeName);
+    if (exeAsset) {
+      console.log('Downloading new exe...');
+      downloadFile(exeAsset.browser_download_url, path.join(__dirname, exeName + '.new'), (err) => {
+        if (err) {
+          console.error('Failed to download exe:', err.message);
+          return;
+        }
         try {
-          fs.unlinkSync(path.join(__dirname, distZipName)); // Remove zip after extraction
-          console.log('dist folder update complete!');
-        } catch (unlinkErr) {
-          console.warn('Warning: Could not remove zip file:', unlinkErr.message);
+          fs.renameSync(path.join(__dirname, exeName + '.new'), path.join(__dirname, exeName));
+          console.log('Exe update complete!');
+        } catch (renameErr) {
+          console.error('Failed to rename exe file:', renameErr.message);
         }
       });
-    });
-  } else {
-    console.log('No dist.zip found in latest release.');
-  }
+    } else {
+      console.log('No exe found in latest release.');
+    }
 
-  // Update version file
-  setCurrentVersion(latestVersion);
-});
+    // Download dist.zip
+    const distAsset = release.assets.find(a => a.name === distZipName);
+    if (distAsset) {
+      console.log('Downloading new dist.zip...');
+      downloadFile(distAsset.browser_download_url, path.join(__dirname, distZipName), (err) => {
+        if (err) {
+          console.error('Failed to download dist.zip:', err.message);
+          return;
+        }
+        console.log('Extracting dist.zip...');
+        extractZip(path.join(__dirname, distZipName), path.join(__dirname, 'dist'), () => {
+          try {
+            fs.unlinkSync(path.join(__dirname, distZipName)); // Remove zip after extraction
+            console.log('dist folder update complete!');
+          } catch (unlinkErr) {
+            console.warn('Warning: Could not remove zip file:', unlinkErr.message);
+          }
+        });
+      });
+    } else {
+      console.log('No dist.zip found in latest release.');
+    }
+
+    // Update version file
+    setCurrentVersion(latestVersion);
+  });
+}
+
+// Run update if this file is executed directly
+if (require.main === module) {
+  runUpdate();
+}
+
+// Export the function for use as a module
+module.exports = runUpdate;

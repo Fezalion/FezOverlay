@@ -131,7 +131,9 @@ if (!fs.existsSync(distRoot)) {
   if (process.pkg) {
     console.log('Dist folder not found in packaged application. Downloading latest release...');
     try {
-      execFileSync('node', [path.join(__dirname, 'update.js')], { stdio: 'inherit' });
+      // Run update logic directly instead of spawning separate process
+      const runUpdate = require('./update.js');
+      runUpdate();
       console.log('Initial download finished.');
     } catch (err) {
       console.error('Initial download failed:', err);
@@ -145,7 +147,8 @@ if (!fs.existsSync(distRoot)) {
   // Run updater synchronously before starting the server (for regular updates)
   if (process.pkg) {
     try {
-      execFileSync('node', [path.join(__dirname, 'update.js')], { stdio: 'inherit' });
+      const runUpdate = require('./update.js');
+      runUpdate();
       console.log('Updater finished.');
     } catch (err) {
       console.error('Updater failed:', err);

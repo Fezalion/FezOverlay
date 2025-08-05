@@ -31,7 +31,8 @@
   "pkg": {
     "assets": [
       "dist/**/*",
-      "settings.json"
+      "settings.json",
+      "update.js"
     ]
   },
   "main": "server.js"
