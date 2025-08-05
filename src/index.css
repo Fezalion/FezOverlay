@@ -17,7 +17,7 @@
     rgba(var(--song-panel-bg), 0)
   );
   border-right: var(--song-panel-border-right);
-  color: var(--song-panel-text-color);
+  color: rgb(var(--song-panel-text-color));
   padding: var(--song-panel-padding);
   font-size: var(--song-panel-font-size);
   font-family: var(--song-panel-font-family);
