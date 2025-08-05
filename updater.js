@@ -1,0 +1,237 @@
+const https = require('https');
+const fs = require('fs');
+const path = require('path');
+const { exec } = require('child_process');
+
+const repo = 'Fezalion/FezOverlay';
+const exeName = 'fezoverlay.exe';
+const distZipName = 'dist.zip';
+
+// Get the directory where the updater is running
+const baseDir = path.dirname(process.execPath);
+const versionFile = path.join(baseDir, 'version.txt');
+
+function getLatestRelease(cb) {
+  const url = `https://api.github.com/repos/${repo}/releases/latest`;
+  console.log('Fetching latest release from:', url);
+  
+  https.get(url, {
+    headers: { 'User-Agent': 'node' }
+  }, res => {
+    let data = '';
+    res.on('data', chunk => data += chunk);
+    res.on('end', () => {
+      try {
+        console.log('GitHub API response status:', res.statusCode);
+        const release = JSON.parse(data);
+        
+        // Check for API errors
+        if (release.message) {
+          if (release.message.includes('Not Found')) {
+            return cb(new Error('Repository or release not found'));
+          }
+          return cb(new Error(`GitHub API error: ${release.message}`));
+        }
+        
+        // Check if we have a valid release
+        if (!release.tag_name) {
+          return cb(new Error('No tag_name found in release'));
+        }
+        
+        console.log('Latest release found:', release.tag_name);
+        cb(null, release);
+      } catch (err) {
+        console.error('Failed to parse response:', err.message);
+        cb(new Error('Failed to parse GitHub API response'));
+      }
+    });
+  }).on('error', (err) => {
+    console.error('Network error:', err.message);
+    cb(new Error(`Failed to fetch latest release: ${err.message}`));
+  });
+}
+
+function downloadFile(url, dest, cb) {
+  console.log('Downloading to:', dest);
+  
+  function makeRequest(url, redirectCount = 0) {
+    // Prevent infinite redirect loops
+    if (redirectCount > 5) {
+      return cb(new Error('Too many redirects'));
+    }
+    
+    const file = fs.createWriteStream(dest);
+    
+    https.get(url, { 
+      headers: { 'User-Agent': 'node' }
+    }, response => {
+      console.log('Response status:', response.statusCode);
+      
+      // Handle redirects
+      if (response.statusCode === 301 || response.statusCode === 302) {
+        const location = response.headers.location;
+        console.log('Redirecting to:', location);
+        file.close();
+        fs.unlink(dest, () => {}); // Delete partial file
+        return makeRequest(location, redirectCount + 1);
+      }
+      
+      if (response.statusCode !== 200) {
+        file.close();
+        fs.unlink(dest, () => {}); // Delete partial file
+        return cb(new Error(`HTTP ${response.statusCode}: ${response.statusMessage}`));
+      }
+      
+      response.pipe(file);
+      file.on('finish', () => {
+        console.log('Download completed:', dest);
+        file.close(cb);
+      });
+      file.on('error', (err) => {
+        console.error('File write error:', err.message);
+        file.close();
+        fs.unlink(dest, () => {}); // Delete partial file
+        cb(err);
+      });
+    }).on('error', (err) => {
+      console.error('Download error:', err.message);
+      file.close();
+      fs.unlink(dest, () => {}); // Delete partial file
+      cb(err);
+    });
+  }
+  
+  makeRequest(url);
+}
+
+function extractZip(zipPath, destDir, cb) {
+  try {
+    // Create destination directory if it doesn't exist
+    if (!fs.existsSync(destDir)) {
+      fs.mkdirSync(destDir, { recursive: true });
+    }
+    
+    // Use PowerShell to extract the zip file
+    const unzipCommand = `powershell -command "Expand-Archive -Path '${zipPath}' -DestinationPath '${destDir}' -Force"`;
+    
+    console.log('Extracting zip file...');
+    exec(unzipCommand, (error, stdout, stderr) => {
+      if (error) {
+        console.log('PowerShell extraction failed, trying alternative method...');
+        console.log('Error:', error.message);
+        
+        // Fallback: copy zip file and provide instructions
+        const destZipPath = path.join(destDir, 'dist.zip');
+        fs.copyFileSync(zipPath, destZipPath);
+        
+        console.log('Zip file copied to dist folder.');
+        console.log('Please extract the dist.zip file manually.');
+        console.log('Right-click on dist.zip and select "Extract All"');
+        
+        cb();
+      } else {
+        console.log('Zip extraction completed successfully!');
+        
+        // Clean up the zip file
+        try {
+          fs.unlinkSync(zipPath);
+          console.log('Removed temporary zip file.');
+        } catch (unlinkErr) {
+          console.warn('Could not remove zip file:', unlinkErr.message);
+        }
+        
+        cb();
+      }
+    });
+  } catch (err) {
+    console.error('Failed to extract zip file:', err.message);
+    cb(err);
+  }
+}
+
+function getCurrentVersion() {
+  try {
+    return fs.readFileSync(versionFile, 'utf8').trim();
+  } catch {
+    return '';
+  }
+}
+
+function setCurrentVersion(version) {
+  fs.writeFileSync(versionFile, version);
+}
+
+function main() {
+  console.log('=== FezOverlay Updater ===');
+  console.log('Base directory:', baseDir);
+  
+  getLatestRelease((err, release) => {
+    if (err) {
+      console.error('Error fetching latest release:', err.message);
+      console.log('Press any key to exit...');
+      process.stdin.setRawMode(true);
+      process.stdin.resume();
+      process.stdin.on('data', process.exit.bind(process, 1));
+      return;
+    }
+
+    const latestVersion = release.tag_name || release.name || '';
+    const currentVersion = getCurrentVersion();
+    const distExists = fs.existsSync(path.join(baseDir, 'dist'));
+
+    console.log('Current version:', currentVersion || 'none');
+    console.log('Latest version:', latestVersion);
+
+    // If dist folder doesn't exist, download regardless of version
+    if (!distExists) {
+      console.log('Dist folder not found. Downloading latest release...');
+    } else if (latestVersion === currentVersion) {
+      console.log('Already up to date!');
+      console.log('Press any key to exit...');
+      process.stdin.setRawMode(true);
+      process.stdin.resume();
+      process.stdin.on('data', process.exit.bind(process, 0));
+      return;
+    } else {
+      console.log('New version available. Updating...');
+    }
+
+    // Download dist.zip
+    const distAsset = release.assets.find(a => a.name === distZipName);
+    if (distAsset) {
+      console.log('Downloading dist.zip...');
+      downloadFile(distAsset.browser_download_url, path.join(baseDir, distZipName), (err) => {
+        if (err) {
+          console.error('Failed to download dist.zip:', err.message);
+          console.log('Press any key to exit...');
+          process.stdin.setRawMode(true);
+          process.stdin.resume();
+          process.stdin.on('data', process.exit.bind(process, 1));
+          return;
+        }
+        
+        console.log('Extracting dist.zip...');
+        extractZip(path.join(baseDir, distZipName), path.join(baseDir, 'dist'), () => {
+          // Update version file
+          setCurrentVersion(latestVersion);
+          
+          console.log('Update completed successfully!');
+          console.log('You can now run fezoverlay.exe');
+          console.log('Press any key to exit...');
+          process.stdin.setRawMode(true);
+          process.stdin.resume();
+          process.stdin.on('data', process.exit.bind(process, 0));
+        });
+      });
+    } else {
+      console.log('No dist.zip found in latest release.');
+      console.log('Press any key to exit...');
+      process.stdin.setRawMode(true);
+      process.stdin.resume();
+      process.stdin.on('data', process.exit.bind(process, 1));
+    }
+  });
+}
+
+// Run the updater
+main(); 

@@ -126,33 +126,15 @@ app.get(/^\/(?!api).*/, (req, res) => {
   res.sendFile(path.join(distRoot, 'index.html'));
 });
 
-// Check if dist folder exists, if not run updater to download latest release
+// Check if dist folder exists
 if (!fs.existsSync(distRoot)) {
   if (process.pkg) {
-    console.log('Dist folder not found in packaged application. Downloading latest release...');
-    try {
-      // Run update logic directly instead of spawning separate process
-      const runUpdate = require('./update.js');
-      runUpdate();
-      console.log('Initial download finished.');
-    } catch (err) {
-      console.error('Initial download failed:', err);
-      console.log('Starting server anyway...');
-    }
+    console.log('Dist folder not found in packaged application.');
+    console.log('Please run updater.exe to download the latest files.');
+    console.log('Or download the files manually from the GitHub release.');
   } else {
     console.log('Dist folder not found in development mode.');
     console.log('Please run: npm run build');
-  }
-} else {
-  // Run updater synchronously before starting the server (for regular updates)
-  if (process.pkg) {
-    try {
-      const runUpdate = require('./update.js');
-      runUpdate();
-      console.log('Updater finished.');
-    } catch (err) {
-      console.error('Updater failed:', err);
-    }
   }
 }
 

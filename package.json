@@ -8,7 +8,7 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "package": "npm run build && pkg ."
+    "package": "npm run build && pkg . && pkg updater.js --targets node18-win-x64 --output updater.exe"
   },
   "dependencies": {
     "dotenv": "^17.2.1",
@@ -31,8 +31,7 @@
   "pkg": {
     "assets": [
       "dist/**/*",
-      "settings.json",
-      "update.js"
+      "settings.json"
     ]
   },
   "main": "server.js"

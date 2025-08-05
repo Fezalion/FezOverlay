@@ -9,23 +9,28 @@ A React-based overlay application for streaming with Last.fm integration and cus
 - **Auto-Update System**: Automatically downloads and updates from the latest GitHub release
 - **Standalone Executable**: Can be packaged as a standalone .exe file
 
-## Auto-Download Functionality
+## Update System
 
-When you run `FezOverlay.exe`, the application will:
+The application uses a separate updater tool for downloading and updating files:
 
-1. **Check for dist folder**: If the `dist` folder doesn't exist, it will automatically download the latest release from GitHub
-2. **Download zip file**: Downloads the `dist.zip` file from the latest release
-3. **Manual extraction**: Copies the zip file to the dist folder for manual extraction
-4. **Fallback handling**: If the download fails, the server will still start and provide helpful error messages
-5. **Regular updates**: If the dist folder exists, it will check for updates and download if a newer version is available
+### **updater.exe**
+- **Standalone updater**: Runs independently from the main application
+- **Downloads latest release**: Automatically fetches the latest version from GitHub
+- **Extracts files**: Uses PowerShell to extract the zip file automatically
+- **Version tracking**: Keeps track of the current version to avoid unnecessary downloads
 
-**Note**: Auto-download functionality is only available when running the packaged executable (`FezOverlay.exe`). In development mode, you need to build the application manually with `npm run build`.
+### **How to Update**:
+1. **Run updater.exe** in the same folder as fezoverlay.exe
+2. **Wait for completion** - the updater will show progress
+3. **Run fezoverlay.exe** - the application will now use the updated files
 
-### Manual Extraction Required
+### **Manual Update**:
+If the updater doesn't work:
+1. Download `dist.zip` from the latest GitHub release
+2. Extract it to the same folder as fezoverlay.exe
+3. Run fezoverlay.exe
 
-After the zip file is downloaded, you'll need to extract it manually:
-- **Windows**: Right-click the `dist.zip` file in the `dist` folder and select "Extract All"
-- **Other systems**: Use any zip utility to extract the contents
+**Note**: The main application (fezoverlay.exe) no longer handles updates internally. Use updater.exe for all update operations.
 
 ### Requirements for Auto-Download
 
