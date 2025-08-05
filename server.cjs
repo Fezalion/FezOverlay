@@ -120,7 +120,6 @@ app.get('/api/lastfm/latest/:username', (req, res) => {
     });
     response.on('end', () => {
       try {
-        console.log('[LastFM API] Raw response:', data);
         const jsonData = JSON.parse(data);
         const track = parseLatestTrack(jsonData);
         if (!track) {
