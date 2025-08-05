@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "package": "npm run build && pkg ."
   },
   "dependencies": {
     "dotenv": "^17.2.1",
@@ -32,9 +33,6 @@
     "assets": [
       "dist/**/*",
       "settings.json"
-    ],
-    "dependencies": [
-      "unzipper"
     ]
   },
   "main": "server.js"

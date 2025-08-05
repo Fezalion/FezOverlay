@@ -18,6 +18,8 @@ When you run `FezOverlay.exe`, the application will:
 3. **Fallback handling**: If the download fails, the server will still start and provide helpful error messages
 4. **Regular updates**: If the dist folder exists, it will check for updates and download if a newer version is available
 
+**Note**: Auto-download functionality is only available when running the application in development mode (not packaged). Packaged executables include all necessary files and should be updated by downloading a new release from GitHub.
+
 ### Requirements for Auto-Download
 
 - Internet connection to access GitHub releases
@@ -58,7 +60,7 @@ PORT=48000
 ### Building
 
 - Development build: `npm run build`
-- Package as executable: Use pkg with the configuration in `package.json`
+- Package as executable: `npm run package` (requires pkg to be installed globally: `npm install -g pkg`)
 
 ## API Endpoints
 

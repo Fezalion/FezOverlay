@@ -1,7 +1,20 @@
 const https = require('https');
 const fs = require('fs');
 const path = require('path');
-const unzipper = require('unzipper'); // npm install unzipper
+
+// Check if we're in a packaged environment
+const isPackaged = typeof process.pkg !== 'undefined';
+
+// Only require unzipper if not packaged (it will be bundled in the exe)
+let unzipper;
+if (!isPackaged) {
+  try {
+    unzipper = require('unzipper');
+  } catch (err) {
+    console.error('unzipper module not found. Please run: npm install unzipper');
+    process.exit(1);
+  }
+}
 
 const repo = 'Fezalion/FezOverlay'; // Change to your GitHub repo
 const exeName = 'fezoverlay.exe';     // Change to your exe name
@@ -53,9 +66,18 @@ function downloadFile(url, dest, cb) {
 }
 
 function extractZip(zipPath, destDir, cb) {
-  fs.createReadStream(zipPath)
-    .pipe(unzipper.Extract({ path: destDir }))
-    .on('close', cb);
+  if (isPackaged) {
+    // In packaged environment, we can't extract zip files
+    // The packaged exe should already have the latest version
+    console.log('Running in packaged environment - skipping zip extraction');
+    console.log('If you need to update, please download the latest release manually');
+    cb();
+  } else {
+    // Use unzipper in development
+    fs.createReadStream(zipPath)
+      .pipe(unzipper.Extract({ path: destDir }))
+      .on('close', cb);
+  }
 }
 
 // Read current version
@@ -76,6 +98,13 @@ getLatestRelease((err, release) => {
   if (err) {
     console.error('Error fetching latest release:', err.message);
     process.exit(1);
+  }
+
+  // If we're in a packaged environment, skip updates
+  if (isPackaged) {
+    console.log('Running in packaged environment - auto-updates disabled');
+    console.log('Please download the latest release manually from GitHub');
+    return;
   }
 
   const latestVersion = release.tag_name || release.name || '';
