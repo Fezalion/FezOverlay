@@ -47,6 +47,29 @@ If the auto-download fails:
 - API endpoints will return a 503 status with helpful error messages
 - Users can manually download and extract the dist folder
 
+### Usage
+
+### Overlay Usage
+
+1. **Open the Settings Page:**
+   - Go to [http://localhost:48000/](http://localhost:48000/) in your browser.
+   - Here you can customize the overlay's color, font, padding, and more (the UI is currently very barebones).
+
+2. **Add the Overlay to OBS:**
+   - In OBS, add a new **Browser Source**.
+   - Set the URL to:
+     
+     `http://localhost:48000/playing?user=YourLASTFMUsernameGoesHERE`
+   - Replace `YourLASTFMUsernameGoesHERE` with your actual Last.fm username.
+
+3. **Position the Overlay:**
+   - Move and resize the browser source in OBS to your preferred location.
+
+4. **Edit Overlay Appearance:**
+   - To change the overlay's appearance, open [http://localhost:48000/](http://localhost:48000/) in your browser again.
+   - Adjust the settings as desired.
+   - After making changes, right-click the browser source in OBS and select **Refresh** to apply the new settings.
+
 ## Development
 
 ### Prerequisites
