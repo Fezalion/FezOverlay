@@ -111,25 +111,66 @@ function downloadFile(url, dest, cb) {
 }
 
 function extractZip(zipPath, destDir, cb) {
-  // Since we can't easily extract zip files without external modules,
-  // we'll copy the zip file to the dist folder and provide instructions
   try {
     // Create destination directory if it doesn't exist
     if (!fs.existsSync(destDir)) {
       fs.mkdirSync(destDir, { recursive: true });
     }
     
-    // Copy the zip file to the dist folder
-    const destZipPath = path.join(destDir, 'dist.zip');
-    fs.copyFileSync(zipPath, destZipPath);
+    // Try to use system unzip command first (Windows)
+    const { exec } = require('child_process');
+    const unzipCommand = process.platform === 'win32' 
+      ? `powershell -command "Expand-Archive -Path '${zipPath}' -DestinationPath '${destDir}' -Force"`
+      : `unzip -o '${zipPath}' -d '${destDir}'`;
     
-    console.log('Zip file copied to dist folder.');
-    console.log('Please extract the dist.zip file manually to get the application files.');
-    console.log('You can use Windows Explorer (right-click > Extract All) or any zip utility.');
-    
-    cb();
+    console.log('Attempting to extract zip using system command...');
+    exec(unzipCommand, (error, stdout, stderr) => {
+      if (error) {
+        console.log('System unzip failed, falling back to manual extraction...');
+        console.log('Error:', error.message);
+        
+        // Fallback: copy zip file and provide instructions
+        const destZipPath = path.join(destDir, 'dist.zip');
+        fs.copyFileSync(zipPath, destZipPath);
+        
+        console.log('Zip file copied to dist folder.');
+        console.log('Please extract the dist.zip file manually to get the application files.');
+        console.log('You can use Windows Explorer (right-click > Extract All) or any zip utility.');
+        console.log('After extraction, restart the application.');
+        
+        // Create a simple README file with instructions
+        const readmePath = path.join(destDir, 'README.txt');
+        const readmeContent = `FezOverlay Setup Instructions
+
+1. Extract the dist.zip file in this folder
+2. You should see files like index.html, assets/, etc.
+3. Restart the FezOverlay application
+4. The application should now work properly
+
+If you need help, visit: https://github.com/Fezalion/FezOverlay`;
+
+        fs.writeFileSync(readmePath, readmeContent);
+        console.log('Created README.txt with instructions.');
+        
+        cb();
+      } else {
+        console.log('Zip extraction completed successfully!');
+        console.log('stdout:', stdout);
+        if (stderr) console.log('stderr:', stderr);
+        
+        // Clean up the zip file
+        try {
+          fs.unlinkSync(zipPath);
+          console.log('Removed temporary zip file.');
+        } catch (unlinkErr) {
+          console.warn('Could not remove zip file:', unlinkErr.message);
+        }
+        
+        cb();
+      }
+    });
   } catch (err) {
-    console.error('Failed to copy zip file:', err.message);
+    console.error('Failed to extract zip file:', err.message);
     cb(err);
   }
 }
