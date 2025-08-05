@@ -196,40 +196,95 @@ function main() {
       console.log('New version available. Updating...');
     }
 
-    // Download dist.zip
-    const distAsset = release.assets.find(a => a.name === distZipName);
-    if (distAsset) {
-      console.log('Downloading dist.zip...');
-      downloadFile(distAsset.browser_download_url, path.join(baseDir, distZipName), (err) => {
-        if (err) {
-          console.error('Failed to download dist.zip:', err.message);
-          console.log('Press any key to exit...');
-          process.stdin.setRawMode(true);
-          process.stdin.resume();
-          process.stdin.on('data', process.exit.bind(process, 1));
-          return;
-        }
-        
-        console.log('Extracting dist.zip...');
-        extractZip(path.join(baseDir, distZipName), path.join(baseDir, 'dist'), () => {
-          // Update version file
-          setCurrentVersion(latestVersion);
-          
-          console.log('Update completed successfully!');
-          console.log('You can now run fezoverlay.exe');
-          console.log('Press any key to exit...');
-          process.stdin.setRawMode(true);
-          process.stdin.resume();
-          process.stdin.on('data', process.exit.bind(process, 0));
-        });
-      });
-    } else {
-      console.log('No dist.zip found in latest release.');
-      console.log('Press any key to exit...');
-      process.stdin.setRawMode(true);
-      process.stdin.resume();
-      process.stdin.on('data', process.exit.bind(process, 1));
-    }
+         // Download both exe and dist.zip
+     const exeAsset = release.assets.find(a => a.name === exeName);
+     const distAsset = release.assets.find(a => a.name === distZipName);
+     
+     let downloadsCompleted = 0;
+     let totalDownloads = 0;
+     let hasError = false;
+     
+     if (exeAsset) totalDownloads++;
+     if (distAsset) totalDownloads++;
+     
+     function checkCompletion() {
+       downloadsCompleted++;
+       if (downloadsCompleted === totalDownloads) {
+         if (hasError) {
+           console.log('Some downloads failed. Please try again.');
+           console.log('Press any key to exit...');
+           process.stdin.setRawMode(true);
+           process.stdin.resume();
+           process.stdin.on('data', process.exit.bind(process, 1));
+         } else {
+           // Update version file
+           setCurrentVersion(latestVersion);
+           
+           console.log('Update completed successfully!');
+           console.log('You can now run fezoverlay.exe');
+           console.log('Press any key to exit...');
+           process.stdin.setRawMode(true);
+           process.stdin.resume();
+           process.stdin.on('data', process.exit.bind(process, 0));
+         }
+       }
+     }
+     
+     // Download exe if available
+     if (exeAsset) {
+       console.log('Downloading fezoverlay.exe...');
+       downloadFile(exeAsset.browser_download_url, path.join(baseDir, exeName + '.new'), (err) => {
+         if (err) {
+           console.error('Failed to download fezoverlay.exe:', err.message);
+           hasError = true;
+         } else {
+           try {
+             // Replace the old exe with the new one
+             const oldExePath = path.join(baseDir, exeName);
+             const newExePath = path.join(baseDir, exeName + '.new');
+             
+             // If old exe exists, try to remove it first
+             if (fs.existsSync(oldExePath)) {
+               fs.unlinkSync(oldExePath);
+             }
+             
+             fs.renameSync(newExePath, oldExePath);
+             console.log('fezoverlay.exe updated successfully!');
+           } catch (renameErr) {
+             console.error('Failed to replace fezoverlay.exe:', renameErr.message);
+             hasError = true;
+           }
+         }
+         checkCompletion();
+       });
+     }
+     
+     // Download dist.zip if available
+     if (distAsset) {
+       console.log('Downloading dist.zip...');
+       downloadFile(distAsset.browser_download_url, path.join(baseDir, distZipName), (err) => {
+         if (err) {
+           console.error('Failed to download dist.zip:', err.message);
+           hasError = true;
+           checkCompletion();
+           return;
+         }
+         
+         console.log('Extracting dist.zip...');
+         extractZip(path.join(baseDir, distZipName), path.join(baseDir, 'dist'), () => {
+           checkCompletion();
+         });
+       });
+     }
+     
+     // If no downloads are needed
+     if (totalDownloads === 0) {
+       console.log('No files to download from the latest release.');
+       console.log('Press any key to exit...');
+       process.stdin.setRawMode(true);
+       process.stdin.resume();
+       process.stdin.on('data', process.exit.bind(process, 1));
+     }
   });
 }
 

@@ -16,12 +16,13 @@ The application uses a separate updater tool for downloading and updating files:
 ### **updater.exe**
 - **Standalone updater**: Runs independently from the main application
 - **Downloads latest release**: Automatically fetches the latest version from GitHub
+- **Updates executable**: Downloads and replaces fezoverlay.exe with the latest version
 - **Extracts files**: Uses PowerShell to extract the zip file automatically
 - **Version tracking**: Keeps track of the current version to avoid unnecessary downloads
 
 ### **How to Update**:
 1. **Run updater.exe** in the same folder as fezoverlay.exe
-2. **Wait for completion** - the updater will show progress
+2. **Wait for completion** - the updater will download and update both the executable and application files
 3. **Run fezoverlay.exe** - the application will now use the updated files
 
 ### **Manual Update**:
