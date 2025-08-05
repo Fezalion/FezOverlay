@@ -151,6 +151,7 @@ function extractZip(zipPath, destDir, cb) {
     const unzipCommand = `powershell -command "Expand-Archive -Path '${zipPath}' -DestinationPath '${destDir}' -Force"`;
     
     console.log('Extracting files...');
+    console.log('Command:', unzipCommand);
     
     // Show a simple progress indicator
     const progressInterval = setInterval(() => {
@@ -164,6 +165,8 @@ function extractZip(zipPath, destDir, cb) {
       if (error) {
         console.log('PowerShell extraction failed, trying alternative method...');
         console.log('Error:', error.message);
+        console.log('stdout:', stdout);
+        console.log('stderr:', stderr);
         
         // Fallback: copy zip file and provide instructions
         const destZipPath = path.join(destDir, 'dist.zip');
@@ -176,6 +179,60 @@ function extractZip(zipPath, destDir, cb) {
         cb();
       } else {
         console.log('✓ Files extracted successfully!');
+        console.log('stdout:', stdout);
+        if (stderr) console.log('stderr:', stderr);
+        
+        // Debug: List what was extracted
+        console.log('Checking extracted files...');
+        try {
+          const files = fs.readdirSync(destDir);
+          console.log('Files in dist folder:', files);
+          
+          // Check if index.html exists
+          const indexPath = path.join(destDir, 'index.html');
+          if (fs.existsSync(indexPath)) {
+            console.log('✓ index.html found');
+          } else {
+            console.log('✗ index.html not found');
+            
+            // Check if there's a subfolder (common issue with zip files)
+            for (const file of files) {
+              const filePath = path.join(destDir, file);
+              if (fs.statSync(filePath).isDirectory()) {
+                console.log(`Found subfolder: ${file}`);
+                const subIndexPath = path.join(filePath, 'index.html');
+                if (fs.existsSync(subIndexPath)) {
+                  console.log(`✓ index.html found in subfolder: ${file}/index.html`);
+                  console.log('Moving files from subfolder to dist root...');
+                  
+                  // Move files from subfolder to dist root
+                  const subFiles = fs.readdirSync(filePath);
+                  for (const subFile of subFiles) {
+                    const srcPath = path.join(filePath, subFile);
+                    const destPath = path.join(destDir, subFile);
+                    fs.renameSync(srcPath, destPath);
+                  }
+                  
+                  // Remove the empty subfolder
+                  fs.rmdirSync(filePath);
+                  console.log('✓ Files moved successfully');
+                }
+              }
+            }
+          }
+          
+          // Check if assets folder exists
+          const assetsPath = path.join(destDir, 'assets');
+          if (fs.existsSync(assetsPath)) {
+            console.log('✓ assets folder found');
+            const assetFiles = fs.readdirSync(assetsPath);
+            console.log('Asset files:', assetFiles);
+          } else {
+            console.log('✗ assets folder not found');
+          }
+        } catch (listErr) {
+          console.log('Error listing files:', listErr.message);
+        }
         
         // Clean up the zip file
         try {
@@ -209,6 +266,39 @@ function setCurrentVersion(version) {
 function main() {
   console.log('=== FezOverlay Updater ===');
   console.log('Base directory:', baseDir);
+  
+  // Debug: Check current state
+  const distPath = path.join(baseDir, 'dist');
+  console.log('Checking current dist folder...');
+  if (fs.existsSync(distPath)) {
+    try {
+      const files = fs.readdirSync(distPath);
+      console.log('Current files in dist:', files);
+      
+      // Check for key files
+      const indexPath = path.join(distPath, 'index.html');
+      const assetsPath = path.join(distPath, 'assets');
+      
+      if (fs.existsSync(indexPath)) {
+        console.log('✓ index.html exists');
+      } else {
+        console.log('✗ index.html missing');
+      }
+      
+      if (fs.existsSync(assetsPath)) {
+        console.log('✓ assets folder exists');
+        const assetFiles = fs.readdirSync(assetsPath);
+        console.log('Asset files:', assetFiles);
+      } else {
+        console.log('✗ assets folder missing');
+      }
+    } catch (err) {
+      console.log('Error reading dist folder:', err.message);
+    }
+  } else {
+    console.log('Dist folder does not exist');
+  }
+  console.log('');
   
   getLatestRelease((err, release) => {
     if (err) {
@@ -321,6 +411,14 @@ function main() {
             hasError = true;
             checkCompletion();
             return;
+          }
+          
+          // Debug: Check zip file size
+          try {
+            const zipStats = fs.statSync(path.join(baseDir, distZipName));
+            console.log(`Zip file size: ${(zipStats.size / 1024 / 1024).toFixed(2)} MB`);
+          } catch (statErr) {
+            console.log('Could not get zip file stats:', statErr.message);
           }
           
           console.log('\nExtracting application files...');
