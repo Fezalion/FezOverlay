@@ -434,20 +434,9 @@ function main() {
             console.error('✗ Failed to download updater.exe:', err.message);
             hasError = true;
           } else {
-            try {
-              // Replace the old exe with the new one
-              const oldExePath = path.join(baseDir, updaterName);
-              const newExePath = path.join(baseDir, updaterName + '.new');
-              
-              // If old exe exists, try to remove it first
-              if (fs.existsSync(oldExePath)) {
-                fs.unlinkSync(oldExePath);
-              }
-              
-              fs.renameSync(newExePath, oldExePath);
-              console.log('✓ updater.exe updated successfully!');
-            } catch (renameErr) {
-              console.error('✗ Failed to replace updater.exe:', renameErr.message);
+            try {              
+              console.log('✓ updater.exe downloaded successfully!');
+            } catch (renameErr) {             
               hasError = true;
             }
           }
