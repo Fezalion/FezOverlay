@@ -472,12 +472,27 @@ function main() {
         });
       }
 
-      // Self-update logic: download new updater.exe as updater_new.exe if available
-      // After all updates, create and launch a batch file to replace and restart updater.exe
 
-      // In the main update logic, after all downloads and updates are complete and successful:
-      // (Insert after successful update message, before process exit)
+    // After all downloads and updates are successful, check if updaterAsset was downloaded and perform self-update
+    if (updaterAsset) {
+      const updaterNewPath = path.join(baseDir, 'updater_new.exe');
+      // If updater_new.exe exists (downloaded), create and run the batch file
+      if (fs.existsSync(updaterNewPath)) {
+        const batchFile = path.join(baseDir, 'replace_updater.bat');
+        const updaterPath = path.join(baseDir, 'updater.exe');
+        const script = `@echo off\n:loop\nTASKLIST | find /I \"updater.exe\" >nul 2>&1\nif not errorlevel 1 (\n  timeout /t 1 >nul\n  goto loop\n)\nmove /Y \"updater_new.exe\" \"updater.exe\"\nstart \"\" \"updater.exe\"\n`;
+        fs.writeFileSync(batchFile, script, 'utf8');
+        console.log('Updater will now update itself and restart...');
+        require('child_process').spawn('cmd.exe', ['/c', batchFile], {
+          detached: true,
+          stdio: 'ignore',
+          cwd: baseDir
+        });
+        process.exit(0);
+      }
+    }
 
+      // After all downloads and updates are successful, check if updaterAsset was downloaded and perform self-update
       // If no downloads are needed
       if (totalDownloads === 0) {
         console.log('No files to download from the latest release.');
@@ -485,26 +500,7 @@ function main() {
         process.stdin.setRawMode(true);
         process.stdin.resume();
         process.stdin.on('data', process.exit.bind(process, 1));
-      }
-
-      // After all downloads and updates are successful, check if updaterAsset was downloaded and perform self-update
-      if (updaterAsset) {
-        const updaterNewPath = path.join(baseDir, 'updater_new.exe');
-        // If updater_new.exe exists (downloaded), create and run the batch file
-        if (fs.existsSync(updaterNewPath)) {
-          const batchFile = path.join(baseDir, 'replace_updater.bat');
-          const updaterPath = path.join(baseDir, 'updater.exe');
-          const script = `@echo off\n:loop\nTASKLIST | find /I \"updater.exe\" >nul 2>&1\nif not errorlevel 1 (\n  timeout /t 1 >nul\n  goto loop\n)\nmove /Y \"updater_new.exe\" \"updater.exe\"\nstart \"\" \"updater.exe\"\n`;
-          fs.writeFileSync(batchFile, script, 'utf8');
-          console.log('Updater will now update itself and restart...');
-          require('child_process').spawn('cmd.exe', ['/c', batchFile], {
-            detached: true,
-            stdio: 'ignore',
-            cwd: baseDir
-          });
-          process.exit(0);
-        }
-      }
+      }      
   });
 }
 
