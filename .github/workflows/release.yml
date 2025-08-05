@@ -107,9 +107,9 @@ jobs:
             - **dist.zip**: Application files (extract to use with the executable)
             
             ### Installation
-            1. Download `fezoverlay.exe`
+            1. Download `updater.exe`
             2. Download `dist.zip` and extract it to the same folder as the executable
-            3. Run `fezoverlay.exe`
+            3. Run `updater.exe`
             
             The application will automatically download the latest files if needed.
           files: |

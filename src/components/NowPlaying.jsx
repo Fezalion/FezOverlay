@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, React } from 'react';
 
 const poll_rate = 1000; // 1 seconds
 
