@@ -37,7 +37,7 @@ export function Settings() {
             ? '3px solid rgb(var(--song-panel-bg))'
             : 'none'
         );
-        document.documentElement.style.setProperty('--song-panel-text-color', data.fontColor || '#ffffff');
+        document.documentElement.style.setProperty('--song-panel-text-color', hexToRgb(data.fontColor || '#ffffff'));
       });
   }, []);
 
