@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const unzipper = require('unzipper'); // npm install unzipper
 
-const repo = 'yourusername/yourrepo'; // Change to your GitHub repo
+const repo = 'Fezalion/FezOverlay'; // Change to your GitHub repo
 const exeName = 'fezoverlay.exe';     // Change to your exe name
 const distZipName = 'dist.zip';       // Name of your zipped dist asset
 const versionFile = path.join(__dirname, 'version.txt');
