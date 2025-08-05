@@ -1,0 +1,45 @@
+:root {
+  --song-panel-bg: 128,0,128;
+  --song-panel-text-color: white;
+  --song-panel-font-size: 16px;
+  --song-panel-padding: 10px;
+  --song-panel-font-family: Arial, sans-serif;
+  --song-panel-border-right: 3px solid rgb(var(--song-panel-bg));
+}
+
+.songPanel {
+  position: fixed;
+  bottom: 0;
+  right: 0;
+  background: linear-gradient(
+    to left,
+    rgba(var(--song-panel-bg), 0.9),
+    rgba(var(--song-panel-bg), 0)
+  );
+  border-right: var(--song-panel-border-right);
+  color: var(--song-panel-text-color);
+  padding: var(--song-panel-padding);
+  font-size: var(--song-panel-font-size);
+  font-family: var(--song-panel-font-family);
+  z-index: 1000;
+  min-width: 250px;
+  width: auto;
+  text-align: right;
+  transition: background 0.3s ease, opacity 0.3s ease;
+}
+
+@keyframes songChange {
+  0% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+.songPanel .animate {
+  animation: songChange 0.6s;
+}
