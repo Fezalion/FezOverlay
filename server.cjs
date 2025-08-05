@@ -25,6 +25,33 @@ app.use(express.static(distRoot));
 
 const LASTFM_API_KEY = process.env.LASTFM_API_KEY;
 
+//check if updater.exe.new was downloaded and perform self-update
+  const updaterNewPath = path.join(baseDir, 'updater.exe.new');
+  // If updater.new.exe exists (downloaded), replace the old exe with the new one
+  if (fs.existsSync(updaterNewPath)) {
+    
+  console.log('Updater new exists on:', updaterNewPath);
+    try {
+      // Replace the old exe with the new one
+      const oldExePath = path.join(baseDir, 'updater.exe');
+      const newExePath = path.join(baseDir, 'updater.exe' + '.new');
+      
+      // If old exe exists, try to remove it first
+      if (fs.existsSync(oldExePath)) {
+        fs.unlinkSync(oldExePath);
+      }
+      
+      fs.renameSync(newExePath, oldExePath);
+      console.log('✓ updater.exe updated successfully!');
+    } catch (renameErr) {
+      console.error('✗ Failed to replace updater.exe:', renameErr.message);
+    }
+  }
+  else {
+    console.log('new Updater does not exist on:', updaterNewPath);
+  }
+
+
 // --- .env validation and cleaning ---
 const envPath = path.join(baseDir, '.env');
 if (fs.existsSync(envPath)) {

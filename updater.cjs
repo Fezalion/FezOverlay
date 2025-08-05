@@ -426,25 +426,6 @@ exit /b 0
           } else {
             // Update version file
             setCurrentVersion(latestVersion);
-            
-            // After all downloads and updates are successful, check if updaterAsset was downloaded and perform self-update
-            if (updaterAsset) {
-              const updaterNewPath = path.join(baseDir, 'updater.exe.new');
-              console.log('Updater new path:', updaterNewPath);
-              // If updater.new.exe exists (downloaded), create and run the batch file
-              if (fs.existsSync(updaterNewPath)) {
-                const batchFile = path.join(baseDir, 'replace_updater.bat');
-                const updaterPath = path.join(baseDir, 'updater.exe');
-                fs.writeFileSync(batchFile, batContent, 'utf8');
-                console.log('Updater will now update itself...');
-                require('child_process').spawn('cmd.exe', ['/c', batchFile], {
-                  detached: true,
-                  stdio: 'ignore',
-                  cwd: baseDir
-                });
-                process.exit(0);
-              }
-            }
 
             console.log('✅ Update completed successfully!');
             console.log(`Updated to version: ${latestVersion}`);
