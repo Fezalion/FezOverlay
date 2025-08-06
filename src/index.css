@@ -5,6 +5,7 @@
   --song-panel-padding: 10px;
   --song-panel-font-family: Arial, sans-serif;
   --song-panel-border-right: 3px solid rgb(var(--song-panel-bg));
+  --song-panel-gradient-direction: to left;
 }
 
 .songPanel {
@@ -12,7 +13,7 @@
   bottom: 0;
   right: 0;
   background: linear-gradient(
-    to left,
+    var(--song-panel-gradient-direction),
     rgba(var(--song-panel-bg), 0.9),
     rgba(var(--song-panel-bg), 0)
   );

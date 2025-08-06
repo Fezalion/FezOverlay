@@ -15,6 +15,7 @@ export function Settings() {
   const [fontFamily, setFontFamily] = useState('Arial, sans-serif');
   const [borderRight, setBorderRight] = useState(true);
   const [fontColor, setFontColor] = useState('#ffffff');
+  const [gradientDirection, setGradientDirection] = useState('to left');
 
   useEffect(() => {
     fetch('/api/settings')
@@ -38,6 +39,7 @@ export function Settings() {
             : 'none'
         );
         document.documentElement.style.setProperty('--song-panel-text-color', hexToRgb(data.fontColor || '#ffffff'));
+        document.documentElement.style.setProperty('--song-panel-gradient-direction', data.gradientDirection || 'to left');
       });
   }, []);
 
@@ -91,6 +93,12 @@ export function Settings() {
     updateSetting('fontColor', e.target.value);
   };
 
+  const handleGradientDirection = (e) => {
+    setGradientDirection(e.target.value);
+    document.documentElement.style.setProperty('--song-panel-gradient-direction', e.target.value);
+    updateSetting('gradientDirection', e.target.value);
+  };
+
   return (
     <div className="settings-container" style={{
       maxWidth: 400,
@@ -131,6 +139,15 @@ export function Settings() {
           <option value="Tahoma, Geneva, sans-serif">Tahoma</option>
           <option value="Courier New, Courier, monospace">Courier New</option>
           <option value="Times New Roman, Times, serif">Times New Roman</option>
+        </select>
+      </label>
+      <label style={{display: 'flex', alignItems: 'center', gap: 12}}>
+        <span style={{minWidth: 120}}>Gradient Direction</span>
+        <select value={gradientDirection} onChange={handleGradientDirection} style={{flex: 1, padding: 4, borderRadius: 6, border: '1px solid #ccc'}}>
+          <option value="to left">Left</option>
+          <option value="to right">Right</option>
+          <option value="to top">Top</option>
+          <option value="to bottom">Bottom</option>
         </select>
       </label>
       <label style={{display: 'flex', alignItems: 'center', gap: 12}}>
