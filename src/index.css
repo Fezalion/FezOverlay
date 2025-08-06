@@ -37,16 +37,18 @@
   animation: marquee 20s linear infinite alternate; /* Updated line */
   animation-play-state: paused; /* Added line */
   animation-fill-mode: forwards;
+  width: auto;
+  overflow: hidden; /* Added line */
   margin: 0;
   padding: 0;
-  transform: translateX(5%);
+  transform: translateX(0%);
   transition: transform 1s ease;
 }
 @keyframes marquee {
-  0% { transform: translateX(5%); }
-  20% { transform: translateX(5%); }
-  80% { transform: translateX(-55%); }
-  100% { transform: translateX(-55%); }
+  0% { transform: translateX(0%); }
+  20% { transform: translateX(0%); }
+  80% { transform: translateX(-50%); }
+  100% { transform: translateX(-50%); }
 }
 @keyframes songChange {
   0% {

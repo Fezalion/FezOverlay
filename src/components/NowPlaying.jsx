@@ -4,7 +4,6 @@ const poll_rate = 1000; // 1 second
 
 export function NowPlaying() {
   const [latestTrack, setLatestTrack] = useState(null);
-  const [animate, setAnimate] = useState(false);
   const marqueeRef = useRef();
   const containerWidthRef = useRef(0);
 
@@ -27,8 +26,12 @@ export function NowPlaying() {
           const newTrack = {
             name: response.track.name,
             artist: response.track.artist
-          };
+          };          
           setLatestTrack(newTrack);
+          if (latestTrack && latestTrack.name !== newTrack.name && latestTrack.artist !== newTrack.artist) {
+            console.log(`Track changed: ${latestTrack.name} by ${latestTrack.artist} to ${newTrack.name} by ${newTrack.artist}`);            
+            marqueeRef.current.children[0].style.animationPlayState = 'paused';
+          }
         })
         .catch(() => setLatestTrack(null));
     };
@@ -48,7 +51,7 @@ export function NowPlaying() {
           console.log(`children: ${children}`);
           console.log(`Container width: ${containerWidth}, Text width: ${textWidth}`);
 
-          if (textWidth > 700 && textWidth > containerWidth) {
+          if (textWidth > 473 && textWidth > containerWidth) {
             children.style.animationPlayState = 'running';
             containerWidthRef.current = containerWidth;
           } else {
@@ -61,12 +64,12 @@ export function NowPlaying() {
     observer.observe(marqueeRef.current);
 
     return () => observer.unobserve(marqueeRef.current);
-  }, []);
+  }, [latestTrack]);
 
   return (
-    <span className="songPanel" ref={marqueeRef}>
-      <span        
-        className={`${animate ? 'animate' : ''} marquee`}
+    <span className="songPanel" ref={marqueeRef}  key={latestTrack ? latestTrack.name + latestTrack.artist : 'no-track'}>
+      <span              
+        className={`marquee`}
         style={{ overflow: 'hidden', whiteSpace: 'nowrap' }}
       >
         {latestTrack ? `${latestTrack.artist} - ${latestTrack.name}` : 'Nothing is playing...'}
