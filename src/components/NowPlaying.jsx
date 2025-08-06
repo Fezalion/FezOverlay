@@ -74,7 +74,7 @@ export function NowPlaying() {
           console.log(`children: ${children}`);
           console.log(`Container width: ${containerWidth}, Text width: ${textWidth}`);
 
-          if (textWidth > containerWidth) {
+          if (textWidth > 700 && textWidth > containerWidth) {
             children.style.animationPlayState = 'running';
             containerWidthRef.current = containerWidth;
           } else {
