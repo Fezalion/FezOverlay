@@ -167,7 +167,7 @@ export function Settings() {
         color: fontColor,
         borderRight: borderRight ? '3px solid' : 'none',
         borderColor: color,
-        background: `linear-gradient(${gradientDirection}, rgba(${color}, 0.9), rgba(${color}, 0))`
+        background: `linear-gradient(${gradientDirection}, rgba(${bgColor}, 0.9), rgba(${bgColor}, 0))`
       }}>        
         {/* Simulate a track to display in the preview */}
         <span className={false ? 'animate' : ''}>
