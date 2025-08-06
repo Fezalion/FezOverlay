@@ -55,12 +55,15 @@ If the auto-download fails:
    - Go to [http://localhost:48000/](http://localhost:48000/) in your browser.
    - Here you can customize the overlay's color, font, padding, and more (the UI is currently very barebones).
 
-2. **Add the Overlay to OBS:**
+2. **Add the Overlays to OBS:**
    - In OBS, add a new **Browser Source**.
    - Set the URL to:
      
-     `http://localhost:48000/playing?user=YourLASTFMUsernameGoesHERE`
-   - Replace `YourLASTFMUsernameGoesHERE` with your actual Last.fm username.
+     `http://localhost:48000/playing`
+   - Set your LastFM user name in the settings page mentioned above.
+
+    `http://localhost:48000/emotes`
+   - Set your twitch username and 7tv emoteset IDs in the settings page mentioned above.
 
 3. **Position the Overlay:**
    - Move and resize the browser source in OBS to your preferred location.

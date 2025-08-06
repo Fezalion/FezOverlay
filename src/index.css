@@ -1,3 +1,5 @@
+@import "tailwindcss";
+
 :root {
   --song-panel-bg: 128,0,128;
   --song-panel-text-color: white;
@@ -29,6 +31,7 @@
   overflow: hidden; /* Added line */
   text-align: right;
   transition: background 0.3s ease, opacity 0.3s ease;
+  line-height: normal;
 }
 
 .marquee {

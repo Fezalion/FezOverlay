@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 
 const poll_rate = 1000; // 1 second
+let LASTFM_USERNAME = 'your_lastfm_username'; // Replace with your Last.fm username
 
 export function NowPlaying() {
   const [latestTrack, setLatestTrack] = useState(null);
@@ -8,15 +9,19 @@ export function NowPlaying() {
   const containerWidthRef = useRef(0);
 
   useEffect(() => {
-    const query = new URLSearchParams(window.location.search);
-    const username = query.get('user');
-    if (!username) {
-      console.error('No username provided in URL');
-      return;
-    }
+    fetch('/api/settings')
+        .then(res => res.json())
+        .then(data => {
+            if (data.lastfmName && data.lastfmName.length > 0) {
+                LASTFM_USERNAME = data.lastfmName;
+            } else {
+              console.warn("No Last.fm username set in settings, using default.");
+            }
+        })
+        .catch(err => console.error("Failed to fetch lastfm settings:", err));
 
     const fetchLatestTrack = () => {
-      fetch(`/api/lastfm/latest/${username}`)
+      fetch(`/api/lastfm/latest/${LASTFM_USERNAME}`)
         .then(response => response.json())
         .then(response => {
           if (!response || response.error) {

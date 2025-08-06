@@ -17,6 +17,11 @@ export function Settings() {
   const [fontColor, setFontColor] = useState('#ffffff');
   const [gradientDirection, setGradientDirection] = useState('to left');
 
+
+  const [twitchName, setTwitchName] = useState('');
+  const [lastfmName, setLastfmName] = useState('');
+  const [emoteSetId, setEmoteSetId] = useState('');
+
   useEffect(() => {
     fetch('/api/settings')
       .then(res => res.json())
@@ -28,6 +33,9 @@ export function Settings() {
         setBorderRight(data.borderRight !== undefined ? data.borderRight : true);
         setFontColor(data.fontColor || '#ffffff');
         setGradientDirection(data.gradientDirection || 'to left');
+        setTwitchName(data.twitchName || '');
+        setLastfmName(data.lastfmName || '');
+        setEmoteSetId(data.emoteSetId || '');
 
         document.documentElement.style.setProperty('--song-panel-bg', hexToRgb(data.bgColor || '#800080'));
         document.documentElement.style.setProperty('--song-panel-font-size', (parseInt(data.fontSize) || 16) + 'px');
@@ -100,7 +108,45 @@ export function Settings() {
     updateSetting('gradientDirection', e.target.value);
   };
 
+  const handleTwitchNameChange = (e) => {
+    setTwitchName(e.target.value);
+    updateSetting('twitchName', e.target.value);
+  };
+
+  const handleLastfmNameChange = (e) => {
+    setLastfmName(e.target.value);
+    updateSetting('lastfmName', e.target.value);
+  };
+
+  const handleEmoteSetIdChange = (e) => {
+    setEmoteSetId(e.target.value);
+    updateSetting('emoteSetId', e.target.value);
+  };
+
   return (
+    <div
+    style={{
+      maxWidth: 1200,
+      margin: '40px auto',
+      padding: 24,
+      background: 'rgba(255,255,255,0.95)',
+      borderRadius: 16,
+      boxShadow: '0 4px 24px rgba(0,0,0,0.10)',
+      fontFamily: 'Inter, Arial, sans-serif',
+      color: '#222',
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 20
+    }}
+    >
+      
+    <h1 style={{marginBottom: 16, fontWeight: 700, fontSize: 28, letterSpacing: -1, textAlign: 'center'}}>Overlay Settings</h1>
+    
+    <div style={{      
+      display: 'flex',
+      flexDirection: 'row'
+    }}
+    >
     <div className="settings-container" style={{
       maxWidth: 400,
       margin: '40px auto',
@@ -114,8 +160,19 @@ export function Settings() {
       flexDirection: 'column',
       gap: 20
     }}>
-      <h2 style={{marginBottom: 16, fontWeight: 700, fontSize: 28, letterSpacing: -1}}>Overlay Settings</h2>
+      <h2 style={{marginBottom: 16, fontWeight: 700, fontSize: 28, letterSpacing: -1}}>Song Overlay Settings</h2>
       
+      <label style={{display: 'flex', alignItems: 'center', gap: 12}}>
+        <span style={{minWidth: 120}}>Lastfm Username</span>
+        <input
+          type="text"
+          value={lastfmName}
+          onChange={handleLastfmNameChange}
+          placeholder="Enter your Lastfm username"
+          style={{flex: 1, padding: 4, borderRadius: 6, border: '1px solid #ccc'}}>            
+          </input>
+      </label>
+
       <label style={{display: 'flex', alignItems: 'center', gap: 12}}>
         <span style={{minWidth: 120}}>Background</span>
         <input type="color" value={color} onChange={handleChange} style={{width: 36, height: 36, border: 'none', background: 'none'}} />
@@ -174,6 +231,48 @@ export function Settings() {
           Example Artist - Example Track - 
         </span>
       </div>
+    </div>
+
+    <div className="settings-container" style={{
+      maxWidth: 400,
+      margin: '40px auto',
+      padding: 24,
+      background: 'rgba(255,255,255,0.95)',
+      borderRadius: 16,
+      boxShadow: '0 4px 24px rgba(0,0,0,0.10)',
+      fontFamily: 'Inter, Arial, sans-serif',
+      color: '#222',
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 20
+    }}>
+      <h2 style={{marginBottom: 16, fontWeight: 700, fontSize: 28, letterSpacing: -1}}>Emote Overlay Settings</h2>
+      <p style={{marginBottom: 16, fontSize: 16, lineHeight: 1.5}}>
+        The emote overlay displays Twitch and 7TV emotes in real-time as they are used in chat.
+        You can customize the appearance of the emotes and their behavior.</p>
+      <label style={{display: 'flex', alignItems: 'center', gap: 12}}>
+        <span style={{minWidth: 120}}>Twitch Username</span>
+        <input
+          type="text"
+          value={twitchName}
+          onChange={handleTwitchNameChange}
+          placeholder="Enter your Twitch username"
+          style={{flex: 1, padding: 4, borderRadius: 6, border: '1px solid #ccc'}}>            
+          </input>
+      </label>
+
+      <label style={{display: 'flex', alignItems: 'center', gap: 12}}>
+        <span style={{minWidth: 120}}>7tv Emote set ID</span>
+        <input
+          type="text"
+          value={emoteSetId}
+          onChange={handleEmoteSetIdChange}
+          placeholder="Enter 7vtv emote set ID"
+          style={{flex: 1, padding: 4, borderRadius: 6, border: '1px solid #ccc'}}>            
+          </input>
+      </label>
+    </div>
+    </div>
     </div>
   );
 }
