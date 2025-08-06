@@ -161,13 +161,12 @@ export function Settings() {
       <div style={{
         marginTop: 20,
         padding: 10,
-        backgroundColor: color,
         fontSize: `${fontSize}px`,
         fontFamily: fontFamily,
         color: fontColor,
         borderRight: borderRight ? '3px solid' : 'none',
         borderColor: color,
-        background: `linear-gradient(var(--song-panel-gradient-direction), rgba(var(--song-panel-bg), 0.9), rgba(var(--song-panel-bg), 0))`
+        background: `linear-gradient(${gradientDirection}, rgba(${color}, 0.9), rgba(${color}, 0))`
       }}>        
         {/* Simulate a track to display in the preview */}
         <span className={false ? 'animate' : ''}>
