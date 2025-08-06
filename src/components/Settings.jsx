@@ -161,17 +161,17 @@ export function Settings() {
       <h3 style={{margin: 0, marginBottom: 8}}>NowPlaying Preview</h3>
       <div style={{
         marginTop: 20,
-        padding: 10,
+        padding: `${padding}px`,
         fontSize: `${fontSize}px`,
         fontFamily: fontFamily,
         color: fontColor,
         borderRight: borderRight ? '3px solid' : 'none',
-        borderColor: color,
-        background: `linear-gradient(${gradientDirection}, rgba(${bgColor}, 0.9), rgba(${bgColor}, 0))`
+        borderRightColor: color,
+        background: `linear-gradient(${gradientDirection}, rgba(${hexToRgb(color)}, 0.9), rgba(${hexToRgb(color)}, 0))`,
       }}>        
         {/* Simulate a track to display in the preview */}
-        <span className={false ? 'animate' : ''}>
-          Example Artist - Example Track
+        <span>
+          Example Artist - Example Track - 
         </span>
       </div>
     </div>
