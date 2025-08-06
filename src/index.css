@@ -9,9 +9,11 @@
 }
 
 .songPanel {
+  margin: 0;
   position: fixed;
   bottom: 0;
   right: 0;
+  display: block;
   background: linear-gradient(
     var(--song-panel-gradient-direction),
     rgba(var(--song-panel-bg), 0.9),
@@ -23,12 +25,29 @@
   font-size: var(--song-panel-font-size);
   font-family: var(--song-panel-font-family);
   z-index: 1000;
-  min-width: 250px;
-  width: auto;
+  max-width: 700px;
+  overflow: hidden; /* Added line */
   text-align: right;
   transition: background 0.3s ease, opacity 0.3s ease;
 }
 
+.marquee {
+  display: inline-block;
+  white-space: nowrap;
+  animation: marquee 20s linear infinite alternate; /* Updated line */
+  animation-play-state: paused; /* Added line */
+  animation-fill-mode: forwards;
+  margin: 0;
+  padding: 0;
+  transform: translateX(5%);
+  transition: transform 1s ease;
+}
+@keyframes marquee {
+  0% { transform: translateX(5%); }
+  20% { transform: translateX(5%); }
+  80% { transform: translateX(-55%); }
+  100% { transform: translateX(-55%); }
+}
 @keyframes songChange {
   0% {
     opacity: 0;

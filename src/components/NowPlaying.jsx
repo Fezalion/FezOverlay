@@ -1,11 +1,12 @@
 import { useEffect, useState, useRef } from 'react';
 
-const poll_rate = 1000; // 1 seconds
+const poll_rate = 1000; // 1 second
 
 export function NowPlaying() {
   const [latestTrack, setLatestTrack] = useState(null);
   const [animate, setAnimate] = useState(false);
-  const prevTrackRef = useRef();
+  const marqueeRef = useRef();
+  const containerWidthRef = useRef(0);
 
   useEffect(() => {
     const query = new URLSearchParams(window.location.search);
@@ -29,14 +30,13 @@ export function NowPlaying() {
           };
           // Trigger animation if track changed
           if (
-            !prevTrackRef.current ||
-            prevTrackRef.current.name !== newTrack.name ||
-            prevTrackRef.current.artist !== newTrack.artist
+            !latestTrack ||
+            latestTrack.name !== newTrack.name ||
+            latestTrack.artist !== newTrack.artist
           ) {
             setAnimate(true);
             setTimeout(() => setAnimate(false), 600); // match animation duration
           }
-          prevTrackRef.current = newTrack;
           setLatestTrack(newTrack);
         })
         .catch(() => setLatestTrack(null));
@@ -45,19 +45,57 @@ export function NowPlaying() {
     fetchLatestTrack();
     const interval = setInterval(fetchLatestTrack, poll_rate);
     return () => clearInterval(interval);
+  }, [latestTrack]);
+
+  useEffect(() => {
+    if (marqueeRef.current && latestTrack) {
+      const containerWidth = marqueeRef.current.clientWidth;
+      const textWidth = marqueeRef.current.scrollWidth;
+      const children = marqueeRef.current.children[0];
+      console.log(`children: ${children}`);
+      console.log(`Container width: ${containerWidth}, Text width: ${textWidth}`);
+
+      if (textWidth > containerWidth) {
+        children.style.animationPlayState = 'running';
+        containerWidthRef.current = containerWidth;
+      } else {
+        children.style.animationPlayState = 'paused';
+      }
+    }
+  }, [latestTrack]);
+
+  useEffect(() => {
+    const observer = new ResizeObserver(entries => {
+      for (let entry of entries) {
+        if (entry.contentRect.width !== containerWidthRef.current) {
+          const containerWidth = marqueeRef.current.clientWidth;
+          const textWidth = marqueeRef.current.scrollWidth;
+          const children = marqueeRef.current.children[0];
+          console.log(`children: ${children}`);
+          console.log(`Container width: ${containerWidth}, Text width: ${textWidth}`);
+
+          if (textWidth > containerWidth) {
+            children.style.animationPlayState = 'running';
+            containerWidthRef.current = containerWidth;
+          } else {
+            children.style.animationPlayState = 'paused';
+          }
+        }
+      }
+    });
+
+    observer.observe(marqueeRef.current);
+
+    return () => observer.unobserve(marqueeRef.current);
   }, []);
 
-  if (!latestTrack) {
-    return (
-      <span className="songPanel">
-        <span className={animate ? 'animate' : ''}>Nothing is playing...</span>
-      </span>
-    );
-  }
   return (
-    <span className="songPanel">
-      <span className={animate ? 'animate' : ''}>
-        {latestTrack.artist} - {latestTrack.name}
+    <span className="songPanel" ref={marqueeRef}>
+      <span        
+        className={`${animate ? 'animate' : ''} marquee`}
+        style={{ overflow: 'hidden', whiteSpace: 'nowrap' }}
+      >
+        {latestTrack ? `${latestTrack.artist} - ${latestTrack.name}` : 'Nothing is playing...'}
       </span>
     </span>
   );
