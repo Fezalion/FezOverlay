@@ -144,10 +144,10 @@ export function Settings() {
       <label style={{display: 'flex', alignItems: 'center', gap: 12}}>
         <span style={{minWidth: 120}}>Gradient Direction</span>
         <select value={gradientDirection} onChange={handleGradientDirection} style={{flex: 1, padding: 4, borderRadius: 6, border: '1px solid #ccc'}}>
-          <option value="to left">Left</option>
-          <option value="to right">Right</option>
-          <option value="to top">Top</option>
-          <option value="to bottom">Bottom</option>
+          <option value="to left">to Left</option>
+          <option value="to right">to Right</option>
+          <option value="to top">to Top</option>
+          <option value="to bottom">to Bottom</option>
         </select>
       </label>
       <label style={{display: 'flex', alignItems: 'center', gap: 12}}>
@@ -166,7 +166,8 @@ export function Settings() {
         fontFamily: fontFamily,
         color: fontColor,
         borderRight: borderRight ? '3px solid' : 'none',
-        borderColor: color
+        borderColor: color,
+        background: `linear-gradient(var(--song-panel-gradient-direction), rgba(var(--song-panel-bg), 0.9), rgba(var(--song-panel-bg), 0))`
       }}>        
         {/* Simulate a track to display in the preview */}
         <span className={false ? 'animate' : ''}>

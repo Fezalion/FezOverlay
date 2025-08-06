@@ -27,6 +27,7 @@ fetch('/api/settings')
         : 'none'
     );
     document.documentElement.style.setProperty('--song-panel-text-color', hexToRgb(data.fontColor || '#ffffff'));
+    document.documentElement.style.setProperty('--song-panel-gradient-direction', data.gradientDirection || 'to left');
   });
 
 createRoot(document.getElementById('root')).render(
