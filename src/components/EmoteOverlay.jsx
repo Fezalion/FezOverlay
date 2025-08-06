@@ -127,7 +127,13 @@ function EmoteOverlayCore(args) {
 
             data.emotes.forEach(emote => {
                 if (emote.name && emote.id) {
+                  
+                  if(emote.data.animated === true) {
+                    emoteMap.set(emote.name, `https:${emote.data.host.url}/2x.gif`); // Use animated URL if available
+                    console.log(`Adding emote: ${emote.name} with ID: ${emote.id}, is animated: ${emote.data.animated}`);
+                  } else {
                     emoteMap.set(emote.name,  `https:${emote.data.host.url}/2x.webp`); // Get the highest resolution URL
+                  }                   
                 }
             });
             console.log(`Loaded ${emoteMap.size} 7tv emotes`);
@@ -151,28 +157,43 @@ function EmoteOverlayCore(args) {
     client.connect().catch(error => {console.error("Error connecting to twitch: ", error)});
         
     function spawnEmote(emoteName) {
-        const x = 100 + (Math.random() * (width - 200));
-        const size = 50 + Math.random() * 30; // random size
-        const emoteUrl = emoteMap.get(emoteName);
-        console.log(`Spawning emote: ${emoteName} at ${x}, size: ${size} with URL: ${emoteUrl} `);
-        const body = Matter.Bodies.rectangle(x, 5, size,size, {
-            render: {
-                sprite: {
-                    texture: emoteUrl,
-                    xScale: size / 70, // Adjust based on your emote size
-                    yScale: size / 70
-                },
-                opacity: 1
-            }
-        });
-        Matter.World.add(world, body);
+      const x = 100 + (Math.random() * (width - 200));
+      const size = 50 + Math.random() * 30;
+      const emoteUrl = emoteMap.get(emoteName);
 
-        const xVel = (Math.random() * 20) - 10;
-        Matter.Body.setVelocity(body, { x: xVel, y: -5 });
+      const body = Matter.Bodies.rectangle(x, 5, size, size, {
+        render: {
+          fillStyle: 'transparent',
+          strokeStyle: 'transparent',
+          lineWidth: 0,
+        }
+      });
 
-        bodiesWithTimers.push({ body, born: Date.now() });
+      Matter.World.add(world, body);
+      Matter.Body.setVelocity(body, { x: (Math.random() * 20) - 10, y: -5 });
+
+      const el = createEmoteElement(emoteUrl, size);
+
+      // Position immediately so it doesn't appear at (0,0)
+      el.style.left = `${x - size / 2}px`;
+      el.style.top = `${5 - size / 2}px`;
+
+      bodiesWithTimers.push({ body, born: Date.now(), el, size });
     }
 
+
+
+    function createEmoteElement(url, size) {
+      const img = document.createElement("img");
+      img.src = url;
+      img.style.width = size + "px";
+      img.style.height = size + "px";
+      img.style.position = "fixed";
+      img.style.pointerEvents = "none";
+      img.style.zIndex = "9999";
+      document.body.appendChild(img);
+      return img;
+  }
     //spawn emotes on chat messages
 
     client.on("message", (channel, tags, message, self) => {
@@ -193,46 +214,44 @@ function EmoteOverlayCore(args) {
     Matter.Events.on(engine, "beforeUpdate", () => {
       const now = Date.now();
       for (let i = bodiesWithTimers.length - 1; i >= 0; i--) {
-        const { body, born } = bodiesWithTimers[i];
+        const { body, born, el } = bodiesWithTimers[i];
         const age = now - born;
 
         if (age >= LIFETIME) {
-          // Remove completely when expired
           Matter.World.remove(world, body);
+          el.remove();
           bodiesWithTimers.splice(i, 1);
         } else if (age >= LIFETIME * 0.7) {
-          // Start fading at 70% of lifetime
-          const t = (LIFETIME - age) / (LIFETIME * 0.3); // goes 1 -> 0
-          body.render.opacity = Math.max(t, 0);
+          const t = (LIFETIME - age) / (LIFETIME * 0.3);
+          el.style.opacity = Math.max(t, 0);
         }
       }
     });
 
+
+    Matter.Events.on(engine, "afterUpdate", () => {
+      bodiesWithTimers.forEach(({ body, el }) => {
+        const { x, y } = body.position;
+        const size = parseFloat(el.style.width); // we already set px width
+        el.style.left = `${x - size / 2}px`;
+        el.style.top = `${y - size / 2}px`;
+      });
+    });
+
+
     // Clean up on unmount
     return () => {
-      // Clear all pending timeouts
-      pendingTimeouts.forEach(clearTimeout);
-
-      // Remove event listener on Matter engine
-      Matter.Events.off(engine, "beforeUpdate", beforeUpdateHandler);
-
-      // Remove window resize listener
-      window.removeEventListener("resize", handleResize);
-
-      // Disconnect Twitch client
+      bodiesWithTimers.forEach(({ el }) => el.remove());
       client.disconnect();
-
-      // Stop Matter.js runner and render
       Matter.Render.stop(render);
       Matter.Runner.stop(runner);
       Matter.Engine.clear(engine);
-
-      // Remove canvas
       if (render.canvas && render.canvas.parentNode) {
         render.canvas.parentNode.removeChild(render.canvas);
       }
       render.textures = {};
     };
+
   }, []);
 
   return <div ref={sceneRef} style={{ position: "fixed", top: 0, left: 0, pointerEvents: "none", zIndex: 9999 }} />;
