@@ -27,6 +27,7 @@ export function Settings() {
         setFontFamily(data.fontFamily || 'Arial, sans-serif');
         setBorderRight(data.borderRight !== undefined ? data.borderRight : true);
         setFontColor(data.fontColor || '#ffffff');
+        setGradientDirection(data.gradientDirection || 'to left');
 
         document.documentElement.style.setProperty('--song-panel-bg', hexToRgb(data.bgColor || '#800080'));
         document.documentElement.style.setProperty('--song-panel-font-size', (parseInt(data.fontSize) || 16) + 'px');
