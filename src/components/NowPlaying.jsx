@@ -28,15 +28,6 @@ export function NowPlaying() {
             name: response.track.name,
             artist: response.track.artist
           };
-          // Trigger animation if track changed
-          if (
-            !latestTrack ||
-            latestTrack.name !== newTrack.name ||
-            latestTrack.artist !== newTrack.artist
-          ) {
-            setAnimate(true);
-            setTimeout(() => setAnimate(false), 600); // match animation duration
-          }
           setLatestTrack(newTrack);
         })
         .catch(() => setLatestTrack(null));
@@ -45,23 +36,6 @@ export function NowPlaying() {
     fetchLatestTrack();
     const interval = setInterval(fetchLatestTrack, poll_rate);
     return () => clearInterval(interval);
-  }, [latestTrack]);
-
-  useEffect(() => {
-    if (marqueeRef.current && latestTrack) {
-      const containerWidth = marqueeRef.current.clientWidth;
-      const textWidth = marqueeRef.current.scrollWidth;
-      const children = marqueeRef.current.children[0];
-      console.log(`children: ${children}`);
-      console.log(`Container width: ${containerWidth}, Text width: ${textWidth}`);
-
-      if (textWidth > containerWidth) {
-        children.style.animationPlayState = 'running';
-        containerWidthRef.current = containerWidth;
-      } else {
-        children.style.animationPlayState = 'paused';
-      }
-    }
   }, [latestTrack]);
 
   useEffect(() => {
