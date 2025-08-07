@@ -81,7 +81,7 @@ function EmoteOverlayCore(args) {
         width,
         height,
         background: "#ffffff00",        
-        wireframes: false,
+        wireframes: true,
         pixelRatio: window.devicePixelRatio || 1,
       }
     });
@@ -91,16 +91,31 @@ function EmoteOverlayCore(args) {
       isStatic: true,
       render: { fillStyle: "#000000" }
     });
+    const wallThickness = 40;
+
     const walls = [
-        Matter.Bodies.rectangle(-20, height / 2, 40, height, {
-            isStatic: true,
-            render: { fillStyle: "#000000" }
-        }),
-        Matter.Bodies.rectangle(width + 20, height / 2, 40, height, {
-            isStatic: true,
-            render: { fillStyle: "#000000" }
-        })
-    ]
+      // Left wall
+      Matter.Bodies.rectangle(-wallThickness / 2, height / 2, wallThickness, height, {
+        isStatic: true,
+        render: { fillStyle: "#000000" },
+      }),
+      // Right wall
+      Matter.Bodies.rectangle(width + wallThickness / 2, height / 2, wallThickness, height, {
+        isStatic: true,
+        render: { fillStyle: "#000000" },
+      }),
+      // Top wall
+      Matter.Bodies.rectangle(width / 2, -wallThickness / 2, width, wallThickness, {
+        isStatic: true,
+        render: { fillStyle: "#000000" },
+      }),
+      // Bottom wall
+      Matter.Bodies.rectangle(width / 2, height + wallThickness / 2, width, wallThickness, {
+        isStatic: true,
+        render: { fillStyle: "#000000" },
+      }),
+    ];
+
 
     Matter.World.add(world, [ground, ...walls]);
     const runner = Matter.Runner.create();
@@ -170,7 +185,8 @@ function EmoteOverlayCore(args) {
       });
 
       Matter.World.add(world, body);
-      Matter.Body.setVelocity(body, { x: (Math.random() * 20) - 10, y: -5 });
+      Matter.Body.setVelocity(body, { x: (Math.random() * 30) - 15, y: -10 }); // random horizontal velocity
+      Matter.Body.setAngularVelocity(body, (Math.random() - 0.5) * 0.2); // adds spin
 
       const el = createEmoteElement(emoteUrl, size);
 
@@ -235,6 +251,7 @@ function EmoteOverlayCore(args) {
         const size = parseFloat(el.style.width); // we already set px width
         el.style.left = `${x - size / 2}px`;
         el.style.top = `${y - size / 2}px`;
+        el.style.transform = `rotate(${body.angle}rad)`;
       });
     });
 
