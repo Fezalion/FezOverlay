@@ -66,7 +66,7 @@ If the auto-download fails:
    - Set your twitch username and 7tv emoteset IDs in the settings page mentioned above.
 
 3. **Position the Overlay:**
-   - Move and resize the browser source in OBS to your preferred location.
+   - You should have both overlays be the same size of your Scene, you can move the NowPlaying widget by either pressing interact in obs then using (Shift +) Arrow Keys, or the same in your browser.
 
 4. **Edit Overlay Appearance:**
    - To change the overlay's appearance, open [http://localhost:48000/](http://localhost:48000/) in your browser again.
