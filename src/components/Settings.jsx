@@ -33,16 +33,7 @@ export function Settings() {
   const [emoteScale, setEmoteScale] = useState(1.0);
 
 
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (pickerRef.current && !pickerRef.current.contains(e.target)) {
-        setShowPicker(false);
-      }
-    };
-
-    document.addEventListener('pointerdown', handleClickOutside);
-    return () => document.removeEventListener('pointerdown', handleClickOutside);
-  }, []);
+  
 
 
   useEffect(() => {
@@ -149,99 +140,138 @@ export function Settings() {
     updateSetting('emoteScale', val);
   };
 
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (pickerRef.current && !pickerRef.current.contains(event.target)) {
+        console.log('Clicked outside the picker, closing it');
+        setShowPicker(false);
+      }
+    }
+
+    if (showPicker) {
+      document.addEventListener('mousedown', handleClickOutside);
+    } else {
+      document.removeEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showPicker]);
+
 
   return (
     <div
-    style={{
-      maxWidth: 1200,
-      margin: '40px auto',
-      padding: 24,
-      background: 'rgba(255,255,255,0.95)',
-      borderRadius: 16,
-      boxShadow: '0 4px 24px rgba(0,0,0,0.10)',
-      fontFamily: 'Inter, Arial, sans-serif',
-      color: '#222',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: 20
-    }}
+      style={{
+        maxWidth: 1200,
+        margin: '40px auto',
+        padding: 24,
+        background: 'rgba(255,255,255,0.95)',
+        borderRadius: 16,
+        boxShadow: '0 4px 24px rgba(0,0,0,0.10)',
+        fontFamily: 'Inter, Arial, sans-serif',
+        color: '#222',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 20
+      }}
     >
-      
-    <h1 style={{marginBottom: 16, fontWeight: 700, fontSize: 28, letterSpacing: -1, textAlign: 'center'}}>Overlay Settings</h1>
-    
-    <div style={{      
-      display: 'flex',
-      flexDirection: 'row'
-    }}
-    >
-    <div className="settings-container" style={{
-      maxWidth: 400,
-      margin: '40px auto',
-      padding: 24,
-      background: 'rgba(255,255,255,0.95)',
-      borderRadius: 16,
-      boxShadow: '0 4px 24px rgba(0,0,0,0.10)',
-      fontFamily: 'Inter, Arial, sans-serif',
-      color: '#222',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: 20
-    }}>
-      <h2 style={{marginBottom: 16, fontWeight: 700, fontSize: 28, letterSpacing: -1}}>Song Overlay Settings</h2>
+      <h1 style={{marginBottom: 16, fontWeight: 700, fontSize: 28, letterSpacing: -1, textAlign: 'center'}}>Overlay Settings</h1>
 
-       <label style={{display: 'flex', alignItems: 'center', gap: 12}}>
-        <span style={{minWidth: 120}}>Lastfm Username</span>
-        <input
-          type="text"
-          value={lastfmName}
-          onChange={handleLastfmNameChange}
-          placeholder="Enter your Lastfm username"
-          style={{flex: 1, padding: 4, borderRadius: 6, border: '1px solid #ccc'}}>            
-          </input>
-      </label>
+      <div style={{ display: 'flex', flexDirection: 'row' }}>
+        <div className="settings-container" style={{
+          maxWidth: 400,
+          margin: '40px auto',
+          padding: 24,
+          background: 'rgba(255,255,255,0.95)',
+          borderRadius: 16,
+          boxShadow: '0 4px 24px rgba(0,0,0,0.10)',
+          fontFamily: 'Inter, Arial, sans-serif',
+          color: '#222',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 20
+        }}>
+          <h2 style={{marginBottom: 16, fontWeight: 700, fontSize: 28, letterSpacing: -1}}>Song Overlay Settings</h2>
 
-      <label style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <span style={{ fontWeight: 500 }}>Background Gradient</span>
-        
-        <button
-          type="button"
-          onClick={() => setShowPicker(prev => !prev)}
-          style={{
-            padding: '8px 12px',
-            borderRadius: 8,
-            border: '1px solid #ccc',
-            background: '#f5f5f5',
-            cursor: 'pointer'
-          }}
-        >
-          {showPicker ? 'Close' : 'Pick Background '}
-        </button>
-
-        {showPicker && (
-          <div
-            ref={pickerRef}
-            className="gradient-picker-popup"
-            style={{
-              position: 'absolute',
-              zIndex: 999,
-              marginTop: 8,
-              background: '#fff',
-              padding: 12,
-              borderRadius: 12,
-              boxShadow: '0 4px 12px rgba(0,0,0,0.2)'
-            }}
-          >
-            <ColorPicker
-              value={color}
-              onChange={(newColor) => {
-                setColor(newColor);
-                document.documentElement.style.setProperty('--song-panel-bg', newColor);
-                updateSetting('bgColor', newColor);
+          {/* Last.fm Username input */}
+          <label style={{display: 'flex', alignItems: 'center', gap: 12}}>
+            <span style={{minWidth: 120}}>Lastfm Username</span>
+            <input
+              type="text"
+              value={lastfmName}
+              onChange={e => {
+                setLastfmName(e.target.value);
+                updateSetting('lastfmName', e.target.value);
               }}
+              placeholder="Enter your Lastfm username"
+              style={{flex: 1, padding: 4, borderRadius: 6, border: '1px solid #ccc'}}
             />
-          </div>
-        )}
-      </label>
+          </label>
+
+          {/* Background Gradient Picker Button */}
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <span style={{ fontWeight: 500 }}>Background Gradient</span>
+
+            <button
+              type="button"
+              onClick={() => {setShowPicker(true);}}
+              style={{
+                padding: '8px 12px',
+                borderRadius: 8,
+                border: '1px solid #ccc',
+                background: '#f5f5f5',
+                cursor: 'pointer'
+              }}
+            >
+              Pick Background
+            </button>
+
+            {showPicker && (
+            <>
+              {/* Fullscreen overlay for click outside */}
+              <div 
+                style={{
+                  position: 'fixed',
+                  top: 0,
+                  left: 0,
+                  width: '100vw',
+                  height: '100vh',
+                  backgroundColor: 'rgba(0, 0, 0, 0.4)',
+                  zIndex: 998,
+                }}
+              ></div> {/* Use explicit closing tag */}
+
+              {/* Actual color picker popup */}
+              <div
+                ref={pickerRef}
+                className="gradient-picker-popup"
+                style={{
+                  position: 'fixed',    // changed from absolute to fixed
+                  zIndex: 999,
+                  top: '50%',           // you can adjust exact position as needed
+                  left: '50%',
+                  transform: 'translate(-50%, -50%)',
+                  background: '#fff',
+                  padding: 12,
+                  borderRadius: 12,
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+                }}                
+              >
+                <ColorPicker
+                  ref={pickerRef}
+                  value={color}                  
+                  onChange={(newColor) => {
+                    setColor(newColor);
+                    document.documentElement.style.setProperty('--song-panel-bg', newColor);
+                    updateSetting('bgColor', newColor);
+                  }}
+                />
+              </div>
+            </>
+          )}
+
+          </label>
 
       <label style={{display: 'flex', alignItems: 'center', gap: 12}}>
         <span style={{minWidth: 120}}>Font Color</span>
@@ -297,6 +327,7 @@ export function Settings() {
         fontFamily: fontFamily,
         color: `rgb(${hexToRgb(fontColor)})`,
         background: color,
+        zIndex:999,
       }}>        
         {/* Simulate a track to display in the preview */}
         <span>
