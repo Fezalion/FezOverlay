@@ -21,6 +21,9 @@ export function Settings() {
   const [twitchName, setTwitchName] = useState('');
   const [lastfmName, setLastfmName] = useState('');
   const [emoteSetId, setEmoteSetId] = useState('');
+  const [emoteLifetime, setEmoteLifetime] = useState(5000);
+  const [emoteScale, setEmoteScale] = useState(1.0);
+
 
   useEffect(() => {
     fetch('/api/settings')
@@ -36,6 +39,8 @@ export function Settings() {
         setTwitchName(data.twitchName || '');
         setLastfmName(data.lastfmName || '');
         setEmoteSetId(data.emoteSetId || '');
+        setEmoteLifetime(data.emoteLifetime || 5000);
+        setEmoteScale(data.emoteScale || 1.0);
 
         document.documentElement.style.setProperty('--song-panel-bg', hexToRgb(data.bgColor || '#800080'));
         document.documentElement.style.setProperty('--song-panel-font-size', (parseInt(data.fontSize) || 16) + 'px');
@@ -121,6 +126,18 @@ export function Settings() {
   const handleEmoteSetIdChange = (e) => {
     setEmoteSetId(e.target.value);
     updateSetting('emoteSetId', e.target.value);
+  };
+
+  const handleEmoteLifetimeChange = (e) => {
+    const val = parseInt(e.target.value) || 5000;
+    setEmoteLifetime(val);
+    updateSetting('emoteLifetime', val);
+  };
+
+  const handleEmoteScaleChange = (e) => {
+    const val = parseFloat(e.target.value) || 1.0;
+    setEmoteScale(val);
+    updateSetting('emoteScale', val);
   };
 
   return (
@@ -248,7 +265,7 @@ export function Settings() {
     }}>
       <h2 style={{marginBottom: 16, fontWeight: 700, fontSize: 28, letterSpacing: -1}}>Emote Overlay Settings</h2>
       <p style={{marginBottom: 16, fontSize: 16, lineHeight: 1.5}}>
-        The emote overlay displays Twitch and 7TV emotes in real-time as they are used in chat.
+        The emote overlay displays 7TV emotes in real-time as they are used in chat.
         You can customize the appearance of the emotes and their behavior.</p>
       <label style={{display: 'flex', alignItems: 'center', gap: 12}}>
         <span style={{minWidth: 120}}>Twitch Username</span>
@@ -271,6 +288,38 @@ export function Settings() {
           style={{flex: 1, padding: 4, borderRadius: 6, border: '1px solid #ccc'}}>            
           </input>
       </label>
+
+      <label style={{display: 'flex', alignItems: 'center', gap: 12}}>
+        <span style={{minWidth: 120}}>Emote Lifetime</span>        
+        <input
+          type="number"
+          min="500"
+          max="20000"
+          value={emoteLifetime}
+          onChange={handleEmoteLifetimeChange}
+          style={{flex: 1, padding: 4, borderRadius: 6, border: '1px solid #ccc'}}
+          placeholder="Enter emote lifetime in ms (default 5000)"
+          ></input>
+      </label>
+      <span style={{color: "grey"}}>Duration for which emotes are displayed (in ms)[Limited to 500-20000ms]</span>
+
+
+      <label style={{display: 'flex', alignItems: 'center', gap: 12}}>
+        <span style={{minWidth: 120}}>Emote Scale</span>
+        <input
+          type="number"
+          min="0.1"
+          max="5.0"
+          step="0.1"
+          value={emoteScale}
+          onChange={handleEmoteScaleChange}
+          style={{flex: 1, padding: 4, borderRadius: 6, border: '1px solid #ccc'}}
+          placeholder="Enter emote scale (default 1.0)"
+          ></input>
+      </label>
+      <span style={{flex: 1, color: "grey"}}>Scale of emotes when displayed (default 1.0)</span>
+
+
     </div>
     </div>
     </div>

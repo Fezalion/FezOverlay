@@ -2,48 +2,61 @@ import { useState, useEffect, useRef} from "react";
 import Matter from "matter-js";
 import tmi from "tmi.js";
 
-export function EmoteOverlay() {
-  const [channelName, setChannelName] = useState(null);
-  const [emoteSetId, setEmoteSetId] = useState(""); // Default 7tv emote set ID
-  const [loading, setLoading] = useState(true);
-  
+export function EmoteOverlay() {  
   // Fetch channel name once on mount
+  const [channelName, setChannelName] = useState(null);
+  const [emoteSetId, setEmoteSetId] = useState("");
+  const [emoteLifetime, setEmoteLifetime] = useState(5000);
+  const [emoteScale, setEmoteScale] = useState(1.0);
+  const [loading, setLoading] = useState(true);
+
   useEffect(() => {
-    let finish = 0;
-    if (loading) {
-        fetch('/api/settings')
-        .then(res => res.json())
-        .then(data => {
-            console.log("Fetched settings:", data);
-            if (data.twitchName && data.twitchName.length > 0) {
-                setChannelName(data.twitchName);
-                finish++
-            } else {
-                setChannelName(null); // fallback
-            }
+    if (!loading) return;
 
-            if (data.emoteSetId && data.emoteSetId.length > 0) {
-                setEmoteSetId(data.emoteSetId);
-                finish++;
-            }
-            else {
-                setEmoteSetId(""); // Default 7tv emote set ID
-            }
+    const fetchSettings = async () => {
+      try {
+        const res = await fetch("/api/settings");
+        const data = await res.json();
 
-            if (finish === 2) {
-                setLoading(false);
-            }
-            else {
-                console.warn("Failed to fetch complete settings, channelName or emoteSetId is missing.");
-            }
-        })
-        .catch(err => {
-            console.error("Failed to fetch twitch settings:", err);
-            setChannelName(null); // fallback
-            setEmoteSetId(""); // Default 7tv emote set ID
-        });
-    }
-  }, []);
+        console.log("Fetched settings:", data);
+
+        const { twitchName, emoteSetId, emoteLifetime, emoteScale } = data;
+
+        if (typeof twitchName === "string" && twitchName.length > 0) {
+          setChannelName(twitchName);
+        } else {
+          console.warn("Missing or invalid twitchName");
+        }
+
+        if (typeof emoteSetId === "string" && emoteSetId.length > 0) {
+          setEmoteSetId(emoteSetId);
+        } else {
+          console.warn("Missing or invalid emoteSetId");
+        }
+
+        if (typeof emoteLifetime === "number" && emoteLifetime > 0) {
+          setEmoteLifetime(emoteLifetime);
+        }
+
+        if (typeof emoteScale === "number" && emoteScale > 0) {
+          setEmoteScale(emoteScale);
+        }
+
+        // Set loading to false if required keys are valid
+        if (twitchName && emoteSetId) {
+          setLoading(false);
+        } else {
+          console.warn("Incomplete settings received.");
+        }
+
+      } catch (error) {
+        console.error("Failed to fetch Twitch settings:", error);
+      }
+    };
+
+    fetchSettings();
+  }, [loading]);
+
 
   if (channelName == null) {
     // Render nothing or a loader until channelName is ready
@@ -51,13 +64,12 @@ export function EmoteOverlay() {
   }
 
   // Once channelName is set, render the full emote overlay and start effects
-  return <EmoteOverlayCore twitchname={channelName} emoteset={emoteSetId} />;
+  return <EmoteOverlayCore twitchname={channelName} emoteset={emoteSetId} emoteLifetime={emoteLifetime} emoteScale={emoteScale} />;
 }
 
 function EmoteOverlayCore(args) {
   const sceneRef = useRef(null);
-  const { twitchname, emoteset } = args;
-  console.log("EmoteOverlayCore initialized with twitchname:", twitchname, "and emoteset:", emoteset);
+  const { twitchname, emoteset, emoteLifetime, emoteScale } = args;
 
   useEffect(() => {
     // Create physics engine
@@ -71,7 +83,7 @@ function EmoteOverlayCore(args) {
 
     // Store bodies with metadata
     const bodiesWithTimers = [];
-    const LIFETIME = 5000; // 5 seconds
+    const LIFETIME = emoteLifetime // 5 seconds
 
     // Create renderer bound to our div
     const render = Matter.Render.create({
@@ -173,7 +185,7 @@ function EmoteOverlayCore(args) {
         
     function spawnEmote(emoteName) {
       const x = 100 + (Math.random() * (width - 200));
-      const size = 50 + Math.random() * 30;
+      const size = (50 + Math.random() * 30) * emoteScale; // Scale size based on emoteScale prop
       const emoteUrl = emoteMap.get(emoteName);
 
       const body = Matter.Bodies.rectangle(x, 5, size, size, {
