@@ -65,12 +65,10 @@ If the auto-download fails:
 
 2. **Add the Overlays to OBS:**
    - In OBS, add a new **Browser Source**.
-   - Set the URL to:
-     
-     `http://localhost:48000/playing`
-   - Set your LastFM user name in the settings page mentioned above.
-
-    `http://localhost:48000/emotes`
+   - Set the URL for playing widget and make the resolution same as your screen:     
+      `http://localhost:48000/playing`
+      `http://localhost:48000/emotes`
+   - Set your LastFM user name in the settings page mentioned above.      
    - Set your twitch username and 7tv emoteset IDs in the settings page mentioned above.
 
 3. **Position the Overlay:**
