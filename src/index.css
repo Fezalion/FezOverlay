@@ -8,13 +8,15 @@
   --song-panel-font-family: Arial, sans-serif;
   --song-panel-border-right: 3px solid rgb(var(--song-panel-bg));
   --song-panel-gradient-direction: to left;
+  --overlay-x: initial;
+  --overlay-y: initial;
 }
 
 .songPanel {
   margin: 0;
   position: fixed;
-  bottom: 0;
-  right: 0;
+  bottom: calc(var(--overlay-y) * -1);
+  right: calc(var(--overlay-x) * -1);
   display: block;
   background: linear-gradient(
     var(--song-panel-gradient-direction),

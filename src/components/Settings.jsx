@@ -16,6 +16,7 @@ export function Settings() {
   const [borderRight, setBorderRight] = useState(true);
   const [fontColor, setFontColor] = useState('#ffffff');
   const [gradientDirection, setGradientDirection] = useState('to left');
+  const [playerLocationCoords, setPlayerLocationCoords] = useState({ x: 0, y: 0 });
 
 
   const [twitchName, setTwitchName] = useState('');
@@ -41,6 +42,10 @@ export function Settings() {
         setEmoteSetId(data.emoteSetId || '');
         setEmoteLifetime(data.emoteLifetime || 5000);
         setEmoteScale(data.emoteScale || 1.0);
+        setPlayerLocationCoords({
+          x: data.playerLocationX || 0,
+          y: data.playerLocationY || 0
+        });
 
         document.documentElement.style.setProperty('--song-panel-bg', hexToRgb(data.bgColor || '#800080'));
         document.documentElement.style.setProperty('--song-panel-font-size', (parseInt(data.fontSize) || 16) + 'px');
@@ -139,6 +144,13 @@ export function Settings() {
     setEmoteScale(val);
     updateSetting('emoteScale', val);
   };
+
+  const handlePlayerLocationChange = (e) => {
+    const { name, value } = e.target;
+    const newCoords = { ...playerLocationCoords, [name]: parseInt(value) || 0 };
+    setPlayerLocationCoords(newCoords);
+    updateSetting(`playerLocation${name.charAt(0).toUpperCase() + name.slice(1)}`, newCoords[name]);
+  }
 
   return (
     <div
