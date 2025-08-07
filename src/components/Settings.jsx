@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { NowPlaying } from './NowPlaying'; // Adjust the import path as necessary
+import ColorPicker, { useColorPicker } from 'react-best-gradient-color-picker'
 
 function hexToRgb(hex) {
   hex = hex.replace('#', '');
@@ -9,13 +10,19 @@ function hexToRgb(hex) {
 }
 
 export function Settings() {
-  const [color, setColor] = useState('#800080');
-  const [fontSize, setFontSize] = useState(16);
+  const pickerRef = useRef(null);
+
+
+  const [color, setColor] = useState('linear-gradient(90deg, rgba(0, 0, 0, 0) 0%, rgba(0,0,0,1) 100%)');
+  const { setSolid, setGradient } = useColorPicker(color, setColor);
+  const [showPicker, setShowPicker] = useState(false);
+
+
+  const [scaleSize, setScaleSize] = useState(1.0);
+  const [maxWidth, setMaxWidth] = useState(700);
   const [padding, setPadding] = useState(10);
   const [fontFamily, setFontFamily] = useState('Arial, sans-serif');
-  const [borderRight, setBorderRight] = useState(true);
   const [fontColor, setFontColor] = useState('#ffffff');
-  const [gradientDirection, setGradientDirection] = useState('to left');
   const [playerLocationCoords, setPlayerLocationCoords] = useState({ x: 0, y: 0 });
 
 
@@ -27,16 +34,27 @@ export function Settings() {
 
 
   useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (pickerRef.current && !pickerRef.current.contains(e.target)) {
+        setShowPicker(false);
+      }
+    };
+
+    document.addEventListener('pointerdown', handleClickOutside);
+    return () => document.removeEventListener('pointerdown', handleClickOutside);
+  }, []);
+
+
+  useEffect(() => {
     fetch('/api/settings')
       .then(res => res.json())
       .then(data => {
         setColor(data.bgColor || '#800080');
-        setFontSize(parseInt(data.fontSize) || 16);
+        setScaleSize(parseInt(data.scaleSize) || 1.0);
+        setMaxWidth(parseInt(data.maxWidth) || 700);
         setPadding(parseInt(data.padding) || 10);
         setFontFamily(data.fontFamily || 'Arial, sans-serif');
-        setBorderRight(data.borderRight !== undefined ? data.borderRight : true);
         setFontColor(data.fontColor || '#ffffff');
-        setGradientDirection(data.gradientDirection || 'to left');
         setTwitchName(data.twitchName || '');
         setLastfmName(data.lastfmName || '');
         setEmoteSetId(data.emoteSetId || '');
@@ -47,18 +65,12 @@ export function Settings() {
           y: data.playerLocationY || 0
         });
 
-        document.documentElement.style.setProperty('--song-panel-bg', hexToRgb(data.bgColor || '#800080'));
-        document.documentElement.style.setProperty('--song-panel-font-size', (parseInt(data.fontSize) || 16) + 'px');
+        document.documentElement.style.setProperty('--song-panel-bg', data.bgColor || '#800080');
+        document.documentElement.style.setProperty('--song-panel-max-width', (parseInt(data.maxWidth) || 700) + 'px');
+        document.documentElement.style.setProperty('--song-panel-scale-size', (parseInt(data.scaleSize) || 1.0));
         document.documentElement.style.setProperty('--song-panel-padding', (parseInt(data.padding) || 10) + 'px');
-        document.documentElement.style.setProperty('--song-panel-font-family', data.fontFamily || 'Arial, sans-serif');
-        document.documentElement.style.setProperty(
-          '--song-panel-border-right',
-          (data.borderRight !== undefined ? data.borderRight : true)
-            ? '3px solid rgb(var(--song-panel-bg))'
-            : 'none'
-        );
+        document.documentElement.style.setProperty('--song-panel-font-family', data.fontFamily || 'Arial, sans-serif');        
         document.documentElement.style.setProperty('--song-panel-text-color', hexToRgb(data.fontColor || '#ffffff'));
-        document.documentElement.style.setProperty('--song-panel-gradient-direction', data.gradientDirection || 'to left');
       });
   }, []);
 
@@ -77,11 +89,18 @@ export function Settings() {
     updateSetting('bgColor', e.target.value);
   };
 
-  const handleFontSize = (e) => {
-    const val = parseInt(e.target.value) || 16;
-    setFontSize(val);
-    document.documentElement.style.setProperty('--song-panel-font-size', val + 'px');
-    updateSetting('fontSize', val + 'px');
+  const handleScaleSize = (e) => {
+    const val = parseFloat(e.target.value) || 1.0;
+    setScaleSize(val);
+    document.documentElement.style.setProperty('--song-panel-scale-size', val);
+    updateSetting('scaleSize', val);
+  };
+
+  const handleMaxWidth = (e) => {
+    const val = parseInt(e.target.value) || 700;
+    setMaxWidth(val);
+    document.documentElement.style.setProperty('--song-panel-max-width', val + 'px');
+    updateSetting('maxWidth', val + 'px');
   };
 
   const handlePadding = (e) => {
@@ -97,25 +116,10 @@ export function Settings() {
     updateSetting('fontFamily', e.target.value);
   };
 
-  const handleBorderRight = (e) => {
-    setBorderRight(e.target.checked);
-    document.documentElement.style.setProperty(
-      '--song-panel-border-right',
-      e.target.checked ? '3px solid rgb(var(--song-panel-bg))' : 'none'
-    );
-    updateSetting('borderRight', e.target.checked);
-  };
-
   const handleFontColor = (e) => {
     setFontColor(e.target.value);
     document.documentElement.style.setProperty('--song-panel-text-color', hexToRgb(e.target.value));
     updateSetting('fontColor', e.target.value);
-  };
-
-  const handleGradientDirection = (e) => {
-    setGradientDirection(e.target.value);
-    document.documentElement.style.setProperty('--song-panel-gradient-direction', e.target.value);
-    updateSetting('gradientDirection', e.target.value);
   };
 
   const handleTwitchNameChange = (e) => {
@@ -145,12 +149,6 @@ export function Settings() {
     updateSetting('emoteScale', val);
   };
 
-  const handlePlayerLocationChange = (e) => {
-    const { name, value } = e.target;
-    const newCoords = { ...playerLocationCoords, [name]: parseInt(value) || 0 };
-    setPlayerLocationCoords(newCoords);
-    updateSetting(`playerLocation${name.charAt(0).toUpperCase() + name.slice(1)}`, newCoords[name]);
-  }
 
   return (
     <div
@@ -190,8 +188,8 @@ export function Settings() {
       gap: 20
     }}>
       <h2 style={{marginBottom: 16, fontWeight: 700, fontSize: 28, letterSpacing: -1}}>Song Overlay Settings</h2>
-      
-      <label style={{display: 'flex', alignItems: 'center', gap: 12}}>
+
+       <label style={{display: 'flex', alignItems: 'center', gap: 12}}>
         <span style={{minWidth: 120}}>Lastfm Username</span>
         <input
           type="text"
@@ -202,22 +200,84 @@ export function Settings() {
           </input>
       </label>
 
-      <label style={{display: 'flex', alignItems: 'center', gap: 12}}>
-        <span style={{minWidth: 120}}>Background</span>
-        <input type="color" value={color} onChange={handleChange} style={{width: 36, height: 36, border: 'none', background: 'none'}} />
+      <label style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <span style={{ fontWeight: 500 }}>Background Gradient</span>
+        
+        <button
+          type="button"
+          onClick={() => setShowPicker(prev => !prev)}
+          style={{
+            padding: '8px 12px',
+            borderRadius: 8,
+            border: '1px solid #ccc',
+            background: '#f5f5f5',
+            cursor: 'pointer'
+          }}
+        >
+          {showPicker ? 'Close' : 'Pick Background '}
+        </button>
+
+        {showPicker && (
+          <div
+            ref={pickerRef}
+            className="gradient-picker-popup"
+            style={{
+              position: 'absolute',
+              zIndex: 999,
+              marginTop: 8,
+              background: '#fff',
+              padding: 12,
+              borderRadius: 12,
+              boxShadow: '0 4px 12px rgba(0,0,0,0.2)'
+            }}
+          >
+            <ColorPicker
+              value={color}
+              onChange={(newColor) => {
+                setColor(newColor);
+                document.documentElement.style.setProperty('--song-panel-bg', newColor);
+                updateSetting('bgColor', newColor);
+              }}
+            />
+          </div>
+        )}
       </label>
+
       <label style={{display: 'flex', alignItems: 'center', gap: 12}}>
         <span style={{minWidth: 120}}>Font Color</span>
         <input type="color" value={fontColor} onChange={handleFontColor} style={{width: 36, height: 36, border: 'none', background: 'none'}} />
       </label>
       <label style={{display: 'flex', alignItems: 'center', gap: 12}}>
-        <span style={{minWidth: 120}}>Font Size</span>
-        <input type="number" min="8" max="48" value={fontSize} onChange={handleFontSize} style={{width: 60}} /> px
+        <span style={{minWidth: 120}}>Scale Size</span>
+        <input
+          type="number"
+          min="0.1"
+          max="5.0"
+          step="0.1"
+          value={scaleSize}
+          onChange={handleScaleSize}
+          style={{flex: 1, padding: 4, borderRadius: 6, border: '1px solid #ccc'}}
+          placeholder="Enter player size scale (default 1.0)"
+          ></input>
       </label>
       <label style={{display: 'flex', alignItems: 'center', gap: 12}}>
         <span style={{minWidth: 120}}>Padding</span>
         <input type="number" min="0" max="50" value={padding} onChange={handlePadding} style={{width: 60}} /> px
       </label>
+
+      <label style={{display: 'flex', alignItems: 'center', gap: 12}}>
+        <span style={{minWidth: 120}}>Max Width</span>
+        <input
+          type="number"
+          min="300"
+          max="2000"
+          value={maxWidth}
+          onChange={handleMaxWidth}
+          style={{flex: 1, padding: 4, borderRadius: 6, border: '1px solid #ccc'}}
+          placeholder="Enter max width in px (default 700)"
+          ></input>
+      </label>
+
       <label style={{display: 'flex', alignItems: 'center', gap: 12}}>
         <span style={{minWidth: 120}}>Font Family</span>
         <select value={fontFamily} onChange={handleFontFamily} style={{flex: 1, padding: 4, borderRadius: 6, border: '1px solid #ccc'}}>
@@ -227,33 +287,16 @@ export function Settings() {
           <option value="Courier New, Courier, monospace">Courier New</option>
           <option value="Times New Roman, Times, serif">Times New Roman</option>
         </select>
-      </label>
-      <label style={{display: 'flex', alignItems: 'center', gap: 12}}>
-        <span style={{minWidth: 120}}>Gradient Direction</span>
-        <select value={gradientDirection} onChange={handleGradientDirection} style={{flex: 1, padding: 4, borderRadius: 6, border: '1px solid #ccc'}}>
-          <option value="to left">to Left</option>
-          <option value="to right">to Right</option>
-          <option value="to top">to Top</option>
-          <option value="to bottom">to Bottom</option>
-        </select>
-      </label>
-      <label style={{display: 'flex', alignItems: 'center', gap: 12}}>
-        <span style={{minWidth: 120}}>Show Border Right</span>
-        <input type="checkbox" checked={borderRight} onChange={handleBorderRight} />
-      </label>
-      
-      
+      </label> 
+
       {/* NowPlaying Preview */}
       <h3 style={{margin: 0, marginBottom: 8}}>NowPlaying Preview</h3>
       <div style={{
         marginTop: 20,
-        padding: `${padding}px`,
-        fontSize: `${fontSize}px`,
+        padding: `${padding}px`,        
         fontFamily: fontFamily,
-        color: fontColor,
-        borderRight: borderRight ? '3px solid' : 'none',
-        borderRightColor: color,
-        background: `linear-gradient(${gradientDirection}, rgba(${hexToRgb(color)}, 0.9), rgba(${hexToRgb(color)}, 0))`,
+        color: `rgb(${hexToRgb(fontColor)})`,
+        background: color,
       }}>        
         {/* Simulate a track to display in the preview */}
         <span>

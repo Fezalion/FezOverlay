@@ -1,48 +1,51 @@
 import { useEffect, useState, useRef } from 'react';
 
-const poll_rate = 1000; // 1 second
-let LASTFM_USERNAME = 'your_lastfm_username'; // Replace with your Last.fm username
+const poll_rate = 1000;
+let LASTFM_USERNAME = 'your_lastfm_username';
 const MOVE_AMOUNT = 1;
+const SCROLL_SPEED = 25; // pixels per second
 
 export function NowPlaying() {
   const [latestTrack, setLatestTrack] = useState(null);
-  const [position, setPosition] = useState({x:0, y:0});
-  const marqueeRef = useRef();
-  const containerWidthRef = useRef(0);
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [shouldAnimate, setShouldAnimate] = useState(false);
+  const [scrollDuration, setScrollDuration] = useState(0);
 
+  const wrapperRef = useRef();       // .marqueeWrapper
+  const trackRef = useRef();         // .marqueeTrack
+
+  const displayText = latestTrack
+    ? `${latestTrack.artist} - ${latestTrack.name}`
+    : 'Nothing is playing...';
+
+  // 🧠 Fetch Last.fm username & user settings
   useEffect(() => {
     fetch('/api/settings')
-        .then(res => res.json())
-        .then(data => {
-            if (data.lastfmName && data.lastfmName.length > 0) {
-                LASTFM_USERNAME = data.lastfmName;
-            } else {
-              console.warn("No Last.fm username set in settings, using default.");
-            }
-            if (data.playerLocationX !== undefined && data.playerLocationY !== undefined) {
-              setPosition({ x: data.playerLocationX, y: data.playerLocationY });
-              updateCSSVars(data.playerLocationX, data.playerLocationY);
-            }
-        })
-        .catch(err => console.error("Failed to fetch lastfm settings:", err));
+      .then(res => res.json())
+      .then(data => {
+        if (data.lastfmName?.length > 0) LASTFM_USERNAME = data.lastfmName;
+        if (data.playerLocationX !== undefined && data.playerLocationY !== undefined) {
+          setPosition({ x: data.playerLocationX, y: data.playerLocationY });
+          updateCSSVars(data.playerLocationX, data.playerLocationY);
+        }
+      })
+      .catch(console.error);
+  }, []);
 
+  // 🧠 Poll current track
+  useEffect(() => {
     const fetchLatestTrack = () => {
       fetch(`/api/lastfm/latest/${LASTFM_USERNAME}`)
-        .then(response => response.json())
+        .then(res => res.json())
         .then(response => {
           if (!response || response.error) {
             setLatestTrack(null);
             return;
           }
-          const newTrack = {
+          setLatestTrack({
             name: response.track.name,
             artist: response.track.artist
-          };          
-          setLatestTrack(newTrack);
-          if (latestTrack && latestTrack.name !== newTrack.name && latestTrack.artist !== newTrack.artist) {
-            console.log(`Track changed: ${latestTrack.name} by ${latestTrack.artist} to ${newTrack.name} by ${newTrack.artist}`);            
-            marqueeRef.current.children[0].style.animationPlayState = 'paused';
-          }
+          });
         })
         .catch(() => setLatestTrack(null));
     };
@@ -50,33 +53,48 @@ export function NowPlaying() {
     fetchLatestTrack();
     const interval = setInterval(fetchLatestTrack, poll_rate);
     return () => clearInterval(interval);
-  }, [latestTrack]);
+  }, []);
 
-    useEffect(() => {
+  // 🎞️ Calculate if animation needed + set speed
+  useEffect(() => {    
+    const wrapper = wrapperRef.current;
+    const track = trackRef.current;
+
+    if (!wrapper || !track) return;
+
+    // Wait a tick for render to settle
+    const timeout = setTimeout(() => {
+      const wrapperWidth = wrapper.offsetWidth;
+      const textWidth = track.scrollWidth;
+      console.log('Calculating animation for:', displayText, 'Wrapper:', wrapperWidth, 'Text:', textWidth, 'Should animate:', textWidth > wrapperWidth);
+      if (textWidth > wrapperWidth) {
+        const duration = textWidth / SCROLL_SPEED;
+        setShouldAnimate(true);
+        setScrollDuration(duration);
+      } else {
+        setShouldAnimate(false);
+      }
+    }, 50); // 50ms is usually enough, tweak if needed
+
+    return () => clearTimeout(timeout);
+  }, [displayText]);
+
+
+
+
+  // 🎮 Move position with arrows / Shift modifier
+  useEffect(() => {
     const handleKeyDown = (e) => {
       let { x, y } = position;
-      const moveBy = e.shiftKey ? MOVE_AMOUNT * 5 : MOVE_AMOUNT; // Shift = move faster
+      const moveBy = e.shiftKey ? MOVE_AMOUNT * 5 : MOVE_AMOUNT;
 
       switch (e.key) {
-        case 'ArrowUp':
-          y -= moveBy;
-          break;
-        case 'ArrowDown':
-          y += moveBy;
-          break;
-        case 'ArrowLeft':
-          x -= moveBy;
-          break;
-        case 'ArrowRight':
-          x += moveBy;
-          break;
-        case 'Space':
-          // Reset position
-          x = 0;
-          y = 0;
-          break;
-        default:
-          return;
+        case 'ArrowUp': y -= moveBy; break;
+        case 'ArrowDown': y += moveBy; break;
+        case 'ArrowLeft': x -= moveBy; break;
+        case 'ArrowRight': x += moveBy; break;
+        case ' ': x = 0; y = 0; break;
+        default: return;
       }
 
       e.preventDefault();
@@ -90,52 +108,35 @@ export function NowPlaying() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [position]);
 
-      const updateCSSVars = (x, y) => {
-        document.documentElement.style.setProperty('--overlay-x', `${x}px`);
-        document.documentElement.style.setProperty('--overlay-y', `${y}px`);
-      };
+  const updateCSSVars = (x, y) => {
+    document.documentElement.style.setProperty('--overlay-x', `${x}px`);
+    document.documentElement.style.setProperty('--overlay-y', `${y}px`);
+  };
 
-    const updateSetting = (key, value) => {
-      fetch('/api/settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ [key]: value })
-      });
-    };
-
-  useEffect(() => {
-    const observer = new ResizeObserver(entries => {
-      for (let entry of entries) {
-        if (entry.contentRect.width !== containerWidthRef.current) {
-          const containerWidth = marqueeRef.current.clientWidth;
-          const textWidth = marqueeRef.current.scrollWidth;
-          const children = marqueeRef.current.children[0];
-          console.log(`children: ${children}`);
-          console.log(`Container width: ${containerWidth}, Text width: ${textWidth}`);
-
-          if (textWidth > 473 && textWidth > containerWidth) {
-            children.style.animationPlayState = 'running';
-            containerWidthRef.current = containerWidth;
-          } else {
-            children.style.animationPlayState = 'paused';
-          }
-        }
-      }
+  const updateSetting = (key, value) => {
+    fetch('/api/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ [key]: value })
     });
-
-    observer.observe(marqueeRef.current);
-
-    return () => observer.unobserve(marqueeRef.current);
-  }, [latestTrack]);
+  };
 
   return (
-    <span className="songPanel" ref={marqueeRef}  key={latestTrack ? latestTrack.name + latestTrack.artist : 'no-track'}>
-      <span              
-        className={`marquee`}
-        style={{ overflow: 'hidden', whiteSpace: 'nowrap' }}
-      >
-        {latestTrack ? `${latestTrack.artist} - ${latestTrack.name}` : 'Nothing is playing...'}
+      <span className="songPanel">
+        <div className="marqueeWrapper" ref={wrapperRef} key={displayText}>
+          <div
+            className={`marqueeTrack ${shouldAnimate ? 'animate' : ''}`}
+            ref={trackRef}
+            style={{
+              animationDuration: `${scrollDuration}s`,
+              animationPlayState: shouldAnimate ? 'running' : 'paused',
+            }}
+          >
+            <span>{displayText}</span>
+            {shouldAnimate && <span>{displayText}</span>}
+          </div>
+        </div>
       </span>
-    </span>
-  );
+    );
+
 }

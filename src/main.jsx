@@ -17,16 +17,11 @@ function hexToRgb(hex) {
 fetch('/api/settings')
   .then(res => res.json())
   .then(data => {
-    document.documentElement.style.setProperty('--song-panel-bg', hexToRgb(data.bgColor || '#800080'));
-    document.documentElement.style.setProperty('--song-panel-font-size', data.fontSize || '16px');
+    document.documentElement.style.setProperty('--song-panel-bg', data.bgColor || '#800080');
+    document.documentElement.style.setProperty('--song-panel-max-width', data.maxWidth || '700px');
+    document.documentElement.style.setProperty('--song-panel-scale-size', data.scaleSize || 1.0);
     document.documentElement.style.setProperty('--song-panel-padding', data.padding || '10px');
-    document.documentElement.style.setProperty('--song-panel-font-family', data.fontFamily || 'Arial, sans-serif');
-    document.documentElement.style.setProperty(
-      '--song-panel-border-right',
-      data.borderRight !== undefined && data.borderRight
-        ? '3px solid rgb(var(--song-panel-bg))'
-        : 'none'
-    );
+    document.documentElement.style.setProperty('--song-panel-font-family', data.fontFamily || 'Arial, sans-serif');    
     document.documentElement.style.setProperty('--song-panel-text-color', hexToRgb(data.fontColor || '#ffffff'));
     document.documentElement.style.setProperty('--song-panel-gradient-direction', data.gradientDirection || 'to left');
   });

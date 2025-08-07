@@ -3,13 +3,13 @@
 :root {
   --song-panel-bg: 128,0,128;
   --song-panel-text-color: white;
-  --song-panel-font-size: 16px;
+  --song-panel-scale-size: 1.0;
+  --song-panel-max-width: 700px;
   --song-panel-padding: 10px;
   --song-panel-font-family: Arial, sans-serif;
-  --song-panel-border-right: 3px solid rgb(var(--song-panel-bg));
   --song-panel-gradient-direction: to left;
-  --overlay-x: initial;
-  --overlay-y: initial;
+  --overlay-x: 0px;
+  --overlay-y: 0px;
 }
 
 .songPanel {
@@ -18,55 +18,49 @@
   bottom: calc(var(--overlay-y) * -1);
   right: calc(var(--overlay-x) * -1);
   display: block;
-  background: linear-gradient(
-    var(--song-panel-gradient-direction),
-    rgba(var(--song-panel-bg), 0.9),
-    rgba(var(--song-panel-bg), 0)
-  );
-  border-right: var(--song-panel-border-right);
+  background: var(--song-panel-bg);
   color: rgb(var(--song-panel-text-color));
   padding: var(--song-panel-padding);
-  font-size: var(--song-panel-font-size);
+  transform: scale(var(--song-panel-scale-size));
+  font-size: 16px;
   font-family: var(--song-panel-font-family);
   z-index: 1000;
-  max-width: 700px;
+  max-width: var(--song-panel-max-width);
   overflow: hidden; /* Added line */
   text-align: right;
   transition: background 0.3s ease, opacity 0.3s ease;
   line-height: normal;
 }
 
-.marquee {
-  display: inline-block;
-  white-space: nowrap;
-  animation: marquee 20s linear infinite alternate; /* Updated line */
-  animation-play-state: paused; /* Added line */
-  animation-fill-mode: forwards;
-  width: auto;
-  overflow: hidden; /* Added line */
-  margin: 0;
-  padding: 0;
-  transform: translateX(0%);
-  transition: transform 1s ease;
-}
-@keyframes marquee {
-  0% { transform: translateX(0%); }
-  20% { transform: translateX(0%); }
-  80% { transform: translateX(-50%); }
-  100% { transform: translateX(-50%); }
-}
-@keyframes songChange {
-  0% {
-    opacity: 0;
-  }
-  50% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 1;
-  }
+.marqueeWrapper {
+  width: 100%;
+  overflow: hidden;
+  position: relative;
 }
 
-.songPanel .animate {
-  animation: songChange 0.6s;
+.marqueeTrack {
+  display: inline-flex;
+  white-space: nowrap;
+  will-change: transform;
+}
+
+.marqueeTrack span {
+  display: inline-block;
+  white-space: nowrap;
+  font-family: var(--song-panel-font-family);
+  -webkit-font-smoothing: antialiased; /* <- helps accuracy */
+}
+
+.marqueeTrack.animate {
+  animation: scrollRight linear infinite;
+  /* animation duration set inline from React */
+}
+
+@keyframes scrollRight {
+  0% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
 }
