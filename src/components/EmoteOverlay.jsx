@@ -81,7 +81,7 @@ function EmoteOverlayCore(args) {
         width,
         height,
         background: "#ffffff00",        
-        wireframes: true,
+        wireframes: false,
         pixelRatio: window.devicePixelRatio || 1,
       }
     });
