@@ -138,9 +138,8 @@ function EmoteOverlayCore(args) {
     //  --- 7tv Emote Setup ---
     let emoteMap = new Map();
 
-    async function load7tvEmotes() {
-        try {
-            const res = await fetch("https://7tv.io/v3/emote-sets/" + emoteset);
+    async function fetchEmoteSet(set) {
+      const res = await fetch("https://7tv.io/v3/emote-sets/" + set);
             if (!res.ok) {
                 console.error("Failed to fetch 7tv emotes:", res.statusText);
                 return;
@@ -151,13 +150,33 @@ function EmoteOverlayCore(args) {
                 console.error("No emotes found in 7tv response");
                 return;
             }
+            console.log(`Fetched ${data.emotes.length} emotes from 7tv set ${set}`);
+            return data;
+    }
+
+    async function load7tvEmotes() {  
+      const globalEmoteSetId = 'global'   
+        try {
+            const data = await fetchEmoteSet(emoteset);
+            const globalData = await fetchEmoteSet(globalEmoteSetId);
+            console.log("emote set has emotes: ", data.emotes.length, " global has: ", globalData?.emotes?.length ?? 0);
+            data.emotes = data.emotes ?? [];
+            if (globalData?.emotes) {
+                data.emotes.push(...globalData.emotes);
+            }
+
+            console.log("Total emotes to load: ", data.emotes.length);
+
+            console.log(globalData);
+
+
+
 
             data.emotes.forEach(emote => {
                 if (emote.name && emote.id) {
                   
                   if(emote.data.animated === true) {
                     emoteMap.set(emote.name, `https:${emote.data.host.url}/2x.gif`); // Use animated URL if available
-                    console.log(`Adding emote: ${emote.name} with ID: ${emote.id}, is animated: ${emote.data.animated}`);
                   } else {
                     emoteMap.set(emote.name,  `https:${emote.data.host.url}/2x.webp`); // Get the highest resolution URL
                   }                   
@@ -230,7 +249,7 @@ function EmoteOverlayCore(args) {
 
         const words = message.split(/\s+/);
         const emotes = words.filter(word => emoteMap.has(word));
-        
+        console.log(`Found emotes: ${emotes.join(", ")}`);
         emotes.forEach((emote, i) => {
         setTimeout(() => {
             spawnEmote(emote);
