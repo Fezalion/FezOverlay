@@ -65,7 +65,7 @@ If the auto-download fails:
 
 2. **Add the Overlays to OBS:**
    - In OBS, add a new **Browser Source**.
-   - Set the URL for playing widget and make the resolution same as your screen:     
+   - Set the URL for widgets and make the resolution same as your screen:     
       `http://localhost:48000/playing`
       `http://localhost:48000/emotes`
    - Set your LastFM user name in the settings page mentioned above.      
