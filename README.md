@@ -5,9 +5,17 @@ A React-based overlay application for streaming with Last.fm integration and cus
 ## Features
 
 - **Last.fm Integration**: Display currently playing tracks from Last.fm
-- **Customizable UI**: Adjust background color, font size, padding, and more
+- **Customizable UI**: Adjust background color, scale, padding, and more
 - **Auto-Update System**: Automatically downloads and updates from the latest GitHub release
-- **Standalone Executable**: Can be packaged as a standalone .exe file
+- **Emote Overlay**: Show the emotes sent in chat in a fun way in your stream
+
+## Demo
+
+![Demo](readme/demo.mp4)
+
+- **Settings**
+
+![Settings](readme/settings.png)
 
 ## Update System
 
