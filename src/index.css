@@ -8,6 +8,7 @@
   --song-panel-padding: 10px;
   --song-panel-font-family: Arial, sans-serif;
   --song-panel-gradient-direction: to left;
+  --song-panel-transform-origin: right;
   --overlay-x: 0px;
   --overlay-y: 0px;
 }
@@ -30,6 +31,7 @@
   text-align: right;
   transition: background 0.3s ease, opacity 0.3s ease;
   line-height: normal;
+  transform-origin: center var(--song-panel-transform-origin);
 }
 
 .marqueeWrapper {
