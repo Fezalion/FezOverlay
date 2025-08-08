@@ -70,6 +70,7 @@ export function NowPlaying() {
 
     if (displayText == NOTHING) {
       setShouldAnimate(false);
+      return;
     }
     if (!wrapper || !track) return;
 
