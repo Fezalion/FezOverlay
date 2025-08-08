@@ -12,6 +12,9 @@ export function NowPlaying() {
   const [shouldAnimate, setShouldAnimate] = useState(false);
   const [scrollDuration, setScrollDuration] = useState(0);
 
+  const [textStrokeSize, setTextStrokeSize] = useState(0);
+  const [textStrokeColor, setTextStrokeColor] = useState('#000000');
+
   const wrapperRef = useRef();       // .marqueeWrapper
   const trackRef = useRef();         // .marqueeTrack
 
@@ -29,6 +32,9 @@ export function NowPlaying() {
           setPosition({ x: data.playerLocationX, y: data.playerLocationY });
           updateCSSVars(data.playerLocationX, data.playerLocationY);
         }
+
+        if (data.textStrokeSize !== undefined) setTextStrokeSize(parseInt(data.textStrokeSize));
+        if (data.textStrokeColor) setTextStrokeColor(data.textStrokeColor);
       })
       .catch(console.error);
   }, []);
@@ -122,6 +128,20 @@ export function NowPlaying() {
     });
   };  
 
+  function getStrokeTextShadow(width, color) {
+    if (width <= 0) return 'none';
+    const shadows = [];
+
+    for (let dx = -width; dx <= width; dx++) {
+      for (let dy = -width; dy <= width; dy++) {
+        if (dx === 0 && dy === 0) continue;
+        shadows.push(`${dx}px ${dy}px 0 ${color}`);
+      }
+    }
+
+    return shadows.join(', ');
+  }
+
   return (
       <span className="songPanel">
         <div className="marqueeWrapper" ref={wrapperRef} key={displayText}>
@@ -134,8 +154,8 @@ export function NowPlaying() {
             }}
           >
             
-            <span>{space + displayText}</span>
-            {shouldAnimate && <span>{space + displayText}</span>}
+            <span style={{ textShadow: getStrokeTextShadow(textStrokeSize, textStrokeColor) }}>{space + displayText}</span>
+            {shouldAnimate && <span style={{ textShadow: getStrokeTextShadow(textStrokeSize, textStrokeColor) }}>{space + displayText}</span>}
           </div>
         </div>
       </span>

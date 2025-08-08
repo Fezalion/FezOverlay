@@ -21,9 +21,15 @@ fetch('/api/settings')
     document.documentElement.style.setProperty('--song-panel-max-width', data.maxWidth || '700px');
     document.documentElement.style.setProperty('--song-panel-scale-size', data.scaleSize || 1.0);
     document.documentElement.style.setProperty('--song-panel-padding', data.padding || '10px');
+
     document.documentElement.style.setProperty('--song-panel-font-family', data.fontFamily || 'Arial, sans-serif');    
     document.documentElement.style.setProperty('--song-panel-text-color', hexToRgb(data.fontColor || '#ffffff'));
+
     document.documentElement.style.setProperty('--song-panel-gradient-direction', data.gradientDirection || 'to left');
+
+    document.documentElement.style.setProperty('--song-panel-text-stroke-width', data.textStroke ? data.textStrokeSize : '0px');
+    document.documentElement.style.setProperty('--song-panel-text-stroke-color', data.textStroke ? data.textStrokeColor : 'rgba(0, 0, 0, 0)');
+
   });
 
 createRoot(document.getElementById('root')).render(

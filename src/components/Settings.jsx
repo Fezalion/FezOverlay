@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from 'react';
-import { NowPlaying } from './NowPlaying'; // Adjust the import path as necessary
 import ColorPicker, { useColorPicker } from 'react-best-gradient-color-picker'
 
 function hexToRgb(hex) {
@@ -11,18 +10,23 @@ function hexToRgb(hex) {
 
 export function Settings() {
   const pickerRef = useRef(null);
+  const OutlinepickerRef = useRef(null);
 
-
-  const [color, setColor] = useState('linear-gradient(90deg, rgba(0, 0, 0, 0) 0%, rgba(0,0,0,1) 100%)');
-  const { setSolid, setGradient } = useColorPicker(color, setColor);
   const [showPicker, setShowPicker] = useState(false);
-
+  const [showOutlinePicker, setShowOutlinePicker] = useState(false);
+  
+  const [color, setColor] = useState('linear-gradient(90deg, rgba(0, 0, 0, 0) 0%, rgba(0,0,0,1) 100%)');
 
   const [scaleSize, setScaleSize] = useState(1.0);
   const [maxWidth, setMaxWidth] = useState(700);
   const [padding, setPadding] = useState(10);
+  
   const [fontFamily, setFontFamily] = useState('Arial, sans-serif');
   const [fontColor, setFontColor] = useState('#ffffff');
+  const [textStroke, setTextStroke] = useState(false);
+  const [textStrokeSize, setTextStrokeSize] = useState(0);
+  const [textStrokeColor, setTextStrokeColor] = useState('rgba(0, 0, 0, 1)')
+
   const [playerLocationCoords, setPlayerLocationCoords] = useState({ x: 0, y: 0 });
 
 
@@ -55,13 +59,9 @@ export function Settings() {
           x: data.playerLocationX || 0,
           y: data.playerLocationY || 0
         });
-
-        document.documentElement.style.setProperty('--song-panel-bg', data.bgColor || '#800080');
-        document.documentElement.style.setProperty('--song-panel-max-width', (parseInt(data.maxWidth) || 700) + 'px');
-        document.documentElement.style.setProperty('--song-panel-scale-size', (parseInt(data.scaleSize) || 1.0));
-        document.documentElement.style.setProperty('--song-panel-padding', (parseInt(data.padding) || 10) + 'px');
-        document.documentElement.style.setProperty('--song-panel-font-family', data.fontFamily || 'Arial, sans-serif');        
-        document.documentElement.style.setProperty('--song-panel-text-color', hexToRgb(data.fontColor || '#ffffff'));
+        setTextStroke(data.textStroke || false);
+        setTextStrokeColor(data.textStrokeColor || 'rgba(0, 0, 0, 1)');
+        setTextStrokeSize(data.textStrokeSize || '0');
       });
   }, []);
 
@@ -73,43 +73,31 @@ export function Settings() {
     });
   };
 
-  const handleChange = (e) => {
-    setColor(e.target.value);
-    const rgb = hexToRgb(e.target.value);
-    document.documentElement.style.setProperty('--song-panel-bg', rgb);
-    updateSetting('bgColor', e.target.value);
-  };
-
   const handleScaleSize = (e) => {
     const val = parseFloat(e.target.value) || 1.0;
     setScaleSize(val);
-    document.documentElement.style.setProperty('--song-panel-scale-size', val);
     updateSetting('scaleSize', val);
   };
 
   const handleMaxWidth = (e) => {
     const val = parseInt(e.target.value) || 700;
     setMaxWidth(val);
-    document.documentElement.style.setProperty('--song-panel-max-width', val + 'px');
     updateSetting('maxWidth', val + 'px');
   };
 
   const handlePadding = (e) => {
     const val = parseInt(e.target.value) || 10;
     setPadding(val);
-    document.documentElement.style.setProperty('--song-panel-padding', val + 'px');
     updateSetting('padding', val + 'px');
   };
 
   const handleFontFamily = (e) => {
     setFontFamily(e.target.value);
-    document.documentElement.style.setProperty('--song-panel-font-family', e.target.value);
     updateSetting('fontFamily', e.target.value);
   };
 
   const handleFontColor = (e) => {
     setFontColor(e.target.value);
-    document.documentElement.style.setProperty('--song-panel-text-color', hexToRgb(e.target.value));
     updateSetting('fontColor', e.target.value);
   };
 
@@ -140,15 +128,41 @@ export function Settings() {
     updateSetting('emoteScale', val);
   };
 
+  const handleBgColorChange = (newColor) => {
+    setColor(newColor);
+    updateSetting('bgColor', newColor);
+  };
+  
+  const handleTextStrokeToggle = (e) => {
+    const isChecked = e.target.checked;
+    setTextStroke(isChecked);
+    updateSetting('textStroke', isChecked);
+  }
+
+  const handleTextStrokeColor = (color) => {
+    setTextStrokeColor(color);
+    updateSetting('textStrokeColor', color);
+  }
+
+  const handleTextStrokeSize = (e) => {
+    const val = parseInt(e.target.value) || 0;
+    setTextStrokeSize(val);
+    updateSetting('textStrokeSize', val);
+  }
+
   useEffect(() => {
     function handleClickOutside(event) {
       if (pickerRef.current && !pickerRef.current.contains(event.target)) {
         console.log('Clicked outside the picker, closing it');
         setShowPicker(false);
       }
+      if (OutlinepickerRef.current && !OutlinepickerRef.current.contains(event.target)) {
+        console.log('Clicked outside the outline picker, closing it');
+        setShowOutlinePicker(false);
+      }
     }
 
-    if (showPicker) {
+    if (showPicker || showOutlinePicker) {
       document.addEventListener('mousedown', handleClickOutside);
     } else {
       document.removeEventListener('mousedown', handleClickOutside);
@@ -157,8 +171,21 @@ export function Settings() {
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [showPicker]);
+  }, [showPicker, showOutlinePicker]);
 
+  function getStrokeTextShadow(width, color) {
+    if (width <= 0) return 'none';
+    const shadows = [];
+
+    for (let dx = -width; dx <= width; dx++) {
+      for (let dy = -width; dy <= width; dy++) {
+        if (dx === 0 && dy === 0) continue;
+        shadows.push(`${dx}px ${dy}px 0 ${color}`);
+      }
+    }
+
+    return shadows.join(', ');
+  }
 
   return (
     <div
@@ -176,7 +203,7 @@ export function Settings() {
         gap: 20
       }}
     >
-      <h1 style={{marginBottom: 16, fontWeight: 700, fontSize: 28, letterSpacing: -1, textAlign: 'center'}}>Overlay Settings</h1>
+      <h1 style={{ textAlign: 'center'}}>Overlay Settings</h1>      
 
       <div style={{ display: 'flex', flexDirection: 'row' }}>
         <div className="settings-container" style={{
@@ -192,37 +219,33 @@ export function Settings() {
           flexDirection: 'column',
           gap: 20
         }}>
-          <h2 style={{marginBottom: 16, fontWeight: 700, fontSize: 28, letterSpacing: -1}}>Song Overlay Settings</h2>
+          <h1>Song Overlay Settings</h1>
+          <p className='explanation'>
+        You can adjust the position of the overlay in your OBS Browser Source's Interact option, use arrow keys (Shift to go faster)</p>
 
+          {/* Divider */}
+          <hr className='divider' />
           {/* Last.fm Username input */}
           <label style={{display: 'flex', alignItems: 'center', gap: 12}}>
             <span style={{minWidth: 120}}>Lastfm Username</span>
             <input
               type="text"
               value={lastfmName}
-              onChange={e => {
-                setLastfmName(e.target.value);
-                updateSetting('lastfmName', e.target.value);
-              }}
+              onChange={handleLastfmNameChange}
               placeholder="Enter your Lastfm username"
               style={{flex: 1, padding: 4, borderRadius: 6, border: '1px solid #ccc'}}
             />
           </label>
+          {/* Divider */}
+          <hr className='divider' />
 
           {/* Background Gradient Picker Button */}
           <label style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <span style={{ fontWeight: 500 }}>Background Gradient</span>
+            <h2>Background</h2>
 
             <button
               type="button"
-              onClick={() => {setShowPicker(true);}}
-              style={{
-                padding: '8px 12px',
-                borderRadius: 8,
-                border: '1px solid #ccc',
-                background: '#f5f5f5',
-                cursor: 'pointer'
-              }}
+              onClick={() => {setShowPicker(true);}}              
             >
               Pick Background
             </button>
@@ -261,22 +284,112 @@ export function Settings() {
                 <ColorPicker
                   ref={pickerRef}
                   value={color}                  
-                  onChange={(newColor) => {
-                    setColor(newColor);
-                    document.documentElement.style.setProperty('--song-panel-bg', newColor);
-                    updateSetting('bgColor', newColor);
-                  }}
+                  onChange={handleBgColorChange}
                 />
               </div>
             </>
           )}
 
           </label>
-
+      {/* Divider */}
+      <hr className='divider' />
+      
+      <h2>Font Settings</h2>
       <label style={{display: 'flex', alignItems: 'center', gap: 12}}>
         <span style={{minWidth: 120}}>Font Color</span>
         <input type="color" value={fontColor} onChange={handleFontColor} style={{width: 36, height: 36, border: 'none', background: 'none'}} />
       </label>
+
+      <label style={{display: 'flex', alignItems: 'center', gap: 12}}>
+        <span style={{minWidth: 120}}>Font Family</span>
+        <select value={fontFamily} onChange={handleFontFamily} style={{flex: 1, padding: 4, borderRadius: 6, border: '1px solid #ccc'}}>
+          <option value="Arial, sans-serif">Arial</option>
+          <option value="Verdana, Geneva, sans-serif">Verdana</option>
+          <option value="Tahoma, Geneva, sans-serif">Tahoma</option>
+          <option value="Courier New, Courier, monospace">Courier New</option>
+          <option value="Times New Roman, Times, serif">Times New Roman</option>
+        </select>
+      </label> 
+
+      {/* Divider */}
+      <hr className='divider' />
+      <h2>Text Outline Settings</h2>
+      <label style={{display: 'flex', alignItems: 'center', gap: 12}}>
+        <span style={{minWidth: 120}}>Enable Text Outline</span>
+        <input
+          type="checkbox"
+          checked={textStroke}
+          onChange={handleTextStrokeToggle}
+          style={{width: 20, height: 20, cursor: 'pointer'}}          
+        />
+      </label>
+
+      <label style={{display: 'flex', alignItems: 'center', gap: 12}}>
+        <span style={{minWidth: 120}}>Text Stroke Size</span>
+        <input
+          type="number"
+          min="0"
+          max="50"
+          value={textStrokeSize}
+          onChange={handleTextStrokeSize}
+        />
+      </label>
+
+      <label style={{display: 'flex', alignItems: 'center', gap: 12}}>
+        <span style={{minWidth: 120}}>Text Outline Color</span>
+        <button
+          type="button"
+          onClick={() => {setShowOutlinePicker(true);}}          
+        >
+          Pick Outline Color
+        </button>
+
+        {showOutlinePicker && (
+          <>
+            <div 
+              style={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                width: '100vw',
+                height: '100vh',
+                backgroundColor: 'rgba(0, 0, 0, 0.95)',
+                zIndex: 998,
+              }}
+            ></div>
+            <div
+              ref={OutlinepickerRef}
+              className="shadow-picker-popup"
+              style={{
+                position: 'fixed',
+                zIndex: 999,
+                top: '50%',
+                left: '55%',
+                transform: 'translate(-50%, -50%)',
+                background: '#fff',
+                padding: 12,
+                borderRadius: 12,
+                boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+              }}
+            >
+              <ColorPicker
+                ref={OutlinepickerRef}
+                value={textStrokeColor}
+                onChange={handleTextStrokeColor}
+                hideColorTypeBtns={true}
+                hideGradientTypeBtns={true}
+                hideControls={true}
+                disableLightMode={true}
+              />
+            </div>
+          </>
+        )}
+      </label> 
+
+      {/* Divider */}
+      <hr className='divider' />
+
+      <h2>Layout Settings</h2>
       <label style={{display: 'flex', alignItems: 'center', gap: 12}}>
         <span style={{minWidth: 120}}>Scale Size</span>
         <input
@@ -308,19 +421,11 @@ export function Settings() {
           ></input>
       </label>
 
-      <label style={{display: 'flex', alignItems: 'center', gap: 12}}>
-        <span style={{minWidth: 120}}>Font Family</span>
-        <select value={fontFamily} onChange={handleFontFamily} style={{flex: 1, padding: 4, borderRadius: 6, border: '1px solid #ccc'}}>
-          <option value="Arial, sans-serif">Arial</option>
-          <option value="Verdana, Geneva, sans-serif">Verdana</option>
-          <option value="Tahoma, Geneva, sans-serif">Tahoma</option>
-          <option value="Courier New, Courier, monospace">Courier New</option>
-          <option value="Times New Roman, Times, serif">Times New Roman</option>
-        </select>
-      </label> 
+      {/* Divider */}
+      <hr className='divider' />
 
       {/* NowPlaying Preview */}
-      <h3 style={{margin: 0, marginBottom: 8}}>NowPlaying Preview</h3>
+      <h2 style={{margin: 0, marginBottom: 8}}>Preview</h2>
       <div style={{
         marginTop: 20,
         padding: `${padding}px`,        
@@ -328,10 +433,12 @@ export function Settings() {
         color: `rgb(${hexToRgb(fontColor)})`,
         background: color,
         zIndex:999,
+        textAlign: 'right',
+        textShadow: getStrokeTextShadow(textStrokeSize, textStrokeColor)
       }}>        
         {/* Simulate a track to display in the preview */}
         <span>
-          Example Artist - Example Track - 
+          Example Artist - Example Track
         </span>
       </div>
     </div>
@@ -349,7 +456,7 @@ export function Settings() {
       flexDirection: 'column',
       gap: 20
     }}>
-      <h2 style={{marginBottom: 16, fontWeight: 700, fontSize: 28, letterSpacing: -1}}>Emote Overlay Settings</h2>
+      <h1>Emote Overlay Settings</h1>
       <p style={{marginBottom: 16, fontSize: 16, lineHeight: 1.5}}>
         The emote overlay displays 7TV emotes in real-time as they are used in chat.
         You can customize the appearance of the emotes and their behavior.</p>
