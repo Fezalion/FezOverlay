@@ -4,6 +4,7 @@ const poll_rate = 1000;
 let LASTFM_USERNAME = 'your_lastfm_username';
 const MOVE_AMOUNT = 1;
 const SCROLL_SPEED = 25; // pixels per second
+const space = '\u00A0\u00A0';
 
 export function NowPlaying() {
   const [latestTrack, setLatestTrack] = useState(null);
@@ -119,7 +120,7 @@ export function NowPlaying() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ [key]: value })
     });
-  };
+  };  
 
   return (
       <span className="songPanel">
@@ -129,11 +130,12 @@ export function NowPlaying() {
             ref={trackRef}
             style={{
               animationDuration: `${scrollDuration}s`,
-              animationPlayState: shouldAnimate ? 'running' : 'paused',
+              animationPlayState: shouldAnimate ? 'running' : 'paused',              
             }}
           >
-            <span>{displayText}</span>
-            {shouldAnimate && <span>{displayText}</span>}
+            
+            <span>{space + displayText}</span>
+            {shouldAnimate && <span>{space + displayText}</span>}
           </div>
         </div>
       </span>

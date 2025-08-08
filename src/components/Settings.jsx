@@ -237,7 +237,7 @@ export function Settings() {
                   left: 0,
                   width: '100vw',
                   height: '100vh',
-                  backgroundColor: 'rgba(0, 0, 0, 0.4)',
+                  backgroundColor: 'rgba(0, 0, 0, 0.95)',
                   zIndex: 998,
                 }}
               ></div> {/* Use explicit closing tag */}
@@ -250,7 +250,7 @@ export function Settings() {
                   position: 'fixed',    // changed from absolute to fixed
                   zIndex: 999,
                   top: '50%',           // you can adjust exact position as needed
-                  left: '50%',
+                  left: '55%',
                   transform: 'translate(-50%, -50%)',
                   background: '#fff',
                   padding: 12,
@@ -281,9 +281,9 @@ export function Settings() {
         <span style={{minWidth: 120}}>Scale Size</span>
         <input
           type="number"
-          min="0.1"
-          max="5.0"
-          step="0.1"
+          min="0.05"
+          max="10.0"
+          step="0.05"
           value={scaleSize}
           onChange={handleScaleSize}
           style={{flex: 1, padding: 4, borderRadius: 6, border: '1px solid #ccc'}}
@@ -299,8 +299,8 @@ export function Settings() {
         <span style={{minWidth: 120}}>Max Width</span>
         <input
           type="number"
-          min="300"
-          max="2000"
+          min="100"
+          max="4000"
           value={maxWidth}
           onChange={handleMaxWidth}
           style={{flex: 1, padding: 4, borderRadius: 6, border: '1px solid #ccc'}}
