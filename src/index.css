@@ -15,19 +15,6 @@
   --overlay-y: 0px;
 }
 
-button {
-  padding: 8px 12px;
-  border-radius: 8px;
-  border: 1px solid #ccc;
-  background: #f5f5f5;
-  cursor: pointer;
-}
-
-button:disabled {
-  color:#ddd;
-  background-color: #ccc;
-}
-
 h1 {
   margin-bottom: 16;
   font-weight: 700;
@@ -110,19 +97,74 @@ h2 {
 }
 
 
-.gradient-picker-popup {
-  border: 2px solid red !important;
-  background: white !important;
-  position: absolute !important;
-  z-index: 999 !important;
+/* Settings */
+
+.settingsMainContainer {
+  margin: 0px auto;
+  padding: 0;
+  background: rgba(255,255,255,0.95);  
+  color: #222;
+  display: flex;
+  flex-direction: column;
+  gap:20px;
 }
 
-.debug-overlay {
-  background-color: rgba(255, 0, 0, 0.3) !important; /* Red translucent */
-  position: fixed !important;
-  top: 0 !important;
-  left: 0 !important;
-  width: 100vw !important;
-  height: 100vh !important;
-  z-index: 998 !important;
+.settingsContainer {
+  max-width: 700px;
+  margin: 40px auto;
+  padding: 24px;
+  background: rgba(255,255,255,0.95);
+  border: 1px solid none;
+  border-radius: 16px;
+  box-shadow: 0px 4px 24px rgba(0, 0, 0, 0.10);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap:20px;
+}
+
+.settingsContainer button {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  background: #f5f5f5;
+  cursor: pointer;
+}
+
+.settingsContainer button:disabled {
+  color:#ddd;
+  background-color: #ccc;
+}
+
+.labelH {
+  display: flex;
+  align-items: center;
+  gap:12px;
+}
+.labelV {
+  display: flex;
+  flex-direction: column;
+  gap:8px;
+}
+
+.fullscreenBackground {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0,0,0, 0.95);
+  z-index: 998;
+}
+
+.gradient-picker-popup {
+  position: fixed;
+  z-index: 999;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: #fff;
+  padding: 12px;
+  border-radius: 12px;
+  box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.2);
 }

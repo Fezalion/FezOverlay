@@ -188,37 +188,11 @@ export function Settings() {
   }
 
   return (
-    <div
-      style={{
-        maxWidth: 1200,
-        margin: '40px auto',
-        padding: 24,
-        background: 'rgba(255,255,255,0.95)',
-        borderRadius: 16,
-        boxShadow: '0 4px 24px rgba(0,0,0,0.10)',
-        fontFamily: 'Inter, Arial, sans-serif',
-        color: '#222',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 20
-      }}
-    >
+    <div className='settingsMainContainer'>
       <h1 style={{ textAlign: 'center'}}>Overlay Settings</h1>      
 
       <div style={{ display: 'flex', flexDirection: 'row' }}>
-        <div className="settings-container" style={{
-          maxWidth: 400,
-          margin: '40px auto',
-          padding: 24,
-          background: 'rgba(255,255,255,0.95)',
-          borderRadius: 16,
-          boxShadow: '0 4px 24px rgba(0,0,0,0.10)',
-          fontFamily: 'Inter, Arial, sans-serif',
-          color: '#222',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 20
-        }}>
+        <div className="settingsContainer">
           <h1>Song Overlay Settings</h1>
           <p className='explanation'>
         You can adjust the position of the overlay in your OBS Browser Source's Interact option, use arrow keys (Shift to go faster)</p>
@@ -226,7 +200,7 @@ export function Settings() {
           {/* Divider */}
           <hr className='divider' />
           {/* Last.fm Username input */}
-          <label style={{display: 'flex', alignItems: 'center', gap: 12}}>
+          <label className='labelH'>
             <span style={{minWidth: 120}}>Lastfm Username</span>
             <input
               type="text"
@@ -240,7 +214,7 @@ export function Settings() {
           <hr className='divider' />
 
           {/* Background Gradient Picker Button */}
-          <label style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <label className='labelV'>
             <h2>Background</h2>
 
             <button
@@ -253,39 +227,34 @@ export function Settings() {
             {showPicker && (
             <>
               {/* Fullscreen overlay for click outside */}
-              <div 
-                style={{
-                  position: 'fixed',
-                  top: 0,
-                  left: 0,
-                  width: '100vw',
-                  height: '100vh',
-                  backgroundColor: 'rgba(0, 0, 0, 0.95)',
-                  zIndex: 998,
-                }}
-              ></div> {/* Use explicit closing tag */}
+              <div className='fullscreenBackground'></div> 
 
               {/* Actual color picker popup */}
               <div
                 ref={pickerRef}
-                className="gradient-picker-popup"
-                style={{
-                  position: 'fixed',    // changed from absolute to fixed
-                  zIndex: 999,
-                  top: '50%',           // you can adjust exact position as needed
-                  left: '55%',
-                  transform: 'translate(-50%, -50%)',
-                  background: '#fff',
-                  padding: 12,
-                  borderRadius: 12,
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
-                }}                
+                className="gradient-picker-popup"                              
               >
                 <ColorPicker
                   ref={pickerRef}
                   value={color}                  
                   onChange={handleBgColorChange}
+                  disableDarkMode={true}
                 />
+                <div style={{
+                  marginTop: 20,
+                  padding: `${padding}px`,        
+                  fontFamily: fontFamily,
+                  color: `rgb(${hexToRgb(fontColor)})`,
+                  background: color,
+                  zIndex:999,
+                  textAlign: 'right',
+                  textShadow: getStrokeTextShadow(textStrokeSize, textStrokeColor)
+                }}>        
+                {/* Simulate a track to display in the preview */}
+                <span>
+                  Example Artist - Example Track
+                </span>
+              </div>
               </div>
             </>
           )}
@@ -294,13 +263,14 @@ export function Settings() {
       {/* Divider */}
       <hr className='divider' />
       
+      
       <h2>Font Settings</h2>
-      <label style={{display: 'flex', alignItems: 'center', gap: 12}}>
+      <label className='labelH'>
         <span style={{minWidth: 120}}>Font Color</span>
         <input type="color" value={fontColor} onChange={handleFontColor} style={{width: 36, height: 36, border: 'none', background: 'none'}} />
       </label>
 
-      <label style={{display: 'flex', alignItems: 'center', gap: 12}}>
+      <label className='labelH'>
         <span style={{minWidth: 120}}>Font Family</span>
         <select value={fontFamily} onChange={handleFontFamily} style={{flex: 1, padding: 4, borderRadius: 6, border: '1px solid #ccc'}}>
           <option value="Arial, sans-serif">Arial</option>
@@ -313,8 +283,9 @@ export function Settings() {
 
       {/* Divider */}
       <hr className='divider' />
+
       <h2>Text Outline Settings</h2>
-      <label style={{display: 'flex', alignItems: 'center', gap: 12}}>
+      <label className='labelH'>
         <span style={{minWidth: 120}}>Enable Text Outline</span>
         <input
           type="checkbox"
@@ -324,7 +295,7 @@ export function Settings() {
         />
       </label>
 
-      <label style={{display: 'flex', alignItems: 'center', gap: 12}}>
+      <label className='labelH'>
         <span style={{minWidth: 120}}>Text Stroke Size</span>
         <input
           type="number"
@@ -335,7 +306,7 @@ export function Settings() {
         />
       </label>
 
-      <label style={{display: 'flex', alignItems: 'center', gap: 12}}>
+      <label className='labelH'>
         <span style={{minWidth: 120}}>Text Outline Color</span>
         <button
           type="button"
@@ -346,31 +317,10 @@ export function Settings() {
 
         {showOutlinePicker && (
           <>
-            <div 
-              style={{
-                position: 'fixed',
-                top: 0,
-                left: 0,
-                width: '100vw',
-                height: '100vh',
-                backgroundColor: 'rgba(0, 0, 0, 0.95)',
-                zIndex: 998,
-              }}
-            ></div>
+            <div className='fullscreenBackground'></div> 
             <div
               ref={OutlinepickerRef}
-              className="shadow-picker-popup"
-              style={{
-                position: 'fixed',
-                zIndex: 999,
-                top: '50%',
-                left: '55%',
-                transform: 'translate(-50%, -50%)',
-                background: '#fff',
-                padding: 12,
-                borderRadius: 12,
-                boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
-              }}
+              className="gradient-picker-popup"              
             >
               <ColorPicker
                 ref={OutlinepickerRef}
@@ -379,8 +329,24 @@ export function Settings() {
                 hideColorTypeBtns={true}
                 hideGradientTypeBtns={true}
                 hideControls={true}
-                disableLightMode={true}
+                disableDarkMode={true}
               />
+
+              <div style={{
+                marginTop: 20,
+                padding: `${padding}px`,        
+                fontFamily: fontFamily,
+                color: `rgb(${hexToRgb(fontColor)})`,
+                background: color,
+                zIndex:999,
+                textAlign: 'right',
+                textShadow: getStrokeTextShadow(textStrokeSize, textStrokeColor)
+              }}>        
+                {/* Simulate a track to display in the preview */}
+                <span>
+                  Example Artist - Example Track
+                </span>
+              </div>
             </div>
           </>
         )}
@@ -390,7 +356,7 @@ export function Settings() {
       <hr className='divider' />
 
       <h2>Layout Settings</h2>
-      <label style={{display: 'flex', alignItems: 'center', gap: 12}}>
+      <label className='labelH'>
         <span style={{minWidth: 120}}>Scale Size</span>
         <input
           type="number"
@@ -403,12 +369,12 @@ export function Settings() {
           placeholder="Enter player size scale (default 1.0)"
           ></input>
       </label>
-      <label style={{display: 'flex', alignItems: 'center', gap: 12}}>
+      <label className='labelH'>
         <span style={{minWidth: 120}}>Padding</span>
         <input type="number" min="0" max="50" value={padding} onChange={handlePadding} style={{width: 60}} /> px
       </label>
 
-      <label style={{display: 'flex', alignItems: 'center', gap: 12}}>
+      <label className='labelH'>
         <span style={{minWidth: 120}}>Max Width</span>
         <input
           type="number"
@@ -420,47 +386,17 @@ export function Settings() {
           placeholder="Enter max width in px (default 700)"
           ></input>
       </label>
-
+      
       {/* Divider */}
-      <hr className='divider' />
-
-      {/* NowPlaying Preview */}
-      <h2 style={{margin: 0, marginBottom: 8}}>Preview</h2>
-      <div style={{
-        marginTop: 20,
-        padding: `${padding}px`,        
-        fontFamily: fontFamily,
-        color: `rgb(${hexToRgb(fontColor)})`,
-        background: color,
-        zIndex:999,
-        textAlign: 'right',
-        textShadow: getStrokeTextShadow(textStrokeSize, textStrokeColor)
-      }}>        
-        {/* Simulate a track to display in the preview */}
-        <span>
-          Example Artist - Example Track
-        </span>
-      </div>
+      <hr className='divider' />   
     </div>
 
-    <div className="settings-container" style={{
-      maxWidth: 400,
-      margin: '40px auto',
-      padding: 24,
-      background: 'rgba(255,255,255,0.95)',
-      borderRadius: 16,
-      boxShadow: '0 4px 24px rgba(0,0,0,0.10)',
-      fontFamily: 'Inter, Arial, sans-serif',
-      color: '#222',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: 20
-    }}>
+    <div className='settingsContainer'>
       <h1>Emote Overlay Settings</h1>
       <p style={{marginBottom: 16, fontSize: 16, lineHeight: 1.5}}>
         The emote overlay displays 7TV emotes in real-time as they are used in chat.
         You can customize the appearance of the emotes and their behavior.</p>
-      <label style={{display: 'flex', alignItems: 'center', gap: 12}}>
+      <label className='labelH'>
         <span style={{minWidth: 120}}>Twitch Username</span>
         <input
           type="text"
@@ -471,7 +407,7 @@ export function Settings() {
           </input>
       </label>
 
-      <label style={{display: 'flex', alignItems: 'center', gap: 12}}>
+      <label className='labelH'>
         <span style={{minWidth: 120}}>7tv Emote set ID</span>
         <input
           type="text"
@@ -482,7 +418,7 @@ export function Settings() {
           </input>
       </label>
 
-      <label style={{display: 'flex', alignItems: 'center', gap: 12}}>
+      <label className='labelH'>
         <span style={{minWidth: 120}}>Emote Lifetime</span>        
         <input
           type="number"
@@ -497,7 +433,7 @@ export function Settings() {
       <span style={{color: "grey"}}>Duration for which emotes are displayed (in ms)[Limited to 500-20000ms]</span>
 
 
-      <label style={{display: 'flex', alignItems: 'center', gap: 12}}>
+      <label className='labelH'>
         <span style={{minWidth: 120}}>Emote Scale</span>
         <input
           type="number"
