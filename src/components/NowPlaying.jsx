@@ -5,6 +5,7 @@ let LASTFM_USERNAME = 'your_lastfm_username';
 const MOVE_AMOUNT = 1;
 const SCROLL_SPEED = 25; // pixels per second
 const space = '\u00A0\u00A0';
+const NOTHING = 'Nothing is playing...';
 
 export function NowPlaying() {
   const [latestTrack, setLatestTrack] = useState(null);
@@ -20,7 +21,7 @@ export function NowPlaying() {
 
   const displayText = latestTrack
     ? `${latestTrack.artist} - ${latestTrack.name}`
-    : 'Nothing is playing...';
+    : NOTHING;
 
   // 🧠 Fetch Last.fm username & user settings
   useEffect(() => {
@@ -67,6 +68,9 @@ export function NowPlaying() {
     const wrapper = wrapperRef.current;
     const track = trackRef.current;
 
+    if (displayText == NOTHING) {
+      setShouldAnimate(false);
+    }
     if (!wrapper || !track) return;
 
     // Wait a tick for render to settle
@@ -160,5 +164,4 @@ export function NowPlaying() {
         </div>
       </span>
     );
-
 }
