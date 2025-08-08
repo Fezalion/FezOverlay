@@ -67,6 +67,7 @@ export function NowPlaying() {
   useEffect(() => {    
     const wrapper = wrapperRef.current;
     const track = trackRef.current;
+    setShouldAnimate(false); //Reset animate just in case
 
     if (displayText == NOTHING) {
       setShouldAnimate(false);
