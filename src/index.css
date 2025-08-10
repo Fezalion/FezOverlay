@@ -15,11 +15,6 @@
   --overlay-y: 0px;
 }
 
-body {
-  background: #222;
-  color: #ddd;
-}
-
 h1 {
   margin-bottom: 16;
   font-weight: 700;
@@ -105,6 +100,8 @@ h2 {
 /* Settings */
 
 .settingsMainContainer {
+  width: 100vw;
+  height: 100vh;
   margin: 0px auto;
   padding: 0;
   background: #222;

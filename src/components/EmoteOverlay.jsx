@@ -176,9 +176,9 @@ function EmoteOverlayCore(args) {
                 if (emote.name && emote.id) {
                   
                   if(emote.data.animated === true) {
-                    emoteMap.set(emote.name, `https:${emote.data.host.url}/2x.gif`); // Use animated URL if available
+                    emoteMap.set(emote.name, { url: `https:${emote.data.host.url}/2x.gif`, width: emote.data.host.files[1].width, height: emote.data.host.files[1].height }); // Use animated URL if available
                   } else {
-                    emoteMap.set(emote.name,  `https:${emote.data.host.url}/2x.webp`); // Get the highest resolution URL
+                    emoteMap.set(emote.name,  {url :`https:${emote.data.host.url}/2x.webp`, width: emote.data.host.files[1].width, height: emote.data.host.files[1].height }); // Get the highest resolution URL
                   }                   
                 }
             });
@@ -204,10 +204,13 @@ function EmoteOverlayCore(args) {
         
     function spawnEmote(emoteName) {
       const x = 100 + (Math.random() * (width - 200));
-      const size = (50 + Math.random() * 30) * emoteScale; // Scale size based on emoteScale prop
-      const emoteUrl = emoteMap.get(emoteName);
+      //const size = (50 + Math.random() * 30) * emoteScale; // Scale size based on emoteScale prop
+      const emote = emoteMap.get(emoteName);
+      const emoteUrl = emote.url;
+      const sizeX = emote.width * emoteScale;
+      const sizeY = emote.height * emoteScale;
 
-      const body = Matter.Bodies.rectangle(x, 5, size, size, {
+      const body = Matter.Bodies.rectangle(x, 5, sizeX, sizeY, {
         render: {
           fillStyle: 'transparent',
           strokeStyle: 'transparent',
@@ -219,22 +222,22 @@ function EmoteOverlayCore(args) {
       Matter.Body.setVelocity(body, { x: (Math.random() * 30) - 15, y: -10 }); // random horizontal velocity      
       Matter.Body.setAngularVelocity(body, (Math.random() - 0.5) * 0.2); // adds spin
 
-      const el = createEmoteElement(emoteUrl, size);
+      const el = createEmoteElement(emoteUrl, sizeX,sizeY);
 
       // Position immediately so it doesn't appear at (0,0)
-      el.style.left = `${x - size / 2}px`;
-      el.style.top = `${5 - size / 2}px`;
+      el.style.left = `${x - sizeX / 2}px`;
+      el.style.top = `${5 - sizeY / 2}px`;
 
-      bodiesWithTimers.push({ body, born: Date.now(), el, size });
+      bodiesWithTimers.push({ body, born: Date.now(), el, sizeX, sizeY });
     }
 
 
 
-    function createEmoteElement(url, size) {
+    function createEmoteElement(url, sizeX, sizeY) {
       const img = document.createElement("img");
       img.src = url;
-      img.style.width = size + "px";
-      img.style.height = size + "px";
+      img.style.width = sizeX + "px";
+      img.style.height = sizeY + "px";
       img.style.position = "fixed";
       img.style.pointerEvents = "none";
       img.style.zIndex = "9999";
@@ -279,7 +282,8 @@ function EmoteOverlayCore(args) {
     Matter.Events.on(engine, "afterUpdate", () => {
       bodiesWithTimers.forEach(({ body, el }) => {
         const { x, y } = body.position;
-        const size = parseFloat(el.style.width); // we already set px width
+        const size = parseFloat(el.style.width);
+        console.log(size); // we already set px width
         el.style.left = `${x - size / 2}px`;
         el.style.top = `${y - size / 2}px`;
         el.style.transform = `rotate(${body.angle}rad)`;
