@@ -16,12 +16,35 @@ export function NowPlaying() {
   const [textStrokeSize, setTextStrokeSize] = useState(0);
   const [textStrokeColor, setTextStrokeColor] = useState('#000000');
 
+  const [color, setColor] = useState('linear-gradient(90deg, rgba(0, 0, 0, 0) 0%, rgba(0,0,0,1) 100%)');
+
+  const [fontFamily, setFontFamily] = useState('Arial, sans-serif');
+  const [fontColor, setFontColor] = useState('#ffffff');
+
+  const [textStroke, setTextStroke] = useState(false);
+  const [scaleSize, setScaleSize] = useState(1.0);
+  const [maxWidth, setMaxWidth] = useState(700);
+  const [padding, setPadding] = useState(10);
+
   const wrapperRef = useRef();       // .marqueeWrapper
   const trackRef = useRef();         // .marqueeTrack
 
   const displayText = latestTrack
     ? `${latestTrack.artist} - ${latestTrack.name}`
     : NOTHING;
+
+  const [refreshToken,setRefreshToken] = useState(0);
+
+  useEffect(() => {
+    const ws = new WebSocket('ws://localhost:48000') //TODO: CHANGE THIS TO VARIABLE LATER AND STORE THAT IN SETTINGS ALSO
+
+    ws.onmessage = (event) => {
+      if (event.data === 'refresh') {
+        setRefreshToken(c => c + 1);
+        console.log('refreshing');
+      }
+    }
+  }, []);
 
   // 🧠 Fetch Last.fm username & user settings
   useEffect(() => {
@@ -33,12 +56,18 @@ export function NowPlaying() {
           setPosition({ x: data.playerLocationX, y: data.playerLocationY });
           updateCSSVars(data.playerLocationX, data.playerLocationY);
         }
-
         if (data.textStrokeSize !== undefined) setTextStrokeSize(parseInt(data.textStrokeSize));
         if (data.textStrokeColor) setTextStrokeColor(data.textStrokeColor);
+        if (data.textStroke || !data.textStroke) {setTextStroke(data.textStroke);}
+        if (data.bgColor) setColor(data.bgColor);
+        if (data.fontColor) setFontColor(data.fontColor);
+        if (data.fontFamily) setFontFamily(data.fontFamily);
+        if (data.scaleSize) setScaleSize(data.scaleSize);
+        if (data.maxWidth) setMaxWidth(data.maxWidth);
+        if (data.padding) setPadding(data.padding);
       })
       .catch(console.error);
-  }, []);
+  }, [refreshToken]);
 
   // 🧠 Poll current track
   useEffect(() => {
@@ -61,7 +90,7 @@ export function NowPlaying() {
     fetchLatestTrack();
     const interval = setInterval(fetchLatestTrack, poll_rate);
     return () => clearInterval(interval);
-  }, []);
+  }, [refreshToken]);
 
   // 🎞️ Calculate if animation needed + set speed
   useEffect(() => {    
@@ -90,7 +119,7 @@ export function NowPlaying() {
     }, 50); // 50ms is usually enough, tweak if needed
 
     return () => clearTimeout(timeout);
-  }, [displayText]);
+  }, [displayText, refreshToken]);
 
 
 
@@ -135,7 +164,9 @@ export function NowPlaying() {
   };  
 
   function getStrokeTextShadow(width, color) {
-    if (width <= 0) return 'none';
+    if (!textStroke || width <= 0) {
+      return 'none'
+    };
     const shadows = [];
 
     for (let dx = -width; dx <= width; dx++) {
@@ -144,13 +175,23 @@ export function NowPlaying() {
         shadows.push(`${dx}px ${dy}px 0 ${color}`);
       }
     }
-
+       
     return shadows.join(', ');
   }
 
   return (
-      <span className="songPanel">
-        <div className="marqueeWrapper" ref={wrapperRef} key={displayText}>
+      <span className="songPanel"
+      style={{
+        bottom: position.y * -1,
+        right: position.y * -1,
+        background: color,
+        color: fontColor,
+        padding: padding,
+        transform: `scale(${scaleSize})`,
+        fontFamily: fontFamily,
+        maxWidth: maxWidth
+      }}>
+        <div className="marqueeWrapper" ref={wrapperRef} key={displayText + refreshToken}>
           <div
             className={`marqueeTrack ${shouldAnimate ? 'animate' : ''}`}
             ref={trackRef}

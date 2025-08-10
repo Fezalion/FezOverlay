@@ -43,18 +43,10 @@ h2 {
 
 .songPanel {
   margin: 0;
-  position: fixed;
-  bottom: calc(var(--overlay-y) * -1);
-  right: calc(var(--overlay-x) * -1);
-  display: block;
-  background: var(--song-panel-bg);
-  color: rgb(var(--song-panel-text-color));
-  padding: var(--song-panel-padding);
-  transform: scale(var(--song-panel-scale-size));
+  position: fixed;  
+  display: block;  
   font-size: 16px;
-  font-family: var(--song-panel-font-family);
   z-index: 1000;
-  max-width: var(--song-panel-max-width);
   overflow: hidden; /* Added line */
   text-align: right;
   transition: background 0.3s ease, opacity 0.3s ease;

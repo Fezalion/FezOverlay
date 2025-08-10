@@ -3,11 +3,30 @@ const path = require('path');
 const express = require('express');
 const bodyParser = require('body-parser');
 const https = require('https');
+const http = require('http');
 const dotenv = require('dotenv');
 const fs = require('fs');
+const { WebSocketServer } = require('ws')
 dotenv.config();
 
+const repo = 'Fezalion/FezOverlay';
+
 const app = express();
+const server = http.createServer(app);
+
+const wss = new WebSocketServer({ server });
+
+wss.on('connection', (ws) => {
+  console.log('An Overlay is connected.');
+})
+
+function broadcast(msg) {
+  wss.clients.forEach((client) => {
+    if(client.readyState === 1) {
+      client.send(msg);
+    }
+  });
+}
 
 const PORT = process.env.PORT || 48000;
 
@@ -25,7 +44,47 @@ app.use(express.static(distRoot));
 
 const LASTFM_API_KEY = process.env.LASTFM_API_KEY;
 
-//check if updater.exe.new was downloaded and perform self-update
+function getLatestRelease(cb) {
+  const url = `https://api.github.com/repos/${repo}/releases/latest`;
+  console.log('Fetching latest release from:', url);
+  
+  https.get(url, {
+    headers: { 'User-Agent': 'node' }
+  }, res => {
+    let data = '';
+    res.on('data', chunk => data += chunk);
+    res.on('end', () => {
+      try {
+        console.log('GitHub API response status:', res.statusCode);
+        const release = JSON.parse(data);
+        
+        // Check for API errors
+        if (release.message) {
+          if (release.message.includes('Not Found')) {
+            return cb(new Error('Repository or release not found'));
+          }
+          return cb(new Error(`GitHub API error: ${release.message}`));
+        }
+        
+        // Check if we have a valid release
+        if (!release.tag_name) {
+          return cb(new Error('No tag_name found in release'));
+        }
+        
+        console.log('Latest release found:', release.tag_name);
+        cb(null, release);
+      } catch (err) {
+        console.error('Failed to parse response:', err.message);
+        cb(new Error('Failed to parse GitHub API response'));
+      }
+    });
+  }).on('error', (err) => {
+    console.error('Network error:', err.message);
+    cb(new Error(`Failed to fetch latest release: ${err.message}`));
+  });
+}
+
+  //check if updater.exe.new was downloaded and perform self-update
   const updaterNewPath = path.join(baseDir, 'updater.exe.new');
   // If updater.new.exe exists (downloaded), replace the old exe with the new one
   if (fs.existsSync(updaterNewPath)) {
@@ -103,12 +162,29 @@ app.get('/api/settings', (req, res) => {
   res.json(loadSettings());
 });
 
+app.get('/api/version', (req, res) => {
+  getLatestRelease((err, release) => {
+    if (err) {
+      console.error('Error fetching latest release:', err.message);
+      return res.status(500).json({ error: err.message });
+    }
+    res.json({ version: release.tag_name || release.name || '' });
+  });
+});
+
+
 // POST update one or more settings (partial update)
 app.post('/api/settings', (req, res) => {
   const current = loadSettings();
   const updated = { ...current, ...req.body };
   saveSettings(updated);
   res.json({ success: true, settings: updated });
+});
+
+//POST refresh overlays from websocket
+app.post('/api/refresh', (req, res) => {
+  broadcast('refresh');
+  res.send('Refresh triggered');
 });
 
 // --- LASTFM API ---
@@ -129,7 +205,6 @@ function parseLatestTrack(data) {
 
 app.get('/api/lastfm/latest/:username', (req, res) => {
   const username = req.params?.username || '';
-  console.log('[LastFM API] Requested username:', username);
   if (!username) {
     console.error('[LastFM API] No username provided');
     return res.status(400).json({ error: 'Username is required' });
@@ -138,8 +213,7 @@ app.get('/api/lastfm/latest/:username', (req, res) => {
     console.error('[LastFM API] LASTFM_API_KEY is not set');
     return res.status(500).json({ error: 'LASTFM_API_KEY is not set' });
   }
-  const url = `https://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks&user=${username}&api_key=${LASTFM_API_KEY}&format=json&limit=1`;
-  console.log('[LastFM API] Fetching URL:', url);
+  const url = `https://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks&user=${username}&api_key=${LASTFM_API_KEY}&format=json&limit=1`;  
 
   https.get(url, (response) => {
     let data = '';
@@ -196,6 +270,6 @@ if (!fs.existsSync(distRoot)) {
   }
 }
 
-app.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server + WS running on https://localhost:${PORT}`);
 });

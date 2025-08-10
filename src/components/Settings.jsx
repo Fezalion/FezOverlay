@@ -38,6 +38,8 @@ export function Settings() {
   const [emoteScale, setEmoteScale] = useState(1.0);
   const [emoteDelay, setEmoteDelay] = useState(150);
 
+  const [version, setVersion] = useState();
+
 
   
 
@@ -66,6 +68,11 @@ export function Settings() {
         setTextStrokeSize(data.textStrokeSize || '0');
         setEmoteDelay(data.emoteDelay || 150);
       });
+      fetch('/api/version')
+        .then(res => res.json())
+        .then(data => {
+          if (data.version) setVersion(data.version);
+        });
   }, []);
 
   const updateSetting = (key, value) => {
@@ -73,6 +80,11 @@ export function Settings() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ [key]: value })
+    }).then(() => {
+      fetch('/api/refresh', {
+        method: 'POST'
+      });
+      console.log("Refresh Event dispatch");
     });
   };
 
@@ -198,7 +210,7 @@ export function Settings() {
 
   return (
     <div className='settingsMainContainer'>
-      <h1 style={{ textAlign: 'center'}}>Overlay Settings</h1>      
+      <h1 style={{ textAlign: 'center'}}>Overlay Settings <span className='explanation'>{version}</span></h1>     
 
       <div className='settingsInsideContainer'>
         <div className="settingsContainer">
