@@ -32,14 +32,16 @@ export function Settings() {
 
   const [twitchName, setTwitchName] = useState('');
   const [lastfmName, setLastfmName] = useState('');
+
   const [emoteSetId, setEmoteSetId] = useState('');
   const [emoteLifetime, setEmoteLifetime] = useState(5000);
   const [emoteScale, setEmoteScale] = useState(1.0);
+  const [emoteDelay, setEmoteDelay] = useState(150);
 
 
   
 
-
+  //set the settings for displaying
   useEffect(() => {
     fetch('/api/settings')
       .then(res => res.json())
@@ -62,6 +64,7 @@ export function Settings() {
         setTextStroke(data.textStroke || false);
         setTextStrokeColor(data.textStrokeColor || 'rgba(0, 0, 0, 1)');
         setTextStrokeSize(data.textStrokeSize || '0');
+        setEmoteDelay(data.emoteDelay || 150);
       });
   }, []);
 
@@ -128,6 +131,12 @@ export function Settings() {
     updateSetting('emoteScale', val);
   };
 
+  const handleEmoteDelayChange = (e) => {
+    const val = parseInt(e.target.value) || 150;
+    setEmoteDelay(val);
+    updateSetting('emoteDelay', val);
+  }
+
   const handleBgColorChange = (newColor) => {
     setColor(newColor);
     updateSetting('bgColor', newColor);
@@ -191,7 +200,7 @@ export function Settings() {
     <div className='settingsMainContainer'>
       <h1 style={{ textAlign: 'center'}}>Overlay Settings</h1>      
 
-      <div style={{ display: 'flex', flexDirection: 'row' }}>
+      <div className='settingsInsideContainer'>
         <div className="settingsContainer">
           <h1>Song Overlay Settings</h1>
           <p className='explanation'>
@@ -393,7 +402,7 @@ export function Settings() {
 
     <div className='settingsContainer'>
       <h1>Emote Overlay Settings</h1>
-      <p style={{marginBottom: 16, fontSize: 16, lineHeight: 1.5}}>
+      <p className='explanation'>
         The emote overlay displays 7TV emotes in real-time as they are used in chat.
         You can customize the appearance of the emotes and their behavior.</p>
       <label className='labelH'>
@@ -430,8 +439,7 @@ export function Settings() {
           placeholder="Enter emote lifetime in ms (default 5000)"
           ></input>
       </label>
-      <span style={{color: "grey"}}>Duration for which emotes are displayed (in ms)[Limited to 500-20000ms]</span>
-
+      <span className='explanation'>Duration for which emotes are displayed (in ms)[Limited to 500-20000ms][Default: 5000]</span>
 
       <label className='labelH'>
         <span style={{minWidth: 120}}>Emote Scale</span>
@@ -446,9 +454,22 @@ export function Settings() {
           placeholder="Enter emote scale (default 1.0)"
           ></input>
       </label>
-      <span style={{flex: 1, color: "grey"}}>Scale of emotes when displayed (default 1.0)</span>
+      <span className='explanation'>Scale of emotes when displayed [Limited to 0.1-5.0][Default: 1.0]</span>
 
-
+      <label className='labelH'>
+        <span style={{minWidth: 120}}>Emote Delay</span>
+        <input
+        type='number'
+        min="0"
+        max="5000"
+        step="1"
+        value={emoteDelay}
+        onChange={handleEmoteDelayChange}
+        style={{flex: 1, padding: 4, borderRadius: 6, border: '1px solid #ccc'}}
+        placeholder='Enter the emote delay (default 150)'
+        ></input>
+      </label>
+      <span className='explanation'>Delay of emotes spawning from the same message (in ms)[Limited to 0-5000][Default: 150]</span>
     </div>
     </div>
     </div>

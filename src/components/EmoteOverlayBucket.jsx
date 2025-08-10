@@ -1,14 +1,13 @@
 import { useState, useEffect, useRef} from "react";
-import Matter from "matter-js";
+import Matter, { Body } from "matter-js";
 import tmi from "tmi.js";
 
-export function EmoteOverlay() {  
+export function EmoteOverlayBucket() {
   // Fetch channel name once on mount
   const [channelName, setChannelName] = useState(null);
   const [emoteSetId, setEmoteSetId] = useState("");
   const [emoteLifetime, setEmoteLifetime] = useState(5000);
   const [emoteScale, setEmoteScale] = useState(1.0);
-  const [emoteDelay, setEmoteDelay] = useState(150);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -21,7 +20,7 @@ export function EmoteOverlay() {
 
         console.log("Fetched settings:", data);
 
-        const { twitchName, emoteSetId, emoteLifetime, emoteScale, emoteDelay } = data;
+        const { twitchName, emoteSetId, emoteLifetime, emoteScale } = data;
 
         if (typeof twitchName === "string" && twitchName.length > 0) {
           setChannelName(twitchName);
@@ -41,10 +40,6 @@ export function EmoteOverlay() {
 
         if (typeof emoteScale === "number" && emoteScale > 0) {
           setEmoteScale(emoteScale);
-        }
-
-        if (typeof emoteDelay === "number" && emoteDelay >= 0) {
-          setEmoteDelay(emoteDelay)
         }
 
         // Set loading to false if required keys are valid
@@ -69,12 +64,12 @@ export function EmoteOverlay() {
   }
 
   // Once channelName is set, render the full emote overlay and start effects
-  return <EmoteOverlayCore twitchname={channelName} emoteset={emoteSetId} emoteLifetime={emoteLifetime} emoteScale={emoteScale} emoteDelay={emoteDelay} />;
+  return <EmoteOverlayCore twitchname={channelName} emoteset={emoteSetId} emoteLifetime={emoteLifetime} emoteScale={emoteScale} />;
 }
 
 function EmoteOverlayCore(args) {
   const sceneRef = useRef(null);
-  const { twitchname, emoteset, emoteLifetime, emoteScale, emoteDelay } = args;
+  const { twitchname, emoteset, emoteLifetime, emoteScale } = args;
 
   useEffect(() => {
     // Create physics engine
@@ -99,6 +94,7 @@ function EmoteOverlayCore(args) {
         height,
         background: "#ffffff00",        
         wireframes: false,
+        showAngleIndicator:true,
         pixelRatio: window.devicePixelRatio || 1,
       }
     });
@@ -133,12 +129,66 @@ function EmoteOverlayCore(args) {
       }),
     ];
 
+    const bucketWidth = 150;
+    const bucketHeight = 170;
+    const bwallThickness = 5;
+    const bucketX = width / 2;    // center X position
+    const bucketY = height / 1.5; // center Y position
+    const wallAngleDeg = 10;
 
-    Matter.World.add(world, [ground, ...walls]);
+    const wallAngle = wallAngleDeg * (Math.PI / 180);
+
+    // Calculate actual side wall length so it reaches top after tilting
+    const sideWallLength = bucketHeight / Math.cos(wallAngle);
+
+    // Half dimensions for easier math
+    const halfW = bucketWidth / 2;
+    const halfT = bwallThickness / 2;
+
+    // Bottom wall
+    const bottomWall = Matter.Bodies.rectangle(
+      bucketX,
+      bucketY,
+      bucketWidth,
+      bwallThickness,
+      { isStatic: true, render: { fillStyle: "#ff0000" } }
+    );
+
+    // Left wall — bottom touching bottom wall's left end
+    const leftWallX = bucketX - halfW + halfT * Math.cos(wallAngle);
+    const leftWallY = bucketY - (sideWallLength / 2) * Math.cos(0); // vertical center
+
+    const leftWall = Matter.Bodies.rectangle(
+      leftWallX,
+      leftWallY - (bucketHeight / 2) + (sideWallLength / 2), // center correction
+      bwallThickness,
+      sideWallLength,
+      { isStatic: true, render: { fillStyle: "#ff0000" } }
+    );
+    Matter.Body.rotate(leftWall, -wallAngle);
+
+    // Right wall — bottom touching bottom wall's right end
+    const rightWallX = bucketX + halfW - halfT * Math.cos(wallAngle);
+    const rightWallY = leftWallY;
+
+    const rightWall = Matter.Bodies.rectangle(
+      rightWallX,
+      rightWallY - (bucketHeight / 2) + (sideWallLength / 2),
+      bwallThickness,
+      sideWallLength,
+      { isStatic: true, render: { fillStyle: "#ff0000" } }
+    );
+    Matter.Body.rotate(rightWall, wallAngle);
+
+    // Add to world
+    const Bucket = [leftWall, rightWall, bottomWall];
+    Matter.World.add(world, [ground, ...Bucket, ...walls]);
+
+    // Run
     const runner = Matter.Runner.create();
-    // Run engine and renderer
     Matter.Runner.run(runner, engine);
     Matter.Render.run(render);
+
 
     //  --- 7tv Emote Setup ---
     let emoteMap = new Map();
@@ -172,6 +222,11 @@ function EmoteOverlayCore(args) {
 
             console.log("Total emotes to load: ", data.emotes.length);
 
+            console.log(globalData);
+
+
+
+
             data.emotes.forEach(emote => {
                 if (emote.name && emote.id) {
                   
@@ -203,11 +258,15 @@ function EmoteOverlayCore(args) {
     client.connect().catch(error => {console.error("Error connecting to twitch: ", error)});
         
     function spawnEmote(emoteName) {
-      const x = 100 + (Math.random() * (width - 200));
-      const size = (50 + Math.random() * 30) * emoteScale; // Scale size based on emoteScale prop
+      const verticalOffset = 80;
+      const horizontalOffset = 40;
+
+      const x = bucketX + (Math.random() * (horizontalOffset * 2) - horizontalOffset);
+      const y = bucketY - bucketHeight / 2 - verticalOffset
+      const size = (25 + Math.random() * 30) * emoteScale; // Scale size based on emoteScale prop
       const emoteUrl = emoteMap.get(emoteName);
 
-      const body = Matter.Bodies.rectangle(x, 5, size, size, {
+      const body = Matter.Bodies.rectangle(x, y, size, size, {
         render: {
           fillStyle: 'transparent',
           strokeStyle: 'transparent',
@@ -216,14 +275,15 @@ function EmoteOverlayCore(args) {
       });
 
       Matter.World.add(world, body);
-      Matter.Body.setVelocity(body, { x: (Math.random() * 30) - 15, y: -10 }); // random horizontal velocity      
+      Matter.Body.setVelocity(body, { x: (Math.random() * 20) - 10, y: 2 }); // random horizontal velocity
       Matter.Body.setAngularVelocity(body, (Math.random() - 0.5) * 0.2); // adds spin
 
-      const el = createEmoteElement(emoteUrl, size);
+      const el = createEmoteElement(emoteUrl, size, x);
 
       // Position immediately so it doesn't appear at (0,0)
       el.style.left = `${x - size / 2}px`;
       el.style.top = `${5 - size / 2}px`;
+      el.style.opacity = `1`;
 
       bodiesWithTimers.push({ body, born: Date.now(), el, size });
     }
@@ -238,9 +298,10 @@ function EmoteOverlayCore(args) {
       img.style.position = "fixed";
       img.style.pointerEvents = "none";
       img.style.zIndex = "9999";
+      img.style.opacity = `0`;
       document.body.appendChild(img);
       return img;
-  }
+    }
     //spawn emotes on chat messages
 
     client.on("message", (channel, tags, message, self) => {
@@ -253,7 +314,7 @@ function EmoteOverlayCore(args) {
         emotes.forEach((emote, i) => {
         setTimeout(() => {
             spawnEmote(emote);
-        }, i * emoteDelay);
+        }, i * 100); // delay per emote
         });
       });
     
