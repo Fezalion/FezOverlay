@@ -8,10 +8,8 @@ export function EmoteOverlay() {
   const wsRef = useRef(null);
 
   useEffect(() => {
-    // You can replace this URL with a variable or setting as needed
     const wsUrl = "ws://localhost:48000";
 
-    // Create WebSocket connection
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 
@@ -31,7 +29,6 @@ export function EmoteOverlay() {
     };
 
     return () => {
-      // Cleanup on unmount
       if (wsRef.current) {
         wsRef.current.close();
       }
@@ -50,7 +47,7 @@ export function EmoteOverlay() {
     }
 
     fetchSettings();
-  }, [refreshToken]); // Re-fetch settings whenever refreshToken increments
+  }, [refreshToken]);
 
   if (!settings) return null;
 
@@ -65,7 +62,9 @@ function EmoteOverlayCore({ twitchName, emoteSetId, emoteLifetime, emoteScale, e
   const clientRef = useRef(null);
   const spawnEmoteRef = useRef(null);
 
-  // Twitch client connect/disconnect on twitchName change ONLY
+  const lifetime = typeof emoteLifetime === "number" && emoteLifetime > 0 ? emoteLifetime : 5000;
+
+  // Twitch client connection
   useEffect(() => {
     if (!twitchName) return;
 
@@ -84,7 +83,7 @@ function EmoteOverlayCore({ twitchName, emoteSetId, emoteLifetime, emoteScale, e
     };
   }, [twitchName]);
 
-  // Load emotes & recreate physics engine when any of these change:
+  // Load emotes and initialize physics engine
   useEffect(() => {
     if (!emoteSetId) return;
 
@@ -107,7 +106,6 @@ function EmoteOverlayCore({ twitchName, emoteSetId, emoteLifetime, emoteScale, e
     const runner = Matter.Runner.create();
     Matter.Runner.run(runner, engine);
 
-    // Load emotes into new map
     async function fetchEmoteSet(set) {
       const res = await fetch(`https://7tv.io/v3/emote-sets/${set}`);
       if (!res.ok) throw new Error(res.statusText);
@@ -124,7 +122,12 @@ function EmoteOverlayCore({ twitchName, emoteSetId, emoteLifetime, emoteScale, e
           if (!emote.name || !emote.id) return;
           const file = emote.data.host.files[1]; // 2x res
           const url = `https:${emote.data.host.url}/${file.name}`;
-          newMap.set(emote.name, { url, width: file.width, height: file.height });
+          newMap.set(emote.name, {
+            url,
+            width: file.width,
+            height: file.height,
+            animated: emote.data.animated || false,
+          });
         });
         emoteMap.current = newMap;
         console.log(`Loaded ${newMap.size} emotes`);
@@ -135,7 +138,7 @@ function EmoteOverlayCore({ twitchName, emoteSetId, emoteLifetime, emoteScale, e
 
     loadEmotes();
 
-    function createEmoteElement(url, sizeX, sizeY) {
+    function createEmoteElement(url, sizeX, sizeY, animated) {
       const img = document.createElement("img");
       img.src = url;
       img.style.width = sizeX + "px";
@@ -143,17 +146,40 @@ function EmoteOverlayCore({ twitchName, emoteSetId, emoteLifetime, emoteScale, e
       img.style.position = "fixed";
       img.style.pointerEvents = "none";
       img.style.zIndex = "9999";
-      img.style.transition = "opacity 0.5s linear";
+      img.style.opacity = "0";
+      img.style.transition = "opacity 0.5s ease";
       document.body.appendChild(img);
+
+      requestAnimationFrame(() => {
+        img.style.opacity = "1";
+      });
+
       return img;
     }
 
-    spawnEmoteRef.current = (emoteName) => {
+    function createParticle(x, y, particleColor) {
+      const particle = document.createElement("div");
+      particle.style.position = "fixed";
+      particle.style.pointerEvents = "none";
+      particle.style.zIndex = "9998";
+      particle.style.width = "6px";
+      particle.style.height = "6px";
+      particle.style.borderRadius = "50%";
+      particle.style.background = particleColor; // orange
+      particle.style.left = x + "px";
+      particle.style.top = y + "px";
+      particle.style.opacity = "1";
+      particle.style.transition = "opacity 0.5s linear, transform 0.5s linear";
+      document.body.appendChild(particle);
+      return particle;
+    }
+
+    spawnEmoteRef.current = (emoteName, isSub = false, userColor = "orange") => {
       const emote = emoteMap.current.get(emoteName);
       if (!emote) return;
 
-      const sizeX = emote.width * emoteScale;
-      const sizeY = emote.height * emoteScale;
+      const sizeX = emote.width * emoteScale * (isSub ? 1.3 : 1);
+      const sizeY = emote.height * emoteScale * (isSub ? 1.3 : 1);
       const x = 100 + Math.random() * (width - 200);
 
       const body = Matter.Bodies.rectangle(x, 5, sizeX, sizeY, { render: { visible: false } });
@@ -161,35 +187,100 @@ function EmoteOverlayCore({ twitchName, emoteSetId, emoteLifetime, emoteScale, e
       Matter.Body.setVelocity(body, { x: (Math.random() * 30) - 15, y: -10 });
       Matter.Body.setAngularVelocity(body, (Math.random() - 0.5) * 0.2);
 
-      const el = createEmoteElement(emote.url, sizeX, sizeY);
-      bodiesWithTimers.current.push({ body, born: Date.now(), el, sizeX, sizeY });
+      const el = createEmoteElement(emote.url, sizeX, sizeY, emote.animated);
+
+      // Track particles and the color for particles
+      const particles = [];
+
+      bodiesWithTimers.current.push({ body, born: Date.now(), el, sizeX, sizeY, animated: emote.animated, isSub, particles, particleColor: userColor });
     };
+
 
     Matter.Events.on(engine, "beforeUpdate", () => {
       const now = Date.now();
       for (let i = bodiesWithTimers.current.length - 1; i >= 0; i--) {
-        const { body, born, el } = bodiesWithTimers.current[i];
+        const { body, born, el, particles } = bodiesWithTimers.current[i];
         const age = now - born;
-        if (age >= emoteLifetime) {
+        if (age >= lifetime) {
           Matter.World.remove(world, body);
           el.style.opacity = "0";
           setTimeout(() => el.remove(), 500);
+
+          // Clean up particles
+          if (particles) {
+            particles.forEach((p) => p.el.remove());
+            particles.length = 0;
+          }
+
           bodiesWithTimers.current.splice(i, 1);
         }
       }
     });
 
     function updateDOM() {
-      bodiesWithTimers.current.forEach(({ body, el, sizeX, sizeY }) => {
-        el.style.transform = `translate(${body.position.x - sizeX / 2}px, ${body.position.y - sizeY / 2}px) rotate(${body.angle}rad)`;
+      const now = Date.now();
+
+      bodiesWithTimers.current.forEach((obj) => {
+        const { body, el, sizeX, sizeY, isSub, particles, particleColor } = obj;
+        const x = body.position.x - sizeX / 2;
+        const y = body.position.y - sizeY / 2;
+        el.style.transform = `translate(${x}px, ${y}px) rotate(${body.angle}rad)`;
+
+        if (isSub) {
+          if (Math.random() < 0.3) {
+            const px = x + sizeX / 2;
+            const py = y + sizeY / 2;
+            const pEl = createParticle(px, py, particleColor);
+            particles.push({
+              el: pEl,
+              born: now,
+              x: px,
+              y: py,
+              vx: (Math.random() - 0.5) * 1,
+              vy: Math.random() * 1.5 + 1,
+            });
+          }
+
+          for (let i = particles.length - 1; i >= 0; i--) {
+            const p = particles[i];
+            const age = now - p.born;
+            const lifeRatio = 1 - age / 600;
+            if (lifeRatio <= 0) {
+              p.el.remove();
+              particles.splice(i, 1);
+              continue;
+            }
+            p.x += p.vx;
+            p.y += p.vy;
+            p.el.style.left = p.x + "px";
+            p.el.style.top = p.y + "px";
+            p.el.style.opacity = lifeRatio;
+            p.el.style.transform = `scale(${lifeRatio})`;
+          }
+        }
       });
       rafId.current = requestAnimationFrame(updateDOM);
     }
     rafId.current = requestAnimationFrame(updateDOM);
 
+    // Clear all emotes on reload/update
+    bodiesWithTimers.current.forEach(({ body, el, particles }) => {
+      Matter.World.remove(world, body);
+      el.remove();
+      if (particles) {
+        particles.forEach((p) => p.el.remove());
+      }
+    });
+    bodiesWithTimers.current = [];
+
     return () => {
       cancelAnimationFrame(rafId.current);
-      bodiesWithTimers.current.forEach(({ el }) => el.remove());
+      bodiesWithTimers.current.forEach(({ el, particles }) => {
+        el.remove();
+        if (particles) {
+          particles.forEach((p) => p.el.remove());
+        }
+      });
       bodiesWithTimers.current.length = 0;
       Matter.Runner.stop(runner);
       Matter.Engine.clear(engine);
@@ -198,20 +289,27 @@ function EmoteOverlayCore({ twitchName, emoteSetId, emoteLifetime, emoteScale, e
     };
   }, [emoteSetId, emoteLifetime, emoteScale]);
 
-  // Twitch message handler updates on twitchName, emoteDelay, and spawnEmoteRef
+  // Twitch message handler
   useEffect(() => {
     const client = clientRef.current;
     if (!client || !spawnEmoteRef.current) return;
 
-    function onMessage(_, __, message) {
+    function onMessage(channel, userstate, message) {
       const words = message.split(/\s+/);
       const emotes = words.filter((w) => emoteMap.current.has(w));
-      emotes.forEach((emote, i) => {
+      emotes.forEach((emoteName, i) => {
         setTimeout(() => {
-          spawnEmoteRef.current?.(emote);
+          const isSub =
+            userstate.subscriber ||
+            userstate.mod ||
+            userstate.badges?.vip ||
+            userstate.badges?.broadcaster;
+          const userColor = userstate.color || "orange"; // fallback color
+          spawnEmoteRef.current?.(emoteName, isSub, userColor);
         }, i * emoteDelay);
       });
     }
+
 
     client.on("message", onMessage);
     return () => {
