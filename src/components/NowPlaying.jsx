@@ -150,11 +150,6 @@ export function NowPlaying() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [position]);
 
-  const updateCSSVars = (x, y) => {
-    document.documentElement.style.setProperty('--overlay-x', `${x}px`);
-    document.documentElement.style.setProperty('--overlay-y', `${y}px`);
-  };
-
   const updateSetting = (key, value) => {
     fetch('/api/settings', {
       method: 'POST',
@@ -183,7 +178,7 @@ export function NowPlaying() {
       <span className="songPanel"
       style={{
         bottom: position.y * -1,
-        right: position.y * -1,
+        right: position.x * -1,
         background: color,
         color: fontColor,
         padding: padding,
