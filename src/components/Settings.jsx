@@ -220,7 +220,7 @@ export function Settings() {
 
   return (
     <div className='settingsMainContainer'>
-      <h1 style={{ textAlign: 'center'}}>Overlay Settings <span className='explanation'>installed {version}</span> {latestVersion !== version && <span className='explanation'> | you can update to {latestVersion}</span>} </h1>     
+      <h1 style={{ textAlign: 'center'}}>Overlay Settings <span className='explanation'>installed {version}</span> {latestVersion !== version && <span className='explanation'> | you can update to <span style={{color:"green"}}>{latestVersion}</span></span>} </h1>     
 
       <div className='settingsInsideContainer'>
         <div className="settingsContainer">
