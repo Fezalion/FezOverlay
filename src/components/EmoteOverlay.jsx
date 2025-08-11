@@ -45,11 +45,11 @@ export function EmoteOverlay() {
         wsRef.current.close();
       }
     };
-  }, [refreshToken]);
+  }, []);
 
   useEffect(() => {  
     fetchSettings();
-  }, []);
+  }, [refreshToken]);
 
   if (!settings) return null;
 
