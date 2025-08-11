@@ -1,237 +1,139 @@
-import { useState, useEffect, useRef} from "react";
+import { useState, useEffect, useRef } from "react";
 import Matter from "matter-js";
 import tmi from "tmi.js";
 
-export function EmoteOverlay() {  
-  // Fetch channel name once on mount
-  const [channelName, setChannelName] = useState(null);
-  const [emoteSetId, setEmoteSetId] = useState("");
-  const [emoteLifetime, setEmoteLifetime] = useState(5000);
-  const [emoteScale, setEmoteScale] = useState(1.0);
-  const [emoteDelay, setEmoteDelay] = useState(150);
-  const [loading, setLoading] = useState(true);
+export function EmoteOverlay() {
+  const [settings, setSettings] = useState(null);
+  const [refreshToken, setRefreshToken] = useState(0);
+  const wsRef = useRef(null);
 
   useEffect(() => {
-    if (!loading) return;
+    // You can replace this URL with a variable or setting as needed
+    const wsUrl = "ws://localhost:48000";
 
-    const fetchSettings = async () => {
-      try {
-        const res = await fetch("/api/settings");
-        const data = await res.json();
+    // Create WebSocket connection
+    const ws = new WebSocket(wsUrl);
+    wsRef.current = ws;
 
-        console.log("Fetched settings:", data);
-
-        const { twitchName, emoteSetId, emoteLifetime, emoteScale, emoteDelay } = data;
-
-        if (typeof twitchName === "string" && twitchName.length > 0) {
-          setChannelName(twitchName);
-        } else {
-          console.warn("Missing or invalid twitchName");
-        }
-
-        if (typeof emoteSetId === "string" && emoteSetId.length > 0) {
-          setEmoteSetId(emoteSetId);
-        } else {
-          console.warn("Missing or invalid emoteSetId");
-        }
-
-        if (typeof emoteLifetime === "number" && emoteLifetime > 0) {
-          setEmoteLifetime(emoteLifetime);
-        }
-
-        if (typeof emoteScale === "number" && emoteScale > 0) {
-          setEmoteScale(emoteScale);
-        }
-
-        if (typeof emoteDelay === "number" && emoteDelay >= 0) {
-          setEmoteDelay(emoteDelay)
-        }
-
-        // Set loading to false if required keys are valid
-        if (twitchName && emoteSetId) {
-          setLoading(false);
-        } else {
-          console.warn("Incomplete settings received.");
-        }
-
-      } catch (error) {
-        console.error("Failed to fetch Twitch settings:", error);
+    ws.onmessage = (event) => {
+      if (event.data === "refresh") {
+        setRefreshToken((c) => c + 1);
+        console.log("refreshing");
       }
     };
 
-    fetchSettings();
-  }, [loading]);
+    ws.onerror = (err) => {
+      console.error("WebSocket error:", err);
+    };
 
+    ws.onclose = () => {
+      console.log("WebSocket closed");
+    };
 
-  if (channelName == null) {
-    // Render nothing or a loader until channelName is ready
-    return <div>Loading Twitch channel...</div>;
-  }
-
-  // Once channelName is set, render the full emote overlay and start effects
-  return <EmoteOverlayCore twitchname={channelName} emoteset={emoteSetId} emoteLifetime={emoteLifetime} emoteScale={emoteScale} emoteDelay={emoteDelay} />;
-}
-
-function EmoteOverlayCore(args) {
-  const sceneRef = useRef(null);
-  const { twitchname, emoteset, emoteLifetime, emoteScale, emoteDelay } = args;
+    return () => {
+      // Cleanup on unmount
+      if (wsRef.current) {
+        wsRef.current.close();
+      }
+    };
+  }, []);
 
   useEffect(() => {
-    // Create physics engine
-    const engine = Matter.Engine.create();
-    const world = engine.world;
+    async function fetchSettings() {
+      try {
+        const res = await fetch("/api/settings");
+        const json = await res.json();
+        setSettings(json);
+      } catch (err) {
+        console.error("Failed to load settings:", err);
+      }
+    }
+
+    fetchSettings();
+  }, [refreshToken]); // Re-fetch settings whenever refreshToken increments
+
+  if (!settings) return null;
+
+  return <EmoteOverlayCore {...settings} />;
+}
+
+function EmoteOverlayCore({ twitchName, emoteSetId, emoteLifetime, emoteScale, emoteDelay }) {
+  const sceneRef = useRef(null);
+  const emoteMap = useRef(new Map());
+  const bodiesWithTimers = useRef([]);
+  const rafId = useRef(null);
+  const clientRef = useRef(null);
+  const spawnEmoteRef = useRef(null);
+
+  // Twitch client connect/disconnect on twitchName change ONLY
+  useEffect(() => {
+    if (!twitchName) return;
+
+    const client = new tmi.Client({
+      options: { debug: false },
+      connection: { reconnect: true, secure: true },
+      channels: [twitchName],
+    });
+
+    client.connect().catch(console.error);
+    clientRef.current = client;
+
+    return () => {
+      client.disconnect().catch(() => {});
+      clientRef.current = null;
+    };
+  }, [twitchName]);
+
+  // Load emotes & recreate physics engine when any of these change:
+  useEffect(() => {
+    if (!emoteSetId) return;
+
+    let engine = Matter.Engine.create();
+    let world = engine.world;
+    engine.gravity.y = 1;
 
     const width = window.innerWidth;
     const height = window.innerHeight;
-    engine.gravity.y = 1;
 
-
-    // Store bodies with metadata
-    const bodiesWithTimers = [];
-    const LIFETIME = emoteLifetime // 5 seconds
-
-    // Create renderer bound to our div
-    const render = Matter.Render.create({
-      element: sceneRef.current,
-      engine: engine,
-      options: {
-        width,
-        height,
-        background: "#ffffff00",        
-        wireframes: false,
-        pixelRatio: window.devicePixelRatio || 1,
-      }
-    });
-
-    // Add ground and walls (static)
-    const ground = Matter.Bodies.rectangle(width / 2, height + 40, width, 40, { 
-      isStatic: true,
-      render: { fillStyle: "#000000" }
-    });
     const wallThickness = 40;
-
     const walls = [
-      // Left wall
-      Matter.Bodies.rectangle(-wallThickness / 2, height / 2, wallThickness, height, {
-        isStatic: true,
-        render: { fillStyle: "#000000" },
-      }),
-      // Right wall
-      Matter.Bodies.rectangle(width + wallThickness / 2, height / 2, wallThickness, height, {
-        isStatic: true,
-        render: { fillStyle: "#000000" },
-      }),
-      // Top wall
-      Matter.Bodies.rectangle(width / 2, -wallThickness / 2, width, wallThickness, {
-        isStatic: true,
-        render: { fillStyle: "#000000" },
-      }),
-      // Bottom wall
-      Matter.Bodies.rectangle(width / 2, height + wallThickness / 2, width, wallThickness, {
-        isStatic: true,
-        render: { fillStyle: "#000000" },
-      }),
+      Matter.Bodies.rectangle(-wallThickness / 2, height / 2, wallThickness, height, { isStatic: true }),
+      Matter.Bodies.rectangle(width + wallThickness / 2, height / 2, wallThickness, height, { isStatic: true }),
+      Matter.Bodies.rectangle(width / 2, -wallThickness / 2, width, wallThickness, { isStatic: true }),
+      Matter.Bodies.rectangle(width / 2, height + wallThickness / 2, width, wallThickness, { isStatic: true }),
     ];
+    Matter.World.add(world, walls);
 
-
-    Matter.World.add(world, [ground, ...walls]);
     const runner = Matter.Runner.create();
-    // Run engine and renderer
     Matter.Runner.run(runner, engine);
-    Matter.Render.run(render);
 
-    //  --- 7tv Emote Setup ---
-    let emoteMap = new Map();
-
+    // Load emotes into new map
     async function fetchEmoteSet(set) {
-      const res = await fetch("https://7tv.io/v3/emote-sets/" + set);
-            if (!res.ok) {
-                console.error("Failed to fetch 7tv emotes:", res.statusText);
-                return;
-            }
-            const data = await res.json();
-
-            if (!data || !data.emotes) {
-                console.error("No emotes found in 7tv response");
-                return;
-            }
-            console.log(`Fetched ${data.emotes.length} emotes from 7tv set ${set}`);
-            return data;
+      const res = await fetch(`https://7tv.io/v3/emote-sets/${set}`);
+      if (!res.ok) throw new Error(res.statusText);
+      const data = await res.json();
+      return data?.emotes || [];
     }
 
-    async function load7tvEmotes() {  
-      const globalEmoteSetId = 'global'   
-        try {
-            const data = await fetchEmoteSet(emoteset);
-            const globalData = await fetchEmoteSet(globalEmoteSetId);
-            console.log("emote set has emotes: ", data.emotes.length, " global has: ", globalData?.emotes?.length ?? 0);
-            data.emotes = data.emotes ?? [];
-            if (globalData?.emotes) {
-                data.emotes.push(...globalData.emotes);
-            }
-
-            console.log("Total emotes to load: ", data.emotes.length);
-
-            data.emotes.forEach(emote => {
-                if (emote.name && emote.id) {
-                  
-                  if(emote.data.animated === true) {
-                    emoteMap.set(emote.name, { url: `https:${emote.data.host.url}/2x.gif`, width: emote.data.host.files[1].width, height: emote.data.host.files[1].height }); // Use animated URL if available
-                  } else {
-                    emoteMap.set(emote.name,  {url :`https:${emote.data.host.url}/2x.webp`, width: emote.data.host.files[1].width, height: emote.data.host.files[1].height }); // Get the highest resolution URL
-                  }                   
-                }
-            });
-            console.log(`Loaded ${emoteMap.size} 7tv emotes`);
-        }
-        catch (error) {
-            console.error("Error loading 7tv emotes:", error);
-        }
+    async function loadEmotes() {
+      try {
+        const [setEmotes, globalEmotes] = await Promise.all([fetchEmoteSet(emoteSetId), fetchEmoteSet("global")]);
+        const allEmotes = [...setEmotes, ...globalEmotes];
+        const newMap = new Map();
+        allEmotes.forEach((emote) => {
+          if (!emote.name || !emote.id) return;
+          const file = emote.data.host.files[1]; // 2x res
+          const url = `https:${emote.data.host.url}/${file.name}`;
+          newMap.set(emote.name, { url, width: file.width, height: file.height });
+        });
+        emoteMap.current = newMap;
+        console.log(`Loaded ${newMap.size} emotes`);
+      } catch (e) {
+        console.error("Error loading emotes:", e);
+      }
     }
 
-    load7tvEmotes();
-    console.log("trying to connect to twitch using channel: ", twitchname);
-    //  --- Twitch Chat Setup ---
-    const client = new tmi.Client({
-        channels: [twitchname],
-        connection: {
-            reconnect: true,
-            secure: true
-        }
-    });
-
-    client.connect().catch(error => {console.error("Error connecting to twitch: ", error)});
-        
-    function spawnEmote(emoteName) {
-      const x = 100 + (Math.random() * (width - 200));
-      //const size = (50 + Math.random() * 30) * emoteScale; // Scale size based on emoteScale prop
-      const emote = emoteMap.get(emoteName);
-      const emoteUrl = emote.url;
-      const sizeX = emote.width * emoteScale;
-      const sizeY = emote.height * emoteScale;
-
-      const body = Matter.Bodies.rectangle(x, 5, sizeX, sizeY, {
-        render: {
-          fillStyle: 'transparent',
-          strokeStyle: 'transparent',
-          lineWidth: 0,
-        }
-      });
-
-      Matter.World.add(world, body);
-      Matter.Body.setVelocity(body, { x: (Math.random() * 30) - 15, y: -10 }); // random horizontal velocity      
-      Matter.Body.setAngularVelocity(body, (Math.random() - 0.5) * 0.2); // adds spin
-
-      const el = createEmoteElement(emoteUrl, sizeX,sizeY);
-
-      // Position immediately so it doesn't appear at (0,0)
-      el.style.left = `${x - sizeX / 2}px`;
-      el.style.top = `${5 - sizeY / 2}px`;
-
-      bodiesWithTimers.push({ body, born: Date.now(), el, sizeX, sizeY });
-    }
-
-
+    loadEmotes();
 
     function createEmoteElement(url, sizeX, sizeY) {
       const img = document.createElement("img");
@@ -241,70 +143,81 @@ function EmoteOverlayCore(args) {
       img.style.position = "fixed";
       img.style.pointerEvents = "none";
       img.style.zIndex = "9999";
+      img.style.transition = "opacity 0.5s linear";
       document.body.appendChild(img);
       return img;
-  }
-    //spawn emotes on chat messages
+    }
 
-    client.on("message", (channel, tags, message, self) => {
-        console.log(`Received message: ${message} from ${tags.username}`);
-        //if there are multiple emotes in the message, delay them
+    spawnEmoteRef.current = (emoteName) => {
+      const emote = emoteMap.current.get(emoteName);
+      if (!emote) return;
 
-        const words = message.split(/\s+/);
-        const emotes = words.filter(word => emoteMap.has(word));
-        console.log(`Found emotes: ${emotes.join(", ")}`);
-        emotes.forEach((emote, i) => {
-        setTimeout(() => {
-            spawnEmote(emote);
-        }, i * emoteDelay);
-        });
-      });
-    
-    // Fade out on each update
+      const sizeX = emote.width * emoteScale;
+      const sizeY = emote.height * emoteScale;
+      const x = 100 + Math.random() * (width - 200);
+
+      const body = Matter.Bodies.rectangle(x, 5, sizeX, sizeY, { render: { visible: false } });
+      Matter.World.add(world, body);
+      Matter.Body.setVelocity(body, { x: (Math.random() * 30) - 15, y: -10 });
+      Matter.Body.setAngularVelocity(body, (Math.random() - 0.5) * 0.2);
+
+      const el = createEmoteElement(emote.url, sizeX, sizeY);
+      bodiesWithTimers.current.push({ body, born: Date.now(), el, sizeX, sizeY });
+    };
+
     Matter.Events.on(engine, "beforeUpdate", () => {
       const now = Date.now();
-      for (let i = bodiesWithTimers.length - 1; i >= 0; i--) {
-        const { body, born, el } = bodiesWithTimers[i];
+      for (let i = bodiesWithTimers.current.length - 1; i >= 0; i--) {
+        const { body, born, el } = bodiesWithTimers.current[i];
         const age = now - born;
-
-        if (age >= LIFETIME) {
+        if (age >= emoteLifetime) {
           Matter.World.remove(world, body);
-          el.remove();
-          bodiesWithTimers.splice(i, 1);
-        } else if (age >= LIFETIME * 0.7) {
-          const t = (LIFETIME - age) / (LIFETIME * 0.3);
-          el.style.opacity = Math.max(t, 0);
+          el.style.opacity = "0";
+          setTimeout(() => el.remove(), 500);
+          bodiesWithTimers.current.splice(i, 1);
         }
       }
     });
 
-
-    Matter.Events.on(engine, "afterUpdate", () => {
-      bodiesWithTimers.forEach(({ body, el }) => {
-        const { x, y } = body.position;
-        const size = parseFloat(el.style.width);
-        console.log(size); // we already set px width
-        el.style.left = `${x - size / 2}px`;
-        el.style.top = `${y - size / 2}px`;
-        el.style.transform = `rotate(${body.angle}rad)`;
+    function updateDOM() {
+      bodiesWithTimers.current.forEach(({ body, el, sizeX, sizeY }) => {
+        el.style.transform = `translate(${body.position.x - sizeX / 2}px, ${body.position.y - sizeY / 2}px) rotate(${body.angle}rad)`;
       });
-    });
+      rafId.current = requestAnimationFrame(updateDOM);
+    }
+    rafId.current = requestAnimationFrame(updateDOM);
 
-
-    // Clean up on unmount
     return () => {
-      bodiesWithTimers.forEach(({ el }) => el.remove());
-      client.disconnect();
-      Matter.Render.stop(render);
+      cancelAnimationFrame(rafId.current);
+      bodiesWithTimers.current.forEach(({ el }) => el.remove());
+      bodiesWithTimers.current.length = 0;
       Matter.Runner.stop(runner);
       Matter.Engine.clear(engine);
-      if (render.canvas && render.canvas.parentNode) {
-        render.canvas.parentNode.removeChild(render.canvas);
-      }
-      render.textures = {};
+      emoteMap.current.clear();
+      spawnEmoteRef.current = null;
     };
+  }, [emoteSetId, emoteLifetime, emoteScale]);
 
-  }, []);
+  // Twitch message handler updates on twitchName, emoteDelay, and spawnEmoteRef
+  useEffect(() => {
+    const client = clientRef.current;
+    if (!client || !spawnEmoteRef.current) return;
+
+    function onMessage(_, __, message) {
+      const words = message.split(/\s+/);
+      const emotes = words.filter((w) => emoteMap.current.has(w));
+      emotes.forEach((emote, i) => {
+        setTimeout(() => {
+          spawnEmoteRef.current?.(emote);
+        }, i * emoteDelay);
+      });
+    }
+
+    client.on("message", onMessage);
+    return () => {
+      client.off("message", onMessage);
+    };
+  }, [twitchName, emoteDelay, emoteSetId, emoteScale, emoteLifetime]);
 
   return <div ref={sceneRef} style={{ position: "fixed", top: 0, left: 0, pointerEvents: "none", zIndex: 9999 }} />;
 }
