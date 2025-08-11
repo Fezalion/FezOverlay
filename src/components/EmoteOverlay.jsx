@@ -45,7 +45,7 @@ export function EmoteOverlay() {
         wsRef.current.close();
       }
     };
-  }, []);
+  }, [refreshToken]);
 
   useEffect(() => {  
     fetchSettings();
