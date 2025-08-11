@@ -38,6 +38,7 @@ export function Settings() {
   const [emoteScale, setEmoteScale] = useState(1.0);
   const [emoteDelay, setEmoteDelay] = useState(150);
 
+  const [latestVersion, setLatestVersion] = useState();
   const [version, setVersion] = useState();
   const [update, setUpdate] = useState(false);
 
@@ -72,7 +73,7 @@ export function Settings() {
       fetch('/api/latestversion')
         .then(res => res.json())
         .then(data => {
-          if (data.version) setVersion(data.version);
+          if (data.version) setLatestVersion(data.version);
         })    
   }, []);
 
@@ -80,12 +81,9 @@ export function Settings() {
     fetch('/api/currentversion')
         .then(res => res.json())
         .then(data => {
-          console.log(data.version + "  -  " + version);
-            if (data.version & data.version !== version) {
-              setUpdate(true);
-            }
+          if(data.version) setVersion(data.version);
         });
-  }, [version]);
+  }, [latestVersion]);
 
   const updateSetting = (key, value) => {
     fetch('/api/settings', {
@@ -222,7 +220,7 @@ export function Settings() {
 
   return (
     <div className='settingsMainContainer'>
-      <h1 style={{ textAlign: 'center'}}>Overlay Settings <span className='explanation'>installed {version}</span> {update && <span className='explanation'> latest: {version}</span>} </h1>     
+      <h1 style={{ textAlign: 'center'}}>Overlay Settings <span className='explanation'>installed {version}</span> {latestVersion !== version && <span className='explanation'> | you can update to {latestVersion}</span>} </h1>     
 
       <div className='settingsInsideContainer'>
         <div className="settingsContainer">
