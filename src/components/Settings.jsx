@@ -303,13 +303,14 @@ export function Settings() {
 
       <label className='labelH'>
         <span style={{minWidth: 120}}>Font Family</span>
-        <select value={fontFamily} onChange={handleFontFamily} style={{flex: 1, padding: 4, borderRadius: 6, border: '1px solid #ccc'}}>
+        <select disabled value={fontFamily} onChange={handleFontFamily} style={{flex: 1, padding: 4, borderRadius: 6, border: '1px solid #ccc'}}>
           <option value="Arial, sans-serif">Arial</option>
           <option value="Verdana, Geneva, sans-serif">Verdana</option>
           <option value="Tahoma, Geneva, sans-serif">Tahoma</option>
           <option value="Courier New, Courier, monospace">Courier New</option>
           <option value="Times New Roman, Times, serif">Times New Roman</option>
         </select>
+        <span className='explanation'>Currently disabled, bugged.</span>
       </label> 
 
       {/* Divider */}
