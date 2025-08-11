@@ -37,6 +37,7 @@ export function Settings() {
   const [emoteLifetime, setEmoteLifetime] = useState(5000);
   const [emoteScale, setEmoteScale] = useState(1.0);
   const [emoteDelay, setEmoteDelay] = useState(150);
+  const {subEffects, setSubEffects} = useState(true);
 
   const [latestVersion, setLatestVersion] = useState();
   const [version, setVersion] = useState();
@@ -69,6 +70,7 @@ export function Settings() {
         setTextStrokeColor(data.textStrokeColor || 'rgba(0, 0, 0, 1)');
         setTextStrokeSize(data.textStrokeSize || '0');
         setEmoteDelay(data.emoteDelay || 150);
+        setSubEffects(data.subEffects || true);
       });
       fetch('/api/latestversion')
         .then(res => res.json())
@@ -179,6 +181,12 @@ export function Settings() {
     const val = parseInt(e.target.value) || 0;
     setTextStrokeSize(val);
     updateSetting('textStrokeSize', val);
+  }
+
+  const handleSubEffectsToggle = (e) => {
+    const isChecked = e.target.checked;
+    setTextStroke(isChecked);
+    updateSetting('subEffects', isChecked);
   }
 
   useEffect(() => {
@@ -493,6 +501,15 @@ export function Settings() {
         ></input>
       </label>
       <span className='explanation'>Delay of emotes spawning from the same message (in ms)[Limited to 0-5000][Default: 150]</span>
+      <label className='labelH'>
+        <span style={{minWidth: 120}}>Enable Sub Effects</span>
+        <input
+          type="checkbox"
+          checked={subEffects}
+          onChange={handleSubEffectsToggle}
+          style={{width: 20, height: 20, cursor: 'pointer'}}          
+        />
+      </label>
     </div>
     </div>
     </div>

@@ -7,6 +7,16 @@ export function EmoteOverlay() {
   const [refreshToken, setRefreshToken] = useState(0);
   const wsRef = useRef(null);
 
+  async function fetchSettings() {
+      try {
+        const res = await fetch("/api/settings");
+        const json = await res.json();
+        setSettings(json);
+      } catch (err) {
+        console.error("Failed to load settings:", err);
+      }
+    }
+
   useEffect(() => {
     const wsUrl = "ws://localhost:48000";
 
@@ -28,6 +38,8 @@ export function EmoteOverlay() {
       console.log("WebSocket closed");
     };
 
+    fetchSettings();
+
     return () => {
       if (wsRef.current) {
         wsRef.current.close();
@@ -35,19 +47,9 @@ export function EmoteOverlay() {
     };
   }, []);
 
-  useEffect(() => {
-    async function fetchSettings() {
-      try {
-        const res = await fetch("/api/settings");
-        const json = await res.json();
-        setSettings(json);
-      } catch (err) {
-        console.error("Failed to load settings:", err);
-      }
-    }
-
+  useEffect(() => {  
     fetchSettings();
-  }, [refreshToken]);
+  }, []);
 
   if (!settings) return null;
 
