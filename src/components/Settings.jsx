@@ -80,7 +80,7 @@ export function Settings() {
     fetch('/api/currentversion')
         .then(res => res.json())
         .then(data => {
-          console.log(data.version + " - " + version);
+          console.log(data.version + "  -  " + version);
             if (data.version & data.version !== version) {
               setUpdate(true);
             }
