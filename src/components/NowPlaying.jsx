@@ -54,7 +54,6 @@ export function NowPlaying() {
         if (data.lastfmName?.length > 0) LASTFM_USERNAME = data.lastfmName;
         if (data.playerLocationX !== undefined && data.playerLocationY !== undefined) {
           setPosition({ x: data.playerLocationX, y: data.playerLocationY });
-          updateCSSVars(data.playerLocationX, data.playerLocationY);
         }
         if (data.textStrokeSize !== undefined) setTextStrokeSize(parseInt(data.textStrokeSize));
         if (data.textStrokeColor) setTextStrokeColor(data.textStrokeColor);
@@ -141,7 +140,6 @@ export function NowPlaying() {
 
       e.preventDefault();
       setPosition({ x, y });
-      updateCSSVars(x, y);
       updateSetting('playerLocationX', x);
       updateSetting('playerLocationY', y);
     };
@@ -179,11 +177,11 @@ export function NowPlaying() {
       style={{
         bottom: position.y * -1,
         right: position.x * -1,
-        background: color,
-        color: fontColor,
+        background: `${color}`,
+        color: `${fontColor}`,
         padding: padding,
         transform: `scale(${scaleSize})`,
-        fontFamily: fontFamily,
+        fontFamily: `${fontFamily}`,
         maxWidth: maxWidth
       }}>
         <div className="marqueeWrapper" ref={wrapperRef} key={displayText + refreshToken}>
