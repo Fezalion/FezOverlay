@@ -1,4 +1,8 @@
-import { useState, useEffect, useRef } from "react";
+import {
+  useState,
+  useEffect,
+  useRef
+} from "react";
 import Matter from "matter-js";
 import tmi from "tmi.js";
 
@@ -8,14 +12,14 @@ export function EmoteOverlay() {
   const wsRef = useRef(null);
 
   async function fetchSettings() {
-      try {
-        const res = await fetch("/api/settings");
-        const json = await res.json();
-        setSettings(json);
-      } catch (err) {
-        console.error("Failed to load settings:", err);
-      }
+    try {
+      const res = await fetch("/api/settings");
+      const json = await res.json();
+      setSettings(json);
+    } catch (err) {
+      console.error("Failed to load settings:", err);
     }
+  }
 
   useEffect(() => {
     const wsUrl = "ws://localhost:48000";
@@ -47,16 +51,25 @@ export function EmoteOverlay() {
     };
   }, []);
 
-  useEffect(() => {  
+  useEffect(() => {
     fetchSettings();
   }, [refreshToken]);
 
   if (!settings) return null;
 
-  return <EmoteOverlayCore {...settings} />;
+  return <EmoteOverlayCore {
+    ...settings
+  }
+  />;
 }
 
-function EmoteOverlayCore({ twitchName, emoteSetId, emoteLifetime, emoteScale, emoteDelay }) {
+function EmoteOverlayCore({
+  twitchName,
+  emoteSetId,
+  emoteLifetime,
+  emoteScale,
+  emoteDelay
+}) {
   const sceneRef = useRef(null);
   const emoteMap = useRef(new Map());
   const bodiesWithTimers = useRef([]);
@@ -71,8 +84,13 @@ function EmoteOverlayCore({ twitchName, emoteSetId, emoteLifetime, emoteScale, e
     if (!twitchName) return;
 
     const client = new tmi.Client({
-      options: { debug: false },
-      connection: { reconnect: true, secure: true },
+      options: {
+        debug: false
+      },
+      connection: {
+        reconnect: true,
+        secure: true
+      },
       channels: [twitchName],
     });
 
@@ -98,10 +116,18 @@ function EmoteOverlayCore({ twitchName, emoteSetId, emoteLifetime, emoteScale, e
 
     const wallThickness = 40;
     const walls = [
-      Matter.Bodies.rectangle(-wallThickness / 2, height / 2, wallThickness, height, { isStatic: true }),
-      Matter.Bodies.rectangle(width + wallThickness / 2, height / 2, wallThickness, height, { isStatic: true }),
-      Matter.Bodies.rectangle(width / 2, -wallThickness / 2, width, wallThickness, { isStatic: true }),
-      Matter.Bodies.rectangle(width / 2, height + wallThickness / 2, width, wallThickness, { isStatic: true }),
+      Matter.Bodies.rectangle(-wallThickness / 2, height / 2, wallThickness, height, {
+        isStatic: true
+      }),
+      Matter.Bodies.rectangle(width + wallThickness / 2, height / 2, wallThickness, height, {
+        isStatic: true
+      }),
+      Matter.Bodies.rectangle(width / 2, -wallThickness / 2, width, wallThickness, {
+        isStatic: true
+      }),
+      Matter.Bodies.rectangle(width / 2, height + wallThickness / 2, width, wallThickness, {
+        isStatic: true
+      }),
     ];
     Matter.World.add(world, walls);
 
@@ -140,7 +166,7 @@ function EmoteOverlayCore({ twitchName, emoteSetId, emoteLifetime, emoteScale, e
 
     loadEmotes();
 
-    function createEmoteElement(url, sizeX, sizeY, animated) {
+    function createEmoteElement(url, sizeX, sizeY) {
       const img = document.createElement("img");
       img.src = url;
       img.style.width = sizeX + "px";
@@ -184,9 +210,16 @@ function EmoteOverlayCore({ twitchName, emoteSetId, emoteLifetime, emoteScale, e
       const sizeY = emote.height * emoteScale * (isSub ? 1.3 : 1);
       const x = 100 + Math.random() * (width - 200);
 
-      const body = Matter.Bodies.rectangle(x, 5, sizeX, sizeY, { render: { visible: false } });
+      const body = Matter.Bodies.rectangle(x, 5, sizeX, sizeY, {
+        render: {
+          visible: false
+        }
+      });
       Matter.World.add(world, body);
-      Matter.Body.setVelocity(body, { x: (Math.random() * 30) - 15, y: -10 });
+      Matter.Body.setVelocity(body, {
+        x: (Math.random() * 30) - 15,
+        y: -10
+      });
       Matter.Body.setAngularVelocity(body, (Math.random() - 0.5) * 0.2);
 
       const el = createEmoteElement(emote.url, sizeX, sizeY, emote.animated);
@@ -194,14 +227,29 @@ function EmoteOverlayCore({ twitchName, emoteSetId, emoteLifetime, emoteScale, e
       // Track particles and the color for particles
       const particles = [];
 
-      bodiesWithTimers.current.push({ body, born: Date.now(), el, sizeX, sizeY, animated: emote.animated, isSub, particles, particleColor: userColor });
+      bodiesWithTimers.current.push({
+        body,
+        born: Date.now(),
+        el,
+        sizeX,
+        sizeY,
+        animated: emote.animated,
+        isSub,
+        particles,
+        particleColor: userColor
+      });
     };
 
 
     Matter.Events.on(engine, "beforeUpdate", () => {
       const now = Date.now();
       for (let i = bodiesWithTimers.current.length - 1; i >= 0; i--) {
-        const { body, born, el, particles } = bodiesWithTimers.current[i];
+        const {
+          body,
+          born,
+          el,
+          particles
+        } = bodiesWithTimers.current[i];
         const age = now - born;
         if (age >= lifetime) {
           Matter.World.remove(world, body);
@@ -223,7 +271,15 @@ function EmoteOverlayCore({ twitchName, emoteSetId, emoteLifetime, emoteScale, e
       const now = Date.now();
 
       bodiesWithTimers.current.forEach((obj) => {
-        const { body, el, sizeX, sizeY, isSub, particles, particleColor } = obj;
+        const {
+          body,
+          el,
+          sizeX,
+          sizeY,
+          isSub,
+          particles,
+          particleColor
+        } = obj;
         const x = body.position.x - sizeX / 2;
         const y = body.position.y - sizeY / 2;
         el.style.transform = `translate(${x}px, ${y}px) rotate(${body.angle}rad)`;
@@ -266,7 +322,11 @@ function EmoteOverlayCore({ twitchName, emoteSetId, emoteLifetime, emoteScale, e
     rafId.current = requestAnimationFrame(updateDOM);
 
     // Clear all emotes on reload/update
-    bodiesWithTimers.current.forEach(({ body, el, particles }) => {
+    bodiesWithTimers.current.forEach(({
+      body,
+      el,
+      particles
+    }) => {
       Matter.World.remove(world, body);
       el.remove();
       if (particles) {
@@ -277,7 +337,10 @@ function EmoteOverlayCore({ twitchName, emoteSetId, emoteLifetime, emoteScale, e
 
     return () => {
       cancelAnimationFrame(rafId.current);
-      bodiesWithTimers.current.forEach(({ el, particles }) => {
+      bodiesWithTimers.current.forEach(({
+        el,
+        particles
+      }) => {
         el.remove();
         if (particles) {
           particles.forEach((p) => p.el.remove());
@@ -289,7 +352,7 @@ function EmoteOverlayCore({ twitchName, emoteSetId, emoteLifetime, emoteScale, e
       emoteMap.current.clear();
       spawnEmoteRef.current = null;
     };
-  }, [emoteSetId, emoteLifetime, emoteScale]);
+  }, [emoteSetId, emoteScale, lifetime]);
 
   // Twitch message handler
   useEffect(() => {
@@ -319,5 +382,17 @@ function EmoteOverlayCore({ twitchName, emoteSetId, emoteLifetime, emoteScale, e
     };
   }, [twitchName, emoteDelay, emoteSetId, emoteScale, emoteLifetime]);
 
-  return <div ref={sceneRef} style={{ position: "fixed", top: 0, left: 0, pointerEvents: "none", zIndex: 9999 }} />;
+  return <div ref = {
+    sceneRef
+  }
+  style = {
+    {
+      position: "fixed",
+      top: 0,
+      left: 0,
+      pointerEvents: "none",
+      zIndex: 9999
+    }
+  }
+  />;
 }

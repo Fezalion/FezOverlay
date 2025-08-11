@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import ColorPicker, { useColorPicker } from 'react-best-gradient-color-picker'
+import ColorPicker from 'react-best-gradient-color-picker'
 
 function hexToRgb(hex) {
   hex = hex.replace('#', '');
@@ -27,7 +27,7 @@ export function Settings() {
   const [textStrokeSize, setTextStrokeSize] = useState(0);
   const [textStrokeColor, setTextStrokeColor] = useState('rgba(0, 0, 0, 1)')
 
-  const [playerLocationCoords, setPlayerLocationCoords] = useState({ x: 0, y: 0 });
+  const [_, setPlayerLocationCoords] = useState({ x: 0, y: 0 });
 
 
   const [twitchName, setTwitchName] = useState('');
@@ -37,11 +37,10 @@ export function Settings() {
   const [emoteLifetime, setEmoteLifetime] = useState(5000);
   const [emoteScale, setEmoteScale] = useState(1.0);
   const [emoteDelay, setEmoteDelay] = useState(150);
-  const {subEffects, setSubEffects} = useState(true);
+  const [subEffects, setSubEffects] = useState(true);
 
   const [latestVersion, setLatestVersion] = useState();
   const [version, setVersion] = useState();
-  const [update, setUpdate] = useState(false);
 
 
   
@@ -510,6 +509,7 @@ export function Settings() {
           style={{width: 20, height: 20, cursor: 'pointer'}}          
         />
       </label>
+      <span className='explanation'>Enable/Disable special effects for subscribers.</span>
     </div>
     </div>
     </div>
