@@ -38,6 +38,7 @@ if (process.pkg) {
 
 const distRoot = path.join(baseDir, 'dist');
 const SETTINGS_FILE = path.join(baseDir, 'settings.json');
+const versionFile = path.join(baseDir, 'version.txt');
 
 app.use(bodyParser.json());
 app.use(express.static(distRoot));
@@ -157,12 +158,21 @@ function saveSettings(settings) {
   fs.writeFileSync(SETTINGS_FILE, JSON.stringify(settings, null, 2));
 }
 
+function getCurrentVersion() {
+  try {
+    return fs.readFileSync(versionFile, 'utf8').trim();
+  } catch (error) {
+    console.log(error);
+    return '';
+  }
+}
+
 // GET all settings
 app.get('/api/settings', (req, res) => {
   res.json(loadSettings());
 });
 
-app.get('/api/version', (req, res) => {
+app.get('/api/latestversion', (req, res) => {
   getLatestRelease((err, release) => {
     if (err) {
       console.error('Error fetching latest release:', err.message);
@@ -170,6 +180,12 @@ app.get('/api/version', (req, res) => {
     }
     res.json({ version: release.tag_name || release.name || '' });
   });
+});
+
+app.get('/api/currentversion', (req, res) => {
+  var val = getCurrentVersion();
+  console.log("installed v = " + val);
+  res.json({version: val});
 });
 
 

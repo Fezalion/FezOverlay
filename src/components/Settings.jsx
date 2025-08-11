@@ -39,6 +39,7 @@ export function Settings() {
   const [emoteDelay, setEmoteDelay] = useState(150);
 
   const [version, setVersion] = useState();
+  const [update, setUpdate] = useState(false);
 
 
   
@@ -68,12 +69,22 @@ export function Settings() {
         setTextStrokeSize(data.textStrokeSize || '0');
         setEmoteDelay(data.emoteDelay || 150);
       });
-      fetch('/api/version')
+      fetch('/api/latestversion')
         .then(res => res.json())
         .then(data => {
           if (data.version) setVersion(data.version);
-        });
+        })    
   }, []);
+
+  useEffect(() => {
+    fetch('/api/currentversion')
+        .then(res => res.json())
+        .then(data => {
+            if (data.version & data.version !== version) {
+              setUpdate(true);
+            }
+        });
+  }, [version]);
 
   const updateSetting = (key, value) => {
     fetch('/api/settings', {
@@ -210,7 +221,7 @@ export function Settings() {
 
   return (
     <div className='settingsMainContainer'>
-      <h1 style={{ textAlign: 'center'}}>Overlay Settings <span className='explanation'>{version}</span></h1>     
+      <h1 style={{ textAlign: 'center'}}>Overlay Settings <span className='explanation'>installed {version}</span> {update && <span className='explanation'> latest: {version}</span>} </h1>     
 
       <div className='settingsInsideContainer'>
         <div className="settingsContainer">
