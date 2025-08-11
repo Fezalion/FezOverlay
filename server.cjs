@@ -161,8 +161,7 @@ function saveSettings(settings) {
 function getCurrentVersion() {
   try {
     return fs.readFileSync(versionFile, 'utf8').trim();
-  } catch (error) {
-    console.log(error);
+  } catch {
     return '';
   }
 }
@@ -184,7 +183,6 @@ app.get('/api/latestversion', (req, res) => {
 
 app.get('/api/currentversion', (req, res) => {
   var val = getCurrentVersion();
-  console.log("installed v = " + val);
   res.json({version: val});
 });
 
