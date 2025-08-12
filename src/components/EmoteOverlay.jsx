@@ -68,7 +68,9 @@ function EmoteOverlayCore({
   emoteSetId,
   emoteLifetime,
   emoteScale,
-  emoteDelay
+  emoteDelay,
+  subEffects,
+  subEffectTypes
 }) {
   const sceneRef = useRef(null);
   const emoteMap = useRef(new Map());
@@ -206,8 +208,8 @@ function EmoteOverlayCore({
       const emote = emoteMap.current.get(emoteName);
       if (!emote) return;
 
-      const sizeX = emote.width * emoteScale * (isSub ? 1.3 : 1);
-      const sizeY = emote.height * emoteScale * (isSub ? 1.3 : 1);
+      const sizeX = emote.width * emoteScale * (isSub && subEffects ? 1.3 : 1);
+      const sizeY = emote.height * emoteScale * (isSub && subEffects ? 1.3 : 1);
       const x = 100 + Math.random() * (width - 200);
 
       const body = Matter.Bodies.rectangle(x, 5, sizeX, sizeY, {
@@ -226,6 +228,24 @@ function EmoteOverlayCore({
 
       // Track particles and the color for particles
       const particles = [];
+
+      if (isSub && subEffects && subEffectTypes.contains('explosion')) {
+        const px = x + sizeX / 2;
+        const py = 5 + sizeY / 2;
+        for (let i = 0; i < 30; i++) {
+          const angle = Math.random() * Math.PI * 2;
+          const speed = Math.random() * 5 + 2;
+          const pE1 = createParticle(px,py,userColor);
+          particles.push({
+            e1: pE1,
+            born: Date.now(),
+            x: px,
+            y: py,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed
+          });
+        }
+      }
 
       bodiesWithTimers.current.push({
         body,
@@ -284,25 +304,52 @@ function EmoteOverlayCore({
         const y = body.position.y - sizeY / 2;
         el.style.transform = `translate(${x}px, ${y}px) rotate(${body.angle}rad)`;
 
-        if (isSub) {
-          if (Math.random() < 0.3) {
-            const px = x + sizeX / 2;
-            const py = y + sizeY / 2;
-            const pEl = createParticle(px, py, particleColor);
-            particles.push({
-              el: pEl,
-              born: now,
-              x: px,
-              y: py,
-              vx: (Math.random() - 0.5) * 1,
-              vy: Math.random() * 1.5 + 1,
-            });
+        if (isSub && subEffects) {
+          switch (subEffectTypes) {
+            case 'default':
+              if (Math.random() < 0.3) {
+                const px = x + sizeX / 2;
+                const py = y + sizeY / 2;
+                const pEl = createParticle(px, py, particleColor);
+                particles.push({
+                  el: pEl,
+                  born: now,
+                  x: px,
+                  y: py,
+                  vx: (Math.random() - 0.5) * 1,
+                  vy: Math.random() * 1.5 + 1,
+                });
+              }  
+              break;
+            case 'comet':
+               if (Math.random() < 0.5) { // higher particle density
+                const px = x + sizeX / 2;
+                const py = y + sizeY / 2;
+                const pEl = createParticle(px, py, particleColor);
+                particles.push({
+                  el: pEl,
+                  born: now,
+                  x: px,
+                  y: py,
+                  vx: (Math.random() - 0.5) * 1.5, // slightly faster
+                  vy: Math.random() * 2 + 1.5, // slightly faster
+                });
+              }
+              break;
+            case 'explosion':
+              // particles are created at spawn, so we do nothing here
+              break;       
           }
 
           for (let i = particles.length - 1; i >= 0; i--) {
             const p = particles[i];
             const age = now - p.born;
-            const lifeRatio = 1 - age / 600;
+            let lifeRatio;
+            if (subEffectTypes === 'comet') {
+              lifeRatio = 1 - age / 1000; // longer lifetime for comet particles
+            } else {
+              lifeRatio = 1 - age / 600;
+            }
             if (lifeRatio <= 0) {
               p.el.remove();
               particles.splice(i, 1);
@@ -310,6 +357,9 @@ function EmoteOverlayCore({
             }
             p.x += p.vx;
             p.y += p.vy;
+            if (subEffectTypes === 'explosion') {
+              p.vy += 0.05; // gravity for explosion particles
+            }
             p.el.style.left = p.x + "px";
             p.el.style.top = p.y + "px";
             p.el.style.opacity = lifeRatio;
@@ -352,7 +402,7 @@ function EmoteOverlayCore({
       emoteMap.current.clear();
       spawnEmoteRef.current = null;
     };
-  }, [emoteSetId, emoteScale, lifetime]);
+  }, [emoteSetId, emoteScale, lifetime, subEffectTypes, subEffects]);
 
   // Twitch message handler
   useEffect(() => {

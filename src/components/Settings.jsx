@@ -38,6 +38,9 @@ export function Settings() {
   const [emoteScale, setEmoteScale] = useState(1.0);
   const [emoteDelay, setEmoteDelay] = useState(150);
   const [subEffects, setSubEffects] = useState(true);
+  const [subEffectTypes, setSubEffectTypes] = useState([]);
+  const [availableSubEffects, setAvailableSubEffects] = useState([]);
+
 
   const [latestVersion, setLatestVersion] = useState();
   const [version, setVersion] = useState();
@@ -50,32 +53,62 @@ export function Settings() {
     fetch('/api/settings')
       .then(res => res.json())
       .then(data => {
+        const toNumber = (val, fallback) => {
+          if (val == null) return fallback;
+          if (typeof val === 'string') {
+            const num = parseFloat(val.replace(/px$/i, ''));
+            return isNaN(num) ? fallback : num;
+          }
+          return typeof val === 'number' ? val : fallback;
+        };
+
         setColor(data.bgColor || '#800080');
-        setScaleSize(parseInt(data.scaleSize) || 1.0);
-        setMaxWidth(parseInt(data.maxWidth) || 700);
-        setPadding(parseInt(data.padding) || 10);
+
+        // Decimal-safe
+        setScaleSize(toNumber(data.scaleSize, 1.0));
+        setEmoteScale(toNumber(data.emoteScale, 1.0));
+
+        // Integer-safe with px stripping
+        setMaxWidth(toNumber(data.maxWidth, 700));
+        setPadding(toNumber(data.padding, 10));
+        setEmoteLifetime(toNumber(data.emoteLifetime, 5000));
+        setPlayerLocationCoords({
+          x: toNumber(data.playerLocationX, 0),
+          y: toNumber(data.playerLocationY, 0)
+        });
+        setTextStrokeSize(toNumber(data.textStrokeSize, 0));
+        setEmoteDelay(toNumber(data.emoteDelay, 150));
+
         setFontFamily(data.fontFamily || 'Arial, sans-serif');
         setFontColor(data.fontColor || '#ffffff');
         setTwitchName(data.twitchName || '');
         setLastfmName(data.lastfmName || '');
         setEmoteSetId(data.emoteSetId || '');
-        setEmoteLifetime(data.emoteLifetime || 5000);
-        setEmoteScale(data.emoteScale || 1.0);
-        setPlayerLocationCoords({
-          x: data.playerLocationX || 0,
-          y: data.playerLocationY || 0
-        });
-        setTextStroke(data.textStroke || false);
+        setTextStroke(Boolean(data.textStroke));
         setTextStrokeColor(data.textStrokeColor || 'rgba(0, 0, 0, 1)');
-        setTextStrokeSize(data.textStrokeSize || '0');
-        setEmoteDelay(data.emoteDelay || 150);
-        setSubEffects(data.subEffects || true);
+        setSubEffects(Boolean(data.subEffects));
+
+        setSubEffectTypes(
+          Array.isArray(data.subEffectTypes)
+            ? data.subEffectTypes
+            : typeof data.subEffectTypes === 'string' && data.subEffectTypes.length > 0
+              ? [data.subEffectTypes]
+              : []
+        );
       });
+
       fetch('/api/latestversion')
         .then(res => res.json())
         .then(data => {
           if (data.version) setLatestVersion(data.version);
-        })    
+        }) 
+        fetch('/api/subeffecttypes')
+          .then(res => res.json())
+          .then(data => {
+            if (Array.isArray(data)) {
+              setAvailableSubEffects(data);
+            }
+          });  
   }, []);
 
   useEffect(() => {
@@ -85,6 +118,7 @@ export function Settings() {
           if(data.version) setVersion(data.version);
         });
   }, [latestVersion]);
+  
 
   const updateSetting = (key, value) => {
     fetch('/api/settings', {
@@ -108,13 +142,13 @@ export function Settings() {
   const handleMaxWidth = (e) => {
     const val = parseInt(e.target.value) || 700;
     setMaxWidth(val);
-    updateSetting('maxWidth', val + 'px');
+    updateSetting('maxWidth', val);
   };
 
   const handlePadding = (e) => {
     const val = parseInt(e.target.value) || 10;
     setPadding(val);
-    updateSetting('padding', val + 'px');
+    updateSetting('padding', val);
   };
 
   const handleFontFamily = (e) => {
@@ -187,6 +221,14 @@ export function Settings() {
     setSubEffects(isChecked);
     updateSetting('subEffects', isChecked);
   }
+
+  const handleSubEffectTypeChange = (e) => {
+    const selected = Array.from(e.target.selectedOptions, option => option.value);
+    setSubEffectTypes(selected);
+    updateSetting('subEffectTypes', selected);
+  };
+
+
 
   useEffect(() => {
     function handleClickOutside(event) {
@@ -269,7 +311,6 @@ export function Settings() {
 
               {/* Actual color picker popup */}
               <div
-                ref={pickerRef}
                 className="gradient-picker-popup"                              
               >
                 <ColorPicker
@@ -341,6 +382,7 @@ export function Settings() {
           min="0"
           max="50"
           value={textStrokeSize}
+          disabled={!textStroke}
           onChange={handleTextStrokeSize}
         />
       </label>
@@ -349,6 +391,7 @@ export function Settings() {
         <span style={{minWidth: 120}}>Text Outline Color</span>
         <button
           type="button"
+          disabled={!textStroke}
           onClick={() => {setShowOutlinePicker(true);}}          
         >
           Pick Outline Color
@@ -357,8 +400,7 @@ export function Settings() {
         {showOutlinePicker && (
           <>
             <div className='fullscreenBackground'></div> 
-            <div
-              ref={OutlinepickerRef}
+            <div             
               className="gradient-picker-popup"              
             >
               <ColorPicker
@@ -510,6 +552,32 @@ export function Settings() {
         />
       </label>
       <span className='explanation'>Enable/Disable special effects for subscribers.</span>
+      <label className='labelH'>
+      <span style={{ minWidth: 120 }}>Subscriber Effects</span>
+      <select
+        multiple
+        value={subEffectTypes}
+        onChange={handleSubEffectTypeChange}
+        style={{
+          flex: 1,
+          padding: 4,
+          borderRadius: 6,
+          border: '1px solid #ccc',
+          height: '100px'
+        }}
+        disabled={!subEffects}
+      >
+        {availableSubEffects.map(effect => (
+          <option key={effect} value={effect}>
+            {effect.charAt(0).toUpperCase() + effect.slice(1)}
+          </option>
+        ))}
+      </select>
+    </label>
+    <span className='explanation'>
+      Hold Ctrl (Windows) or Cmd (Mac) to select multiple effects.
+    </span>
+
     </div>
     </div>
     </div>

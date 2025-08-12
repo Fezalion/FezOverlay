@@ -168,7 +168,18 @@ function getCurrentVersion() {
 
 // GET all settings
 app.get('/api/settings', (req, res) => {
-  res.json(loadSettings());
+  const settings = loadSettings();
+
+  // Normalize subEffectTypes to an array
+  if (!Array.isArray(settings.subEffectTypes)) {
+    if (typeof settings.subEffectTypes === 'string') {
+      settings.subEffectTypes = [settings.subEffectTypes];
+    } else {
+      settings.subEffectTypes = [];
+    }
+  }
+
+  res.json(settings);
 });
 
 app.get('/api/latestversion', (req, res) => {
@@ -191,6 +202,22 @@ app.get('/api/currentversion', (req, res) => {
 app.post('/api/settings', (req, res) => {
   const current = loadSettings();
   const updated = { ...current, ...req.body };
+
+  // Handle subEffectTypes explicitly
+  if ('subEffectTypes' in req.body) {
+    if (Array.isArray(req.body.subEffectTypes)) {
+      updated.subEffectTypes = req.body.subEffectTypes.filter(type =>
+        availableSubEffects.includes(type)
+      );
+    } else if (typeof req.body.subEffectTypes === 'string') {
+      updated.subEffectTypes = availableSubEffects.includes(req.body.subEffectTypes)
+        ? [req.body.subEffectTypes]
+        : [];
+    } else {
+      updated.subEffectTypes = []; // If null/empty/missing, clear it
+    }
+  }
+
   saveSettings(updated);
   res.json({ success: true, settings: updated });
 });
@@ -200,6 +227,20 @@ app.post('/api/refresh', (req, res) => {
   broadcast('refresh');
   res.send('Refresh triggered');
 });
+
+// Available sub-effect types for the multi-select
+const availableSubEffects = [
+  'default',
+  'comet',
+  'explosion',
+  'fireworks',
+  'confetti'
+];
+
+app.get('/api/subeffecttypes', (req, res) => {
+  res.json(availableSubEffects);
+});
+
 
 // --- LASTFM API ---
 function parseLatestTrack(data) {
