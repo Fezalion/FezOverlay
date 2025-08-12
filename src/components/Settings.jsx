@@ -40,13 +40,10 @@ export function Settings() {
   const [subEffects, setSubEffects] = useState(true);
   const [subEffectTypes, setSubEffectTypes] = useState([]);
   const [availableSubEffects, setAvailableSubEffects] = useState([]);
-
+  const [subEffectChance, setSubEffectChance] = useState(0.25);
 
   const [latestVersion, setLatestVersion] = useState();
-  const [version, setVersion] = useState();
-
-
-  
+  const [version, setVersion] = useState();  
 
   //set the settings for displaying
   useEffect(() => {
@@ -87,6 +84,7 @@ export function Settings() {
         setTextStroke(Boolean(data.textStroke));
         setTextStrokeColor(data.textStrokeColor || 'rgba(0, 0, 0, 1)');
         setSubEffects(Boolean(data.subEffects));
+        setSubEffectChance(toNumber(data.subEffectChance, 0.25));
 
         setSubEffectTypes(
           Array.isArray(data.subEffectTypes)
@@ -95,6 +93,8 @@ export function Settings() {
               ? [data.subEffectTypes]
               : []
         );
+
+        console.log(availableSubEffects);
       });
 
       fetch('/api/latestversion')
@@ -222,11 +222,11 @@ export function Settings() {
     updateSetting('subEffects', isChecked);
   }
 
-  const handleSubEffectTypeChange = (e) => {
-    const selected = Array.from(e.target.selectedOptions, option => option.value);
-    setSubEffectTypes(selected);
-    updateSetting('subEffectTypes', selected);
-  };
+  const handleSubEffectsChance = (e) => {
+    const val = parseFloat(e.target.value) || 1.0;
+    setSubEffectChance(val);
+    updateSetting('subEffectChance', val);
+  }
 
 
 
@@ -552,32 +552,65 @@ export function Settings() {
         />
       </label>
       <span className='explanation'>Enable/Disable special effects for subscribers.</span>
-      <label className='labelH'>
-      <span style={{ minWidth: 120 }}>Subscriber Effects</span>
-      <select
-        multiple
-        value={subEffectTypes}
-        onChange={handleSubEffectTypeChange}
-        style={{
-          flex: 1,
-          padding: 4,
-          borderRadius: 6,
-          border: '1px solid #ccc',
-          height: '100px'
-        }}
-        disabled={!subEffects}
-      >
-        {availableSubEffects.map(effect => (
-          <option key={effect} value={effect}>
-            {effect.charAt(0).toUpperCase() + effect.slice(1)}
-          </option>
-        ))}
-      </select>
+      <label className='labelV' style={{alignItems: 'flex-start'}}>
+      <span style={{ minWidth: 120, marginBottom: 8 }}>Subscriber Effects</span>
+      <div style={{
+        flex: 1,
+        borderRadius: 6,
+        border: '1px solid #ccc',
+        padding: 8,
+        maxHeight: '100px',
+        overflowY: 'auto',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '4px',
+        opacity: subEffects ? 1 : 0.5,
+        pointerEvents: subEffects ? 'auto' : 'none'
+      }}>
+        {availableSubEffects.map(effect => {
+          const checked = subEffectTypes.includes(effect);
+          return (
+            <label key={effect} style={{ userSelect: 'none', cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                disabled={!subEffects}
+                checked={checked}
+                onChange={() => {
+                  let newSelected;
+                  if (checked) {
+                    newSelected = subEffectTypes.filter(e => e !== effect);
+                  } else {
+                    newSelected = [...subEffectTypes, effect];
+                  }
+                  setSubEffectTypes(newSelected);
+                  updateSetting('subEffectTypes', newSelected);
+                }}
+                style={{ marginRight: 8 }}
+              />
+              {effect.charAt(0).toUpperCase() + effect.slice(1)}
+            </label>
+          );
+        })}
+      </div>
     </label>
     <span className='explanation'>
-      Hold Ctrl (Windows) or Cmd (Mac) to select multiple effects.
+      Select which subscriber effects you want to enable.
     </span>
-
+    <label className='labelH'>
+        <span style={{minWidth: 120}}>Sub Effect proc chance</span>
+        <input
+        type='number'
+        min="0.0"
+        max="1.0"
+        step="0.05"
+        value={subEffectChance}
+        onChange={handleSubEffectsChance}
+        style={{flex: 1, padding: 4, borderRadius: 6, border: '1px solid #ccc'}}
+        ></input>
+      </label>
+        <span className='explanation'>
+          Chance of special effects proccing [Limited to 0.0-1.0][Default: 0.25]
+        </span>
     </div>
     </div>
     </div>

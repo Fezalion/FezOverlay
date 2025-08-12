@@ -70,7 +70,8 @@ function EmoteOverlayCore({
   emoteScale,
   emoteDelay,
   subEffects,
-  subEffectTypes
+  subEffectTypes,
+  subEffectChance
 }) {
   const sceneRef = useRef(null);
   const emoteMap = useRef(new Map());
@@ -80,7 +81,9 @@ function EmoteOverlayCore({
   const spawnEmoteRef = useRef(null);
 
   const lifetime = typeof emoteLifetime === "number" && emoteLifetime > 0 ? emoteLifetime : 5000;
+  const subChance = typeof subEffectChance === "number" && subEffectChance > 0 ? subEffectChance : 0.25;
 
+  console.log(subChance + " | " + subEffectChance);
   // Twitch client connection
   useEffect(() => {
     if (!twitchName) return;
@@ -104,7 +107,7 @@ function EmoteOverlayCore({
       clientRef.current = null;
     };
   }, [twitchName]);
-
+  let runner;
   // Load emotes and initialize physics engine
   useEffect(() => {
     if (!emoteSetId) return;
@@ -133,20 +136,89 @@ function EmoteOverlayCore({
     ];
     Matter.World.add(world, walls);
 
-    bodiesWithTimers.current.forEach(({ el, particles }) => {
-      el.remove();
-      particles?.forEach((p) => p.el.remove());
-    });
-    bodiesWithTimers.current = [];
-
-    const runner = Matter.Runner.create();
+    runner = Matter.Runner.create();
     Matter.Runner.run(runner, engine);
 
     const effectsRegistry = {
-      default: (el, body, engine) => {
-        
+      trailOfMiniEmotes: (el) => {
+        const trail = [];
+        const intervalId = setInterval(() => {
+          if (!document.body.contains(el)) {
+            clearInterval(intervalId);
+            trail.forEach(t => t.remove());
+            return;
+          }
+
+          const rect = el.getBoundingClientRect();
+
+          const mini = document.createElement("img");
+          mini.src = el.src;
+          mini.style.width = (rect.width / 2) + "px";
+          mini.style.height = (rect.height / 2) + "px";
+          mini.style.position = "fixed";
+          mini.style.pointerEvents = "none";
+          mini.style.zIndex = "9998";
+          mini.style.opacity = "0.95";
+          mini.style.left = rect.left + "px";
+          mini.style.top = rect.top + "px";
+          mini.style.transition = "opacity 0.5s ease, transform 0.5s ease";
+          
+          document.body.appendChild(mini);
+
+          requestAnimationFrame(() => {
+            mini.style.opacity = "0";
+            mini.style.transform = "translateY(-20px)"; // mini floats upward while fading
+            setTimeout(() => mini.remove(), 500);
+          });
+
+          trail.push(mini);
+        }, 250);
+
+        // Return cleanup function
+        return () => {
+          clearInterval(intervalId);
+          trail.forEach(t => t.remove());
+        };
+      },
+      colorFlash: (el) => {
+        let hue = 0;
+        const intervalId = setInterval(() => {
+          if (!document.body.contains(el)) {
+            clearInterval(intervalId);
+            return;
+          }
+          hue = (hue + 30) % 360;
+          el.style.filter = `hue-rotate(${hue}deg)`;
+        }, 100);
+
+        return () => clearInterval(intervalId);
+      },
+
+      magneticAttraction: (el, body, engine) => {
+        const forceMagnitude = 0.00003;
+        const updateForce = () => {
+          if (!body.isSleeping) {
+            const centerX = window.innerWidth / 2;
+            const centerY = window.innerHeight / 2;
+            const dx = centerX - body.position.x;
+            const dy = centerY - body.position.y;
+            Matter.Body.applyForce(body, body.position, {
+              x: dx * forceMagnitude,
+              y: dy * forceMagnitude
+            });
+          }
+        };
+
+        Matter.Events.on(engine, "beforeUpdate", updateForce);
+
+        // Return cleanup function to remove listener
+        return () => {
+          Matter.Events.off(engine, "beforeUpdate", updateForce);
+        };
       }
     };
+
+
 
     async function fetchEmoteSet(set) {
       const res = await fetch(`https://7tv.io/v3/emote-sets/${set}`);
@@ -222,13 +294,18 @@ function EmoteOverlayCore({
         y: -10
       });
       Matter.Body.setAngularVelocity(body, (Math.random() - 0.5) * 0.2);
-
-      if(isSub && subEffects && subEffectTypes != []) {
-        let effect = effectsRegistry[subEffectTypes[Math.floor(Math.random() * subEffectTypes.length)]];
-        if (effect) effect(el, body); // Pass the created <img> element instead of emote data
-      }
-
+      
       const el = createEmoteElement(emote.url, sizeX, sizeY, emote.animated);
+
+      let cleanupEffect = null;
+      if (isSub && subEffects && subEffectTypes.length > 0 && Math.random() <= subChance) {
+        let effectName = subEffectTypes[Math.floor(Math.random() * subEffectTypes.length)];
+        console.log(effectName);
+        let effect = effectsRegistry[effectName];
+        if (effect) {
+          cleanupEffect = effect(el, body, engine, userColor);
+        }
+      }
 
       bodiesWithTimers.current.push({
         body,
@@ -238,7 +315,8 @@ function EmoteOverlayCore({
         sizeY,
         animated: emote.animated,
         isSub,
-        particleColor: userColor
+        particleColor: userColor,
+        cleanupEffect
       });
     };
 
@@ -248,13 +326,15 @@ function EmoteOverlayCore({
         const {
           body,
           born,
-          el
+          el,
+          cleanupEffect
         } = bodiesWithTimers.current[i];
         const age = now - born;
         if (age >= lifetime) {
           Matter.World.remove(world, body);
           el.style.opacity = "0";
           setTimeout(() => el.remove(), 500);
+          if (cleanupEffect) cleanupEffect();
           bodiesWithTimers.current.splice(i, 1);
         }
       }
