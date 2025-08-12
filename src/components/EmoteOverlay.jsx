@@ -133,6 +133,13 @@ function EmoteOverlayCore({
     ];
     Matter.World.add(world, walls);
 
+    bodiesWithTimers.current.forEach(({ el, particles }) => {
+      el.remove();
+      particles?.forEach((p) => p.el.remove());
+    });
+    bodiesWithTimers.current = [];
+
+
     const runner = Matter.Runner.create();
     Matter.Runner.run(runner, engine);
 
@@ -187,27 +194,10 @@ function EmoteOverlayCore({
       return img;
     }
 
-    function createParticle(x, y, particleColor) {
-      const particle = document.createElement("div");
-      particle.style.position = "fixed";
-      particle.style.pointerEvents = "none";
-      particle.style.zIndex = "9998";
-      particle.style.width = "6px";
-      particle.style.height = "6px";
-      particle.style.borderRadius = "50%";
-      particle.style.background = particleColor; // orange
-      particle.style.left = x + "px";
-      particle.style.top = y + "px";
-      particle.style.opacity = "1";
-      particle.style.transition = "opacity 0.5s linear, transform 0.5s linear";
-      document.body.appendChild(particle);
-      return particle;
-    }
-
     spawnEmoteRef.current = (emoteName, isSub = false, userColor = "orange") => {
       const emote = emoteMap.current.get(emoteName);
       if (!emote) return;
-
+      console.log(`Creating emote with effect: ${subEffectTypes}`);
       const sizeX = emote.width * emoteScale * (isSub && subEffects ? 1.3 : 1);
       const sizeY = emote.height * emoteScale * (isSub && subEffects ? 1.3 : 1);
       const x = 100 + Math.random() * (width - 200);
@@ -228,25 +218,7 @@ function EmoteOverlayCore({
 
       // Track particles and the color for particles
       const particles = [];
-
-      if (isSub && subEffects && subEffectTypes.contains('explosion')) {
-        const px = x + sizeX / 2;
-        const py = 5 + sizeY / 2;
-        for (let i = 0; i < 30; i++) {
-          const angle = Math.random() * Math.PI * 2;
-          const speed = Math.random() * 5 + 2;
-          const pE1 = createParticle(px,py,userColor);
-          particles.push({
-            e1: pE1,
-            born: Date.now(),
-            x: px,
-            y: py,
-            vx: Math.cos(angle) * speed,
-            vy: Math.sin(angle) * speed
-          });
-        }
-      }
-
+      
       bodiesWithTimers.current.push({
         body,
         born: Date.now(),
@@ -302,70 +274,25 @@ function EmoteOverlayCore({
         } = obj;
         const x = body.position.x - sizeX / 2;
         const y = body.position.y - sizeY / 2;
-        el.style.transform = `translate(${x}px, ${y}px) rotate(${body.angle}rad)`;
-
-        if (isSub && subEffects) {
-          switch (subEffectTypes) {
-            case 'default':
-              if (Math.random() < 0.3) {
-                const px = x + sizeX / 2;
-                const py = y + sizeY / 2;
-                const pEl = createParticle(px, py, particleColor);
-                particles.push({
-                  el: pEl,
-                  born: now,
-                  x: px,
-                  y: py,
-                  vx: (Math.random() - 0.5) * 1,
-                  vy: Math.random() * 1.5 + 1,
-                });
-              }  
-              break;
-            case 'comet':
-               if (Math.random() < 0.5) { // higher particle density
-                const px = x + sizeX / 2;
-                const py = y + sizeY / 2;
-                const pEl = createParticle(px, py, particleColor);
-                particles.push({
-                  el: pEl,
-                  born: now,
-                  x: px,
-                  y: py,
-                  vx: (Math.random() - 0.5) * 1.5, // slightly faster
-                  vy: Math.random() * 2 + 1.5, // slightly faster
-                });
-              }
-              break;
-            case 'explosion':
-              // particles are created at spawn, so we do nothing here
-              break;       
-          }
+        el.style.transform = `translate(${x}px, ${y}px) rotate(${body.angle}rad)`;       
 
           for (let i = particles.length - 1; i >= 0; i--) {
             const p = particles[i];
             const age = now - p.born;
-            let lifeRatio;
-            if (subEffectTypes === 'comet') {
-              lifeRatio = 1 - age / 1000; // longer lifetime for comet particles
-            } else {
-              lifeRatio = 1 - age / 600;
-            }
+            let lifeRatio;            
+            lifeRatio = 1 - age / 600;            
             if (lifeRatio <= 0) {
               p.el.remove();
               particles.splice(i, 1);
               continue;
             }
             p.x += p.vx;
-            p.y += p.vy;
-            if (subEffectTypes === 'explosion') {
-              p.vy += 0.05; // gravity for explosion particles
-            }
+            p.y += p.vy;            
             p.el.style.left = p.x + "px";
             p.el.style.top = p.y + "px";
             p.el.style.opacity = lifeRatio;
             p.el.style.transform = `scale(${lifeRatio})`;
-          }
-        }
+          }        
       });
       rafId.current = requestAnimationFrame(updateDOM);
     }
