@@ -139,9 +139,14 @@ function EmoteOverlayCore({
     });
     bodiesWithTimers.current = [];
 
-
     const runner = Matter.Runner.create();
     Matter.Runner.run(runner, engine);
+
+    const effectsRegistry = {
+      default: (el, body, engine) => {
+        
+      }
+    };
 
     async function fetchEmoteSet(set) {
       const res = await fetch(`https://7tv.io/v3/emote-sets/${set}`);
@@ -197,16 +202,20 @@ function EmoteOverlayCore({
     spawnEmoteRef.current = (emoteName, isSub = false, userColor = "orange") => {
       const emote = emoteMap.current.get(emoteName);
       if (!emote) return;
-      console.log(`Creating emote with effect: ${subEffectTypes}`);
-      const sizeX = emote.width * emoteScale * (isSub && subEffects ? 1.3 : 1);
-      const sizeY = emote.height * emoteScale * (isSub && subEffects ? 1.3 : 1);
+      const sizeX = emote.width * emoteScale;
+      const sizeY = emote.height * emoteScale;
       const x = 100 + Math.random() * (width - 200);
 
       const body = Matter.Bodies.rectangle(x, 5, sizeX, sizeY, {
         render: {
-          visible: false
-        }
+          visible: false,
+          isStatic: false
+        },
+        restitution: 1,
+        friction: 0.1,
+        frictionAir: 0.007
       });
+      
       Matter.World.add(world, body);
       Matter.Body.setVelocity(body, {
         x: (Math.random() * 30) - 15,
@@ -214,11 +223,13 @@ function EmoteOverlayCore({
       });
       Matter.Body.setAngularVelocity(body, (Math.random() - 0.5) * 0.2);
 
+      if(isSub && subEffects && subEffectTypes != []) {
+        let effect = effectsRegistry[subEffectTypes[Math.floor(Math.random() * subEffectTypes.length)]];
+        if (effect) effect(el, body); // Pass the created <img> element instead of emote data
+      }
+
       const el = createEmoteElement(emote.url, sizeX, sizeY, emote.animated);
 
-      // Track particles and the color for particles
-      const particles = [];
-      
       bodiesWithTimers.current.push({
         body,
         born: Date.now(),
@@ -227,11 +238,9 @@ function EmoteOverlayCore({
         sizeY,
         animated: emote.animated,
         isSub,
-        particles,
         particleColor: userColor
       });
     };
-
 
     Matter.Events.on(engine, "beforeUpdate", () => {
       const now = Date.now();
@@ -239,60 +248,29 @@ function EmoteOverlayCore({
         const {
           body,
           born,
-          el,
-          particles
+          el
         } = bodiesWithTimers.current[i];
         const age = now - born;
         if (age >= lifetime) {
           Matter.World.remove(world, body);
           el.style.opacity = "0";
           setTimeout(() => el.remove(), 500);
-
-          // Clean up particles
-          if (particles) {
-            particles.forEach((p) => p.el.remove());
-            particles.length = 0;
-          }
-
           bodiesWithTimers.current.splice(i, 1);
         }
       }
     });
 
     function updateDOM() {
-      const now = Date.now();
-
       bodiesWithTimers.current.forEach((obj) => {
         const {
           body,
           el,
           sizeX,
           sizeY,
-          isSub,
-          particles,
-          particleColor
         } = obj;
         const x = body.position.x - sizeX / 2;
         const y = body.position.y - sizeY / 2;
         el.style.transform = `translate(${x}px, ${y}px) rotate(${body.angle}rad)`;       
-
-          for (let i = particles.length - 1; i >= 0; i--) {
-            const p = particles[i];
-            const age = now - p.born;
-            let lifeRatio;            
-            lifeRatio = 1 - age / 600;            
-            if (lifeRatio <= 0) {
-              p.el.remove();
-              particles.splice(i, 1);
-              continue;
-            }
-            p.x += p.vx;
-            p.y += p.vy;            
-            p.el.style.left = p.x + "px";
-            p.el.style.top = p.y + "px";
-            p.el.style.opacity = lifeRatio;
-            p.el.style.transform = `scale(${lifeRatio})`;
-          }        
       });
       rafId.current = requestAnimationFrame(updateDOM);
     }
@@ -301,14 +279,10 @@ function EmoteOverlayCore({
     // Clear all emotes on reload/update
     bodiesWithTimers.current.forEach(({
       body,
-      el,
-      particles
+      el
     }) => {
       Matter.World.remove(world, body);
-      el.remove();
-      if (particles) {
-        particles.forEach((p) => p.el.remove());
-      }
+      el.remove();      
     });
     bodiesWithTimers.current = [];
 
@@ -316,12 +290,8 @@ function EmoteOverlayCore({
       cancelAnimationFrame(rafId.current);
       bodiesWithTimers.current.forEach(({
         el,
-        particles
       }) => {
-        el.remove();
-        if (particles) {
-          particles.forEach((p) => p.el.remove());
-        }
+        el.remove();        
       });
       bodiesWithTimers.current.length = 0;
       Matter.Runner.stop(runner);
@@ -330,6 +300,7 @@ function EmoteOverlayCore({
       spawnEmoteRef.current = null;
     };
   }, [emoteSetId, emoteScale, lifetime, subEffectTypes, subEffects]);
+  
 
   // Twitch message handler
   useEffect(() => {

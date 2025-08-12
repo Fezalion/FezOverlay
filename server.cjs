@@ -230,11 +230,7 @@ app.post('/api/refresh', (req, res) => {
 
 // Available sub-effect types for the multi-select
 const availableSubEffects = [
-  'default',
-  'comet',
-  'explosion',
-  'fireworks',
-  'confetti'
+  'default'
 ];
 
 app.get('/api/subeffecttypes', (req, res) => {
