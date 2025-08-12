@@ -41,6 +41,7 @@ export function Settings() {
   const [subEffectTypes, setSubEffectTypes] = useState([]);
   const [availableSubEffects, setAvailableSubEffects] = useState([]);
   const [subEffectChance, setSubEffectChance] = useState(0.25);
+  const [subEffectBlackHoleStrength, setSubEffectBlackHoleStrength] = useState(0.0005);
 
   const [latestVersion, setLatestVersion] = useState();
   const [version, setVersion] = useState();  
@@ -85,6 +86,7 @@ export function Settings() {
         setTextStrokeColor(data.textStrokeColor || 'rgba(0, 0, 0, 1)');
         setSubEffects(Boolean(data.subEffects));
         setSubEffectChance(toNumber(data.subEffectChance, 0.25));
+        setSubEffectBlackHoleStrength(toNumber(data.subEffectBlackHoleStrength, 0.00005));
 
         setSubEffectTypes(
           Array.isArray(data.subEffectTypes)
@@ -228,6 +230,11 @@ export function Settings() {
     updateSetting('subEffectChance', val);
   }
 
+  const handleSubEffectBlackHoleStrengthChance = (e) => {
+    const val = parseFloat(e.target.value) || 0.00005;
+    setSubEffectBlackHoleStrength(val);
+    updateSetting('subEffectBlackHoleStrength', val);
+  }
 
 
   useEffect(() => {
@@ -610,6 +617,21 @@ export function Settings() {
       </label>
         <span className='explanation'>
           Chance of special effects proccing [Limited to 0.0-1.0][Default: 0.25]
+        </span>
+        <label className='labelH'>
+        <span style={{minWidth: 120}}>Magnetic effect strength</span>
+        <input
+        type='number'
+        min= "0.00001"
+        max= "1.00000"
+        step="0.00001"
+        value={subEffectBlackHoleStrength}
+        onChange={handleSubEffectBlackHoleStrengthChance}
+        style={{flex: 1, padding: 4, borderRadius: 6, border: '1px solid #ccc'}}
+        ></input>
+      </label>
+        <span className='explanation'>
+          Chance of special effects proccing [Limited to 0.00001-1.0000][Default: 0.00005]
         </span>
     </div>
     </div>

@@ -71,7 +71,8 @@ function EmoteOverlayCore({
   emoteDelay,
   subEffects,
   subEffectTypes,
-  subEffectChance
+  subEffectChance,
+  subEffectBlackHoleStrength
 }) {
   const sceneRef = useRef(null);
   const emoteMap = useRef(new Map());
@@ -80,10 +81,13 @@ function EmoteOverlayCore({
   const clientRef = useRef(null);
   const spawnEmoteRef = useRef(null);
 
+  const magneticEventRef = useRef(false);
+  const [magneticEvent, setMagneticEvent] = useState(false);
+
   const lifetime = typeof emoteLifetime === "number" && emoteLifetime > 0 ? emoteLifetime : 5000;
   const subChance = typeof subEffectChance === "number" && subEffectChance > 0 ? subEffectChance : 0.25;
+  const magneticSTR = typeof subEffectBlackHoleStrength === "number" && subEffectBlackHoleStrength >= 0.00000 ? subEffectBlackHoleStrength : 0.00005;
 
-  console.log(subChance + " | " + subEffectChance);
   // Twitch client connection
   useEffect(() => {
     if (!twitchName) return;
@@ -107,12 +111,14 @@ function EmoteOverlayCore({
       clientRef.current = null;
     };
   }, [twitchName]);
-  let runner;
+  const runnerRef = useRef(null);
+  const engineRef = useRef(null);
   // Load emotes and initialize physics engine
   useEffect(() => {
     if (!emoteSetId) return;
 
-    let engine = Matter.Engine.create();
+    const engine = Matter.Engine.create();
+    engineRef.current = engine;
     let world = engine.world;
     engine.gravity.y = 1;
 
@@ -136,7 +142,8 @@ function EmoteOverlayCore({
     ];
     Matter.World.add(world, walls);
 
-    runner = Matter.Runner.create();
+    let runner = Matter.Runner.create();
+    runnerRef.current = runner;
     Matter.Runner.run(runner, engine);
 
     const effectsRegistry = {
@@ -192,33 +199,8 @@ function EmoteOverlayCore({
         }, 100);
 
         return () => clearInterval(intervalId);
-      },
-
-      magneticAttraction: (el, body, engine) => {
-        const forceMagnitude = 0.00003;
-        const updateForce = () => {
-          if (!body.isSleeping) {
-            const centerX = window.innerWidth / 2;
-            const centerY = window.innerHeight / 2;
-            const dx = centerX - body.position.x;
-            const dy = centerY - body.position.y;
-            Matter.Body.applyForce(body, body.position, {
-              x: dx * forceMagnitude,
-              y: dy * forceMagnitude
-            });
-          }
-        };
-
-        Matter.Events.on(engine, "beforeUpdate", updateForce);
-
-        // Return cleanup function to remove listener
-        return () => {
-          Matter.Events.off(engine, "beforeUpdate", updateForce);
-        };
       }
     };
-
-
 
     async function fetchEmoteSet(set) {
       const res = await fetch(`https://7tv.io/v3/emote-sets/${set}`);
@@ -299,8 +281,12 @@ function EmoteOverlayCore({
 
       let cleanupEffect = null;
       if (isSub && subEffects && subEffectTypes.length > 0 && Math.random() <= subChance) {
-        let effectName = subEffectTypes[Math.floor(Math.random() * subEffectTypes.length)];
-        console.log(effectName);
+
+        const filteredEffects = subEffectTypes.filter(effect => effect !== 'magneticAttraction');
+        let effectName = null;
+        if (filteredEffects.length > 0) {
+          effectName = filteredEffects[Math.floor(Math.random() * filteredEffects.length)];
+        }
         let effect = effectsRegistry[effectName];
         if (effect) {
           cleanupEffect = effect(el, body, engine, userColor);
@@ -376,6 +362,8 @@ function EmoteOverlayCore({
       bodiesWithTimers.current.length = 0;
       Matter.Runner.stop(runner);
       Matter.Engine.clear(engine);
+      engineRef.current = null;
+      runnerRef.current = null;
       emoteMap.current.clear();
       spawnEmoteRef.current = null;
     };
@@ -390,25 +378,71 @@ function EmoteOverlayCore({
     function onMessage(channel, userstate, message) {
       const words = message.split(/\s+/);
       const emotes = words.filter((w) => emoteMap.current.has(w));
-      emotes.forEach((emoteName, i) => {
-        setTimeout(() => {
-          const isSub =
+      const isSub =
             userstate.subscriber ||
             userstate.mod ||
             userstate.badges?.vip ||
             userstate.badges?.broadcaster;
+
+      emotes.forEach((emoteName, i) => {
+        setTimeout(() => {          
           const userColor = userstate.color || "orange"; // fallback color
           spawnEmoteRef.current?.(emoteName, isSub, userColor);
         }, i * emoteDelay);
       });
-    }
 
+      if (isSub && emotes.length > 0 && Math.random() <= subChance && subEffectTypes.includes('magneticAttraction') && !magneticEventRef.current) {
+        console.log("event proc ", magneticEventRef.current);
+        startMagneticEvent(5000);
+      }
+    }
 
     client.on("message", onMessage);
     return () => {
       client.off("message", onMessage);
     };
   }, [twitchName, emoteDelay, emoteSetId, emoteScale, emoteLifetime]);
+
+  function startMagneticEvent(duration = 5000) {
+      if (magneticEventRef.current) return;
+
+      magneticEventRef.current = true;
+      setMagneticEvent(true);
+      
+      const forceMagnitude = magneticSTR;
+      const engine = engineRef.current;
+
+      if (!engine) {
+        console.error("Engine ref empty");
+        return;
+      }
+      // Add a beforeUpdate event listener that applies force to all emotes
+      const magneticUpdate = () => {
+        const centerX = window.innerWidth / 2;
+        const centerY = window.innerHeight / 2;
+
+        bodiesWithTimers.current.forEach(({ body }) => {
+          if (!body.isSleeping) {
+            const dx = centerX - body.position.x;
+            const dy = centerY - body.position.y;
+            Matter.Body.applyForce(body, body.position, {
+              x: dx * forceMagnitude,
+              y: dy * forceMagnitude,
+            });
+          }
+        });
+      };
+
+      Matter.Events.on(engine, "beforeUpdate", magneticUpdate);
+
+      // Remove the event after duration
+      setTimeout(() => {
+      Matter.Events.off(engine, "beforeUpdate", magneticUpdate);
+      magneticEventRef.current = false;
+      setMagneticEvent(false);
+      console.log("event ended");
+    }, duration);
+  }
 
   return <div ref = {
     sceneRef
