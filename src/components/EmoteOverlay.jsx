@@ -82,7 +82,6 @@ function EmoteOverlayCore({
   const spawnEmoteRef = useRef(null);
 
   const magneticEventRef = useRef(false);
-  const [magneticEvent, setMagneticEvent] = useState(false);
 
   const lifetime = typeof emoteLifetime === "number" && emoteLifetime > 0 ? emoteLifetime : 5000;
   const subChance = typeof subEffectChance === "number" && subEffectChance > 0 ? subEffectChance : 0.25;
@@ -256,40 +255,80 @@ function EmoteOverlayCore({
     spawnEmoteRef.current = (emoteName, isSub = false, userColor = "orange") => {
       const emote = emoteMap.current.get(emoteName);
       if (!emote) return;
+
       const sizeX = emote.width * emoteScale;
       const sizeY = emote.height * emoteScale;
-      const x = 100 + Math.random() * (width - 200);
 
-      const body = Matter.Bodies.rectangle(x, 5, sizeX, sizeY, {
-        render: {
-          visible: false,
-          isStatic: false
-        },
+      const width = window.innerWidth;
+      const height = window.innerHeight;
+
+      const cellW = width / 3;
+      const cellH = height / 3;
+
+      // All outer cells except center
+      const edgeCells = [];
+      for (let row = 0; row < 3; row++) {
+        for (let col = 0; col < 3; col++) {
+          if (!(col === 1 && row === 1)) {
+            edgeCells.push({ col, row });
+          }
+        }
+      }
+
+      // Pick random spawn cell
+      const spawnCell = edgeCells[Math.floor(Math.random() * edgeCells.length)];
+      const x = spawnCell.col * cellW + Math.random() * cellW;
+      const y = spawnCell.row * cellH + Math.random() * cellH;
+
+      // Pick a random target point inside middle cell
+      const targetX = cellW + Math.random() * cellW;
+      const targetY = cellH + Math.random() * cellH;
+
+      // Direction vector toward target
+      let dx = targetX - x;
+      let dy = targetY - y;
+      const len = Math.sqrt(dx * dx + dy * dy);
+      dx /= len;
+      dy /= len;
+
+      // Apply a random angle offset (arc effect)
+      const angleOffset = (Math.random() - 0.5) * (Math.PI / 4); // ±45°
+      const cos = Math.cos(angleOffset);
+      const sin = Math.sin(angleOffset);
+      const rotatedDx = dx * cos - dy * sin;
+      const rotatedDy = dx * sin + dy * cos;
+
+      // Speed with slight variation
+      const baseSpeed = 15;
+      const speedVariance = 5;
+      const speed = baseSpeed + (Math.random() * speedVariance - speedVariance / 2);
+
+      const velX = rotatedDx * speed;
+      const velY = rotatedDy * speed;
+
+      // Create Matter body
+      const body = Matter.Bodies.rectangle(x, y, sizeX, sizeY, {
+        render: { visible: false, isStatic: false },
         restitution: 1,
         friction: 0.1,
         frictionAir: 0.007
       });
-      
-      Matter.World.add(world, body);
-      Matter.Body.setVelocity(body, {
-        x: (Math.random() * 30) - 15,
-        y: -10
-      });
+
+      Matter.World.add(engineRef.current.world, body);
+      Matter.Body.setVelocity(body, { x: velX, y: velY });
       Matter.Body.setAngularVelocity(body, (Math.random() - 0.5) * 0.2);
-      
+
       const el = createEmoteElement(emote.url, sizeX, sizeY, emote.animated);
 
       let cleanupEffect = null;
       if (isSub && subEffects && subEffectTypes.length > 0 && Math.random() <= subChance) {
-
         const filteredEffects = subEffectTypes.filter(effect => effect !== 'magneticAttraction');
-        let effectName = null;
         if (filteredEffects.length > 0) {
-          effectName = filteredEffects[Math.floor(Math.random() * filteredEffects.length)];
-        }
-        let effect = effectsRegistry[effectName];
-        if (effect) {
-          cleanupEffect = effect(el, body, engine, userColor);
+          const effectName = filteredEffects[Math.floor(Math.random() * filteredEffects.length)];
+          const effect = effectsRegistry[effectName];
+          if (effect) {
+            cleanupEffect = effect(el, body, engineRef.current, userColor);
+          }
         }
       }
 
@@ -305,6 +344,7 @@ function EmoteOverlayCore({
         cleanupEffect
       });
     };
+
 
     Matter.Events.on(engine, "beforeUpdate", () => {
       const now = Date.now();
@@ -407,7 +447,6 @@ function EmoteOverlayCore({
       if (magneticEventRef.current) return;
 
       magneticEventRef.current = true;
-      setMagneticEvent(true);
       
       const forceMagnitude = magneticSTR;
       const engine = engineRef.current;
@@ -439,7 +478,6 @@ function EmoteOverlayCore({
       setTimeout(() => {
       Matter.Events.off(engine, "beforeUpdate", magneticUpdate);
       magneticEventRef.current = false;
-      setMagneticEvent(false);
       console.log("event ended");
     }, duration);
   }
