@@ -72,7 +72,8 @@ function EmoteOverlayCore({
   subEffects,
   subEffectTypes,
   subEffectChance,
-  subEffectBlackHoleStrength
+  subEffectBlackHoleStrength,
+  raidEffect
 }) {
   const sceneRef = useRef(null);
   const emoteMap = useRef(new Map());
@@ -430,7 +431,7 @@ function EmoteOverlayCore({
     const client = clientRef.current;
     if (!client || !spawnEmoteRef.current) return;
 
-    function onMessage(channel, userstate, message) {
+    function onMessage(channel, userstate, message) {      
       const words = message.split(/\s+/);
       const emotes = words.filter((w) => emoteMap.current.has(w));
       const isSub =
@@ -451,12 +452,29 @@ function EmoteOverlayCore({
         startMagneticEvent(5000);
       }
     }
-
+    
     client.on("message", onMessage);
     return () => {
       client.off("message", onMessage);
     };
   }, [twitchName, emoteDelay, emoteSetId, emoteScale, emoteLifetime]);
+
+  useEffect(() => {
+    const client = clientRef.current;
+    if (!client || !raidEffect) return;
+
+    function onRaid(channel, username, viewers) {
+      for (let i = 0; i < viewers; i++) {
+        setTimeout(() => { 
+          spawnEmoteRef.current?.("AYAYA", false, "red");
+        }, i * emoteDelay);
+      }
+    }
+    client.on("raided", onRaid);
+    return () => {
+      client.off("raided", onRaid);
+    }
+  }, [raidEffect]);
 
   function startMagneticEvent(duration = 5000) {
       if (magneticEventRef.current) return;

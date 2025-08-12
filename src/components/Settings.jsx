@@ -38,6 +38,7 @@ export function Settings() {
   const [emoteScale, setEmoteScale] = useState(1.0);
   const [emoteDelay, setEmoteDelay] = useState(150);
   const [subEffects, setSubEffects] = useState(true);
+  const [raidEffect, setRaidEffect] = useState(true);
   const [subEffectTypes, setSubEffectTypes] = useState([]);
   const [availableSubEffects, setAvailableSubEffects] = useState([]);
   const [subEffectChance, setSubEffectChance] = useState(0.25);
@@ -87,6 +88,7 @@ export function Settings() {
         setSubEffects(Boolean(data.subEffects));
         setSubEffectChance(toNumber(data.subEffectChance, 0.25));
         setSubEffectBlackHoleStrength(toNumber(data.subEffectBlackHoleStrength, 0.00005));
+        setRaidEffect(Boolean(data.raidEffect));
 
         setSubEffectTypes(
           Array.isArray(data.subEffectTypes)
@@ -222,6 +224,12 @@ export function Settings() {
     const isChecked = e.target.checked;
     setSubEffects(isChecked);
     updateSetting('subEffects', isChecked);
+  }
+
+  const handleRaidEffectToggle = (e) => {
+    const isChecked = e.target.checked;
+    setRaidEffect(isChecked);
+    updateSetting('raidEffect', isChecked);
   }
 
   const handleSubEffectsChance = (e) => {
@@ -559,6 +567,16 @@ export function Settings() {
         />
       </label>
       <span className='explanation'>Enable/Disable special effects for subscribers.</span>
+      <label className='labelH'>
+        <span style={{minWidth: 120}}>Enable Raid Effect</span>
+        <input
+          type="checkbox"
+          checked={raidEffect}
+          onChange={handleRaidEffectToggle}
+          style={{width: 20, height: 20, cursor: 'pointer'}}          
+        />
+      </label>
+      <span className='explanation'>Enable/Disable raid effect.</span>
       <label className='labelV' style={{alignItems: 'flex-start'}}>
       <span style={{ minWidth: 120, marginBottom: 8 }}>Subscriber Effects</span>
       <div style={{
