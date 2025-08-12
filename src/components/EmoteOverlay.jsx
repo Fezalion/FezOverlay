@@ -144,7 +144,17 @@ function EmoteOverlayCore({
     let runner = Matter.Runner.create();
     runnerRef.current = runner;
     Matter.Runner.run(runner, engine);
+    /* -------------------
+      |     Effects      |
+      -------------------- */
 
+    /*
+      Ideas: hyperspeed
+      channel point redeeming ? name on emotes ?
+      presets for multiple scenes
+
+
+                            */
     const effectsRegistry = {
       trailOfMiniEmotes: (el) => {
         const trail = [];
@@ -291,8 +301,12 @@ function EmoteOverlayCore({
       dx /= len;
       dy /= len;
 
-      // Apply a random angle offset (arc effect)
-      const angleOffset = (Math.random() - 0.5) * (Math.PI / 4); // ±45°
+      // Determine if this is a corner or edge
+      const isCorner = (spawnCell.col !== 1 && spawnCell.row !== 1); // both col & row are outer
+      const maxAngleOffset = isCorner ? Math.PI / 3 : Math.PI / 6; // 60° for corners, 30° for edges
+
+      // Apply a random angle offset
+      const angleOffset = (Math.random() - 0.5) * (2 * maxAngleOffset);
       const cos = Math.cos(angleOffset);
       const sin = Math.sin(angleOffset);
       const rotatedDx = dx * cos - dy * sin;
@@ -344,6 +358,7 @@ function EmoteOverlayCore({
         cleanupEffect
       });
     };
+
 
 
     Matter.Events.on(engine, "beforeUpdate", () => {

@@ -633,6 +633,8 @@ export function Settings() {
         <span className='explanation'>
           Chance of special effects proccing [Limited to 0.00001-1.0000][Default: 0.00005]
         </span>
+
+      
     </div>
     </div>
     </div>
