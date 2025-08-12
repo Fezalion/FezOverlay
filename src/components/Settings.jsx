@@ -184,7 +184,7 @@ export function Settings() {
 
   const handleSubEffectsToggle = (e) => {
     const isChecked = e.target.checked;
-    setTextStroke(isChecked);
+    setSubEffects(isChecked);
     updateSetting('subEffects', isChecked);
   }
 
