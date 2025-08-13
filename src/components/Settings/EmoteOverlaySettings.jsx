@@ -43,9 +43,21 @@ export default function EmoteOverlaySettings({ settings, updateSetting }) {
         />        
       </div>
       {/* General Settings */}
-      <div className="bg-white/5 p-4 rounded-xl border border-white/10">
+      <div className="relative bg-white/5 p-4 rounded-xl border border-white/10">
         <h3 className="text-lg font-semibold mb-4">General</h3>
-
+          <button
+            onClick={() => {
+              const defaultSubEffects = {
+                emoteLifetime: 5000,
+                emoteScale:1.0,
+                emoteDelay: 150,                
+              };
+              Object.entries(defaultSubEffects).forEach(([key, val]) => updateSetting(key, val));
+            }}
+            className="absolute top-5 right-5 px-3 py-1 text-sm font-medium text-white bg-gray-700 rounded-md hover:bg-gray-600 transition"
+          >
+            Reset
+          </button>
         <InputField
           type="range"
           label="Emote Lifetime (ms)"
@@ -95,10 +107,7 @@ export default function EmoteOverlaySettings({ settings, updateSetting }) {
         {/* Reset Button */}
           <button
             onClick={() => {
-              const defaultSubEffects = {
-                emoteLifetime: 5000,
-                emoteScale:1.0,
-                emoteDelay: 150,
+              const defaultSubEffects = {                
                 subEffectHueShiftChance:5,
                 subEffectBlackHoleChance: 5,
                 subEffectBlackHoleDuration: 5,

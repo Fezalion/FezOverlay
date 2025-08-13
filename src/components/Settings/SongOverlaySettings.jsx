@@ -13,22 +13,6 @@ export default function SongOverlaySettings({ settings, updateSetting }) {
     [settings.textStrokeSize, settings.textStrokeColor]
   );
 
-  const resetDefaults = () => {
-    const defaults = {
-      lastfmName: "",
-      playerAlignment: "right",
-      bgColor: "rgba(128, 0, 128, 1)",
-      fontColor: "#ffffff",
-      textStroke: false,
-      textStrokeSize: 0,
-      textStrokeColor: "#000000",
-      scaleSize: 1.0,
-      padding: 10,
-      maxWidth: 700
-    };
-    Object.entries(defaults).forEach(([k, v]) => updateSetting(k, v));
-  };
-
   return (
     <div className="space-y-6">
       {/* Account Settings */}
@@ -44,8 +28,20 @@ export default function SongOverlaySettings({ settings, updateSetting }) {
       </div>
 
       {/* General Settings */}
-      <div className="bg-white/5 p-4 rounded-xl border border-white/10">
+      <div className="relative bg-white/5 p-4 rounded-xl border border-white/10">
         <h3 className="text-lg font-semibold mb-4">General</h3>
+        <button
+            onClick={() => {
+              const defaultSubEffects = {
+                playerAlignment: "right",
+                bgColor: "#800080"          
+              };
+              Object.entries(defaultSubEffects).forEach(([key, val]) => updateSetting(key, val));
+            }}
+            className="absolute top-5 right-5 px-3 py-1 text-sm font-medium text-white bg-gray-700 rounded-md hover:bg-gray-600 transition"
+          >
+            Reset
+        </button>
 
         <label className="block mb-2">Alignment</label>
         <select
@@ -89,9 +85,22 @@ export default function SongOverlaySettings({ settings, updateSetting }) {
       </div>
 
       {/* Font Settings */}
-      <div className="bg-white/5 p-4 rounded-xl border border-white/10">
+      <div className="relative bg-white/5 p-4 rounded-xl border border-white/10">
         <h3 className="text-lg font-semibold mb-4">Font</h3>
-
+        <button
+            onClick={() => {
+              const defaultSubEffects = {
+                fontColor: "#ffffff",
+                textStroke: false,
+                textStrokeSize: 0,
+                textStrokeColor: "#ffffff"
+              };
+              Object.entries(defaultSubEffects).forEach(([key, val]) => updateSetting(key, val));
+            }}
+            className="absolute top-5 right-5 px-3 py-1 text-sm font-medium text-white bg-gray-700 rounded-md hover:bg-gray-600 transition"
+          >
+            Reset
+        </button>
         <label className="font-semibold">Font Color</label>
         <input
           label="Font Color"
@@ -159,8 +168,21 @@ export default function SongOverlaySettings({ settings, updateSetting }) {
       </div>
 
       {/* Layout Settings */}
-      <div className="bg-white/5 p-4 rounded-xl border border-white/10">
+      <div className="relative bg-white/5 p-4 rounded-xl border border-white/10">
         <h3 className="text-lg font-semibold mb-4">Layout</h3>
+        <button
+            onClick={() => {
+              const defaultSubEffects = {
+                scaleSize: 1.0,
+                padding: 10,
+                maxWidth: 700      
+              };
+              Object.entries(defaultSubEffects).forEach(([key, val]) => updateSetting(key, val));
+            }}
+            className="absolute top-5 right-5 px-3 py-1 text-sm font-medium text-white bg-gray-700 rounded-md hover:bg-gray-600 transition"
+          >
+            Reset
+        </button>
         <InputField
           label="Scale Size"
           type="range"
@@ -188,16 +210,6 @@ export default function SongOverlaySettings({ settings, updateSetting }) {
           value={settings.maxWidth}
           onChange={e => updateSetting("maxWidth", parseInt(e.target.value))}
         />
-      </div>
-
-      {/* Global Controls */}
-      <div className="flex items-center justify-end bg-white/5 p-4 rounded-xl border border-white/10">
-        <button
-          onClick={resetDefaults}
-          className="px-3 py-1 text-sm font-medium text-white bg-gray-700 rounded-md hover:bg-gray-600 transition"
-        >
-          Reset
-        </button>
       </div>
     </div>
   );
