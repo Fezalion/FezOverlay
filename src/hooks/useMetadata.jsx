@@ -50,7 +50,7 @@ export function useMetadata() {
   const refreshTimeoutRef = useRef(null);
 
   // Debounced refresh function
-  const debouncedRefresh = useCallback((delay = 1500) => {
+  const debouncedRefresh = useCallback((delay = 500) => {
     // Clear any existing timeout
     if (refreshTimeoutRef.current) {
       clearTimeout(refreshTimeoutRef.current);
@@ -186,6 +186,23 @@ export function useMetadata() {
     }
   }, []);
 
+  // Function to update local state only (for immediate visual feedback)
+  const setLocalSetting = useCallback((key, value) => {
+    setSettings(prev => {
+      const newSettings = { ...prev, [key]: value };
+      
+      // Special handling for player location coordinates
+      if (key === 'playerLocationX' || key === 'playerLocationY') {
+        newSettings.playerLocationCoords = {
+          x: key === 'playerLocationX' ? value : prev.playerLocationCoords.x,
+          y: key === 'playerLocationY' ? value : prev.playerLocationCoords.y
+        };
+      }
+      
+      return newSettings;
+    });
+  }, []);
+
   // Update a single setting
   const updateSetting = useCallback(async (key, value) => {
     try {
@@ -213,6 +230,8 @@ export function useMetadata() {
   // Bulk update multiple settings at once
   const updateSettings = useCallback(async (updatedSettings) => {
     try {
+      console.log("updateSettings called with:", updatedSettings);
+      
       const response = await fetch('/api/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -221,8 +240,23 @@ export function useMetadata() {
       
       if (!response.ok) throw new Error('Failed to update settings');
       
+      console.log("API call successful");
+      
       // Update local state immediately
-      setSettings(prev => ({ ...prev, ...updatedSettings }));
+      setSettings(prev => {
+        const newSettings = { ...prev, ...updatedSettings };
+        
+        // Special handling for player location coordinates
+        if ('playerLocationX' in updatedSettings || 'playerLocationY' in updatedSettings) {
+          newSettings.playerLocationCoords = {
+            x: updatedSettings.playerLocationX ?? prev.playerLocationCoords.x,
+            y: updatedSettings.playerLocationY ?? prev.playerLocationCoords.y
+          };
+          console.log("Updated playerLocationCoords:", newSettings.playerLocationCoords);
+        }
+        
+        return newSettings;
+      });
       
       // Debounce the refresh call
       debouncedRefresh();
@@ -257,5 +291,7 @@ export function useMetadata() {
     refreshSettings: fetchSettings,
     // Expose the debounced refresh function in case you need manual control
     debouncedRefresh,
+    // Function for immediate local state updates without API calls
+    setLocalSetting,
   };
 }

@@ -12,7 +12,7 @@ export function NowPlaying() {
   const [shouldAnimate, setShouldAnimate] = useState(false);
   const [scrollDuration, setScrollDuration] = useState(0);
 
-  const { settings, refreshSettings, updateSetting } = useMetadata();
+  const { settings, refreshSettings, updateSettings, setLocalSetting } = useMetadata();
 
   const { bgColor, scaleSize, maxWidth, padding, fontFamily, fontColor, textStroke, textStrokeSize, textStrokeColor, lastfmName, playerLocationCoords, playerAlignment } = settings;
     
@@ -108,33 +108,82 @@ export function NowPlaying() {
     return () => clearTimeout(timeout);
   }, [displayText, lastfmName]);
 
-
-
-
   // 🎮 Move position with arrows / Shift modifier
+  const movementTimeoutRef = useRef(null);
+  const currentPositionRef = useRef({ x: 0, y: 0 });
+
+  // Keep currentPositionRef in sync with actual coordinates
+  useEffect(() => {
+    currentPositionRef.current = {
+      x: playerLocationCoords.x,
+      y: playerLocationCoords.y
+    };
+  }, [playerLocationCoords]);
+
   useEffect(() => {
     const handleKeyDown = (e) => {
-      let x = playerLocationCoords.x;
-      let y = playerLocationCoords.y;
       const moveBy = e.shiftKey ? MOVE_AMOUNT * 5 : MOVE_AMOUNT;
+      let moved = false;
 
+      // Update current position ref based on key press
       switch (e.key) {
-        case 'ArrowUp': y -= moveBy; break;
-        case 'ArrowDown': y += moveBy; break;
-        case 'ArrowLeft': x -= moveBy; break;
-        case 'ArrowRight': x += moveBy; break;
-        case ' ': x = 0; y = 0; break;
+        case 'ArrowUp': 
+          currentPositionRef.current.y -= moveBy;
+          moved = true;
+          break;
+        case 'ArrowDown': 
+          currentPositionRef.current.y += moveBy;
+          moved = true;
+          break;
+        case 'ArrowLeft': 
+          currentPositionRef.current.x -= moveBy;
+          moved = true;
+          break;
+        case 'ArrowRight': 
+          currentPositionRef.current.x += moveBy;
+          moved = true;
+          break;
+        case ' ': 
+          currentPositionRef.current = { x: 0, y: 0 };
+          moved = true;
+          break;
         default: return;
       }
 
+      if (!moved) return;
       e.preventDefault();
-      updateSetting('playerLocationX', x);
-      updateSetting('playerLocationY', y);
+
+      // Update local state immediately for visual feedback
+      if (setLocalSetting) {
+        setLocalSetting('playerLocationCoords', { 
+          x: currentPositionRef.current.x, 
+          y: currentPositionRef.current.y 
+        });
+      }
+
+      // Clear existing timeout
+      if (movementTimeoutRef.current) {
+        clearTimeout(movementTimeoutRef.current);
+      }
+
+      // Set new timeout to apply the movement to API after a delay
+      movementTimeoutRef.current = setTimeout(() => {
+        updateSettings({
+          playerLocationX: currentPositionRef.current.x,
+          playerLocationY: currentPositionRef.current.y
+        });
+      }, 200); // Increased to 200ms to make it more obvious
     };
 
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [playerLocationCoords, updateSetting]);  
+    
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      if (movementTimeoutRef.current) {
+        clearTimeout(movementTimeoutRef.current);
+      }
+    };
+  }, [updateSettings, setLocalSetting]);
 
   function getStrokeTextShadow(width, color) {
     if (!textStroke || width <= 0) {
