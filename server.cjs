@@ -232,7 +232,8 @@ app.post('/api/refresh', (req, res) => {
 const availableSubEffects = [
   "trailOfMiniEmotes",
   "colorFlash",
-  "magneticAttraction"
+  "magneticAttraction",
+  "reverseGravity",
 ];
 
 app.get('/api/subeffecttypes', (req, res) => {
@@ -325,4 +326,5 @@ if (!fs.existsSync(distRoot)) {
 
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`Server + WS running on https://localhost:${PORT}`);
+  broadcast('refresh');
 });

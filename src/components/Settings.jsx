@@ -1,540 +1,427 @@
-import { useState, useEffect, useRef } from 'react';
-import ColorPicker from 'react-best-gradient-color-picker'
-import { useMetadata } from '../hooks/useMetadata';
+import { useState } from "react";
+import ColorPicker from "react-best-gradient-color-picker";
+import { useMetadata } from "../hooks/useMetadata";
 
 function hexToRgb(hex) {
-  hex = hex.replace('#', '');
-  if (hex.length === 3) hex = hex.split('').map(x => x + x).join('');
+  hex = hex.replace("#", "");
+  if (hex.length === 3) hex = hex.split("").map(x => x + x).join("");
   const num = parseInt(hex, 16);
   return `${(num >> 16) & 255},${(num >> 8) & 255},${num & 255}`;
 }
 
 export function Settings() {
-  const pickerRef = useRef(null);
-  const OutlinepickerRef = useRef(null);
-
   const [showPicker, setShowPicker] = useState(false);
   const [showOutlinePicker, setShowOutlinePicker] = useState(false);
-  
-  const { 
-    settings: Settings, 
-    updateSetting, 
+
+  const {
+    settings: Settings,
+    updateSetting,
     availableSubEffects,
     version,
-    latestVersion } = useMetadata();
+    latestVersion
+  } = useMetadata();
 
-  const handleScaleSize = (e) => {
-    const val = parseFloat(e.target.value) || 1.0;
-    updateSetting('scaleSize', val);
-  };
+  const handleChange = (key, parser = val => val) => e =>
+    updateSetting(key, parser(e.target.value));
 
-  const handleMaxWidth = (e) => {
-    const val = parseInt(e.target.value) || 700;
-    updateSetting('maxWidth', val);
-  };
+  const handleCheckbox = key => e =>
+    updateSetting(key, e.target.checked);
 
-  const handlePadding = (e) => {
-    const val = parseInt(e.target.value) || 10;
-    updateSetting('padding', val);
-  };
-
-  const handleFontFamily = (e) => {
-    updateSetting('fontFamily', e.target.value);
-  };
-
-  const handleFontColor = (e) => {
-    updateSetting('fontColor', e.target.value);
-  };
-
-  const handleTwitchNameChange = (e) => {
-    updateSetting('twitchName', e.target.value);
-  };
-
-  const handleLastfmNameChange = (e) => {
-    updateSetting('lastfmName', e.target.value);
-  };
-
-  const handleEmoteSetIdChange = (e) => {
-    updateSetting('emoteSetId', e.target.value);
-  };
-
-  const handleEmoteLifetimeChange = (e) => {
-    const val = parseInt(e.target.value) || 5000;
-    updateSetting('emoteLifetime', val);
-  };
-
-  const handleEmoteScaleChange = (e) => {
-    const val = parseFloat(e.target.value) || 1.0;
-    updateSetting('emoteScale', val);
-  };
-
-  const handleEmoteDelayChange = (e) => {
-    const val = parseInt(e.target.value) || 150;
-    updateSetting('emoteDelay', val);
-  }
-
-  const handleBgColorChange = (newColor) => {
-    updateSetting('bgColor', newColor);
-  };
-  
-  const handleTextStrokeToggle = (e) => {
-    const isChecked = e.target.checked;
-    updateSetting('textStroke', isChecked);
-  }
-
-  const handleTextStrokeColor = (color) => {
-    updateSetting('textStrokeColor', color);
-  }
-
-  const handleTextStrokeSize = (e) => {
-    const val = parseInt(e.target.value) || 0;
-    updateSetting('textStrokeSize', val);
-  }
-
-  const handleSubEffectsToggle = (e) => {
-    const isChecked = e.target.checked;
-    updateSetting('subEffects', isChecked);
-  }
-
-  const handleRaidEffectToggle = (e) => {
-    const isChecked = e.target.checked;
-    updateSetting('raidEffect', isChecked);
-  }
-
-  const handleSubEffectsChance = (e) => {
-    const val = parseFloat(e.target.value) || 1.0;
-    updateSetting('subEffectChance', val);
-  }
-
-  const handleSubEffectBlackHoleStrengthChance = (e) => {
-    const val = parseFloat(e.target.value) || 0.00005;
-    updateSetting('subEffectBlackHoleStrength', val);
-  }
-
-  const handlePlayerAlignment = (e) => {
-    const val = e.target.value;
-    updateSetting('playerAlignment', val);
-  }
-
-
-  useEffect(() => {
-    function handleClickOutside(event) {
-      if (pickerRef.current && !pickerRef.current.contains(event.target)) {
-        console.log('Clicked outside the picker, closing it');
-        setShowPicker(false);
-      }
-      if (OutlinepickerRef.current && !OutlinepickerRef.current.contains(event.target)) {
-        console.log('Clicked outside the outline picker, closing it');
-        setShowOutlinePicker(false);
-      }
-    }
-
-    if (showPicker || showOutlinePicker) {
-      document.addEventListener('mousedown', handleClickOutside);
-    } else {
-      document.removeEventListener('mousedown', handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [showPicker, showOutlinePicker]);
-
-  function getStrokeTextShadow(width, color) {
-    if (width <= 0) return 'none';
+  const getStrokeTextShadow = (width, color) => {
+    if (width <= 0) return "none";
     const shadows = [];
-
     for (let dx = -width; dx <= width; dx++) {
       for (let dy = -width; dy <= width; dy++) {
         if (dx === 0 && dy === 0) continue;
         shadows.push(`${dx}px ${dy}px 0 ${color}`);
       }
     }
-
-    return shadows.join(', ');
-  }
+    return shadows.join(", ");
+  };
 
   return (
-    <div className='settingsMainContainer'>
-      <h1 style={{ textAlign: 'center'}}>Overlay Settings <span className='explanation'>installed {version}</span> {latestVersion !== version && <span className='explanation'> | you can update to <span style={{color:"green"}}>{latestVersion}</span></span>} </h1>     
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black p-6 text-white">
+      {/* Page Title */}
+      <h1 className="text-3xl font-bold mb-6 flex flex-wrap items-center gap-2">
+        Overlay Settings
+        <span className="text-sm text-gray-400">installed {version}</span>
+        {latestVersion !== version && (
+          <span className="text-sm text-yellow-400">
+            | update available: <span className="font-semibold">{latestVersion}</span>
+          </span>
+        )}
+      </h1>
 
-      <div className='settingsInsideContainer'>
-        <div className="settingsContainer">
-          <h1>Song Overlay Settings</h1>
-          <p className='explanation'>
-        You can adjust the position of the overlay in your OBS Browser Source's Interact option, use arrow keys (Shift to go faster) [Spacebar resets it to 0,0 (Right bottom corner)]</p>
+      <div className="grid gap-8 md:grid-cols-2">
+        {/* ===== Song Overlay Settings ===== */}
+        <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-6 shadow-lg">
+          <h2 className="text-xl font-semibold mb-4">Song Overlay Settings</h2>
+          <p className="text-xs text-gray-400 mb-4">
+            Adjust overlay position via OBS Browser Source → Interact.
+            Use arrow keys (Shift = faster). Space resets to 0,0 (bottom-right corner).
+          </p>
 
-          {/* Divider */}
-          <hr className='divider' />
-          {/* Last.fm Username input */}
-          <label className='labelH'>
-            <span style={{minWidth: 120}}>Lastfm Username</span>
+          {/* Lastfm Username */}
+          <label className="flex flex-col gap-1 mb-4">
+            <span>Lastfm Username</span>
             <input
               type="text"
               value={Settings.lastfmName}
-              onChange={handleLastfmNameChange}
+              onChange={handleChange("lastfmName")}
               placeholder="Enter your Lastfm username"
-              style={{flex: 1, padding: 4, borderRadius: 6, border: '1px solid #ccc'}}
+              className="rounded-lg px-3 py-2 bg-white/10 border border-white/20 text-sm placeholder-gray-400 text-white focus:outline-none focus:ring-2 focus:ring-purple-400"
             />
           </label>
-          {/* Divider */}
-          <hr className='divider' />
-          <label className='labelH'>
-            <span style={{minWidth: 120}}>Alignment</span>
-            <select value={Settings.playerAlignment} onChange={handlePlayerAlignment} style={{flex: 1, padding: 4, borderRadius: 6, border: '1px solid #ccc'}}>
-            <option value="right">Right</option>
-            <option value="left">Left</option>
-          </select>
-          </label>
-          <span className='explanation'>Where will the song panel be fixated upon. (Where is the origin dictates where the overlay will grow to fit to max length, example; Left means it will only grow on the right side.)[You'll need to change the position accordingly again.]</span>
-          {/* Background Gradient Picker Button */}
-          <label className='labelV'>
-            <h2>Background</h2>
 
-            <button
-              type="button"
-              onClick={() => {setShowPicker(true);}}              
+          {/* Alignment */}
+          <label className="flex flex-col gap-1 mb-4">
+            <span>Alignment</span>
+            <select
+              value={Settings.playerAlignment}
+              onChange={handleChange("playerAlignment")}
+              className="rounded-lg px-3 py-2 bg-white/10 border border-white/20 text-sm text-white focus:outline-none focus:ring-2 focus:ring-purple-400"
             >
-              Pick Background
-            </button>
+              <option value="right">Right</option>
+              <option value="left">Left</option>
+            </select>
+            <span className="text-xs text-gray-400">
+              Defines the overlay's growth direction from the anchor point.
+            </span>
+          </label>
 
-            {showPicker && (
-            <>
-              {/* Fullscreen overlay for click outside */}
-              <div className='fullscreenBackground'></div> 
+          {/* Background Picker */}
+          <h3 className="text-lg font-medium mt-6 mb-2">Background</h3>
+          <button
+            onClick={() => setShowPicker(true)}
+            className="w-full bg-purple-600 hover:bg-purple-700 px-3 py-2 rounded-lg transition"
+          >
+            Pick Background
+          </button>
 
-              {/* Actual color picker popup */}
+          {showPicker && (
+            <div
+              className="fixed inset-0 bg-black/60 flex items-center justify-center z-50"
+              onClick={() => setShowPicker(false)}
+            >
               <div
-                ref={pickerRef}
-                className="gradient-picker-popup"                              
+                className="bg-gray-900 p-6 rounded-2xl shadow-2xl max-h-[90vh] overflow-y-auto"
+                onClick={e => e.stopPropagation()}
               >
                 <ColorPicker
-                  ref={pickerRef}
                   value={Settings.bgColor}
-                  onChange={handleBgColorChange}
+                  onChange={color => updateSetting("bgColor", color)}
                   disableDarkMode={true}
                 />
-                <div style={{
-                  marginTop: 20,
-                  padding: `${Settings.padding}px`,        
-                  fontFamily: Settings.fontFamily,
-                  color: `rgb(${hexToRgb(Settings.fontColor)})`,
-                  background: Settings.bgColor,
-                  zIndex:999,
-                  textAlign: 'right',
-                  textShadow: getStrokeTextShadow(Settings.textStrokeSize, Settings.textStrokeColor)
-                }}>        
-                {/* Simulate a track to display in the preview */}
-                <span>
+                <div
+                  className="mt-4 p-3 rounded-lg text-center font-medium"
+                  style={{
+                    padding: `${Settings.padding}px`,
+                    fontFamily: Settings.fontFamily,
+                    color: `rgb(${hexToRgb(Settings.fontColor)})`,
+                    background: Settings.bgColor,
+                    textShadow: getStrokeTextShadow(
+                      Settings.textStrokeSize,
+                      Settings.textStrokeColor
+                    )
+                  }}
+                >
                   Example Artist - Example Track
-                </span>
-              </div>
-              </div>
-            </>
-          )}
-
-          </label>
-      {/* Divider */}
-      <hr className='divider' />
-      
-      
-      <h2>Font Settings</h2>
-      <label className='labelH'>
-        <span style={{minWidth: 120}}>Font Color</span>
-        <input type="color" value={Settings.fontColor} onChange={handleFontColor} style={{width: 36, height: 36, border: 'none', background: 'none'}} />
-      </label>
-
-      <label className='labelH'>
-        <span style={{minWidth: 120}}>Font Family</span>
-        <select disabled value={Settings.fontFamily} onChange={handleFontFamily} style={{flex: 1, padding: 4, borderRadius: 6, border: '1px solid #ccc'}}>
-          <option value="Arial, sans-serif">Arial</option>
-          <option value="Verdana, Geneva, sans-serif">Verdana</option>
-          <option value="Tahoma, Geneva, sans-serif">Tahoma</option>
-          <option value="Courier New, Courier, monospace">Courier New</option>
-          <option value="Times New Roman, Times, serif">Times New Roman</option>
-        </select>
-        <span className='explanation'>Currently disabled, bugged.</span>
-      </label> 
-
-      {/* Divider */}
-      <hr className='divider' />
-
-      <h2>Text Outline Settings</h2>
-      <label className='labelH'>
-        <span style={{minWidth: 120}}>Enable Text Outline</span>
-        <input
-          type="checkbox"
-          checked={Settings.textStroke}
-          onChange={handleTextStrokeToggle}
-          style={{width: 20, height: 20, cursor: 'pointer'}}          
-        />
-      </label>
-
-      <label className='labelH'>
-        <span style={{minWidth: 120}}>Text Stroke Size</span>
-        <input
-          type="number"
-          min="0"
-          max="50"
-          value={Settings.textStrokeSize}
-          disabled={!Settings.textStroke}
-          onChange={handleTextStrokeSize}
-        />
-      </label>
-
-      <label className='labelH'>
-        <span style={{minWidth: 120}}>Text Outline Color</span>
-        <button
-          type="button"
-          disabled={!Settings.textStroke}
-          onClick={() => {setShowOutlinePicker(true);}}          
-        >
-          Pick Outline Color
-        </button>
-
-        {showOutlinePicker && (
-          <>
-            <div className='fullscreenBackground'></div> 
-            <div             
-              ref={OutlinepickerRef}
-              className="gradient-picker-popup"              
-            >
-              <ColorPicker
-                ref={OutlinepickerRef}
-                value={Settings.textStrokeColor}
-                onChange={handleTextStrokeColor}
-                hideColorTypeBtns={true}
-                hideGradientTypeBtns={true}
-                hideControls={true}
-                disableDarkMode={true}
-              />
-
-              <div style={{
-                marginTop: 20,
-                padding: `${Settings.padding}px`,        
-                fontFamily: Settings.fontFamily,
-                color: `rgb(${hexToRgb(Settings.fontColor)})`,
-                background: Settings.bgColor,
-                zIndex:999,
-                textAlign: 'right',
-                textShadow: getStrokeTextShadow(Settings.textStrokeSize, Settings.textStrokeColor)
-              }}>        
-                {/* Simulate a track to display in the preview */}
-                <span>
-                  Example Artist - Example Track
-                </span>
+                </div>
               </div>
             </div>
-          </>
-        )}
-      </label> 
+          )}
 
-      {/* Divider */}
-      <hr className='divider' />
+          {/* Font Settings */}
+          <h3 className="text-lg font-medium mt-6 mb-2">Font Settings</h3>
+          <label className="flex flex-col gap-1 mb-4">
+            <span>Font Color</span>
+            <input
+              type="color"
+              value={Settings.fontColor}
+              onChange={handleChange("fontColor")}
+              className="h-10 w-full rounded-lg cursor-pointer border-none"
+            />
+          </label>
 
-      <h2>Layout Settings</h2>
-      <label className='labelH'>
-        <span style={{minWidth: 120}}>Scale Size</span>
-        <input
-          type="number"
-          min="0.05"
-          max="10.0"
-          step="0.05"
-          value={Settings.scaleSize}
-          onChange={handleScaleSize}
-          style={{flex: 1, padding: 4, borderRadius: 6, border: '1px solid #ccc'}}
-          placeholder="Enter player size scale (default 1.0)"
-          ></input>
-      </label>
-      <label className='labelH'>
-        <span style={{minWidth: 120}}>Padding</span>
-        <input type="number" min="0" max="50" value={Settings.padding} onChange={handlePadding} style={{width: 60}} /> px
-      </label>
+          <label className="flex flex-col gap-1 mb-4">
+            <span>Font Family</span>
+            <select
+              disabled
+              value={Settings.fontFamily}
+              onChange={handleChange("fontFamily")}
+              className="rounded-lg px-3 py-2 bg-white/10 border border-white/20 text-sm text-white"
+            >
+              <option value="Arial, sans-serif">Arial</option>
+              <option value="Verdana, Geneva, sans-serif">Verdana</option>
+              <option value="Tahoma, Geneva, sans-serif">Tahoma</option>
+              <option value='"Courier New", Courier, monospace'>Courier New</option>
+              <option value='"Times New Roman", Times, serif'>Times New Roman</option>
+            </select>
+            <span className="text-xs text-gray-400">Currently disabled (bugged).</span>
+          </label>
 
-      <label className='labelH'>
-        <span style={{minWidth: 120}}>Max Width</span>
-        <input
-          type="number"
-          min="100"
-          max="4000"
-          value={Settings.maxWidth}
-          onChange={handleMaxWidth}
-          style={{flex: 1, padding: 4, borderRadius: 6, border: '1px solid #ccc'}}
-          placeholder="Enter max width in px (default 700)"
-          ></input>
-      </label>
-      
-      {/* Divider */}
-      <hr className='divider' />   
-    </div>
+          {/* Outline Settings */}
+          <h3 className="text-lg font-medium mt-6 mb-2">Text Outline</h3>
+          <label className="flex items-center gap-2 mb-4">
+            <input
+              type="checkbox"
+              checked={Settings.textStroke}
+              onChange={handleCheckbox("textStroke")}
+              className="accent-purple-500"
+            />
+            <span>Enable Text Outline</span>
+          </label>
 
-    <div className='settingsContainer'>
-      <h1>Emote Overlay Settings</h1>
-      <p className='explanation'>
-        The emote overlay displays 7TV emotes in real-time as they are used in chat.
-        You can customize the appearance of the emotes and their behavior.</p>
-      <label className='labelH'>
-        <span style={{minWidth: 120}}>Twitch Username</span>
-        <input
-          type="text"
-          value={Settings.twitchName}
-          onChange={handleTwitchNameChange}
-          placeholder="Enter your Twitch username"
-          style={{flex: 1, padding: 4, borderRadius: 6, border: '1px solid #ccc'}}>            
-          </input>
-      </label>
+          <label className="flex flex-col gap-1 mb-4">
+            <span>Text Stroke Size</span>
+            <input
+              type="number"
+              min="0"
+              max="50"
+              value={Settings.textStrokeSize}
+              disabled={!Settings.textStroke}
+              onChange={handleChange("textStrokeSize", parseInt)}
+              className="rounded-lg px-3 py-2 bg-white/10 border border-white/20 text-sm text-white disabled:opacity-50"
+            />
+          </label>
 
-      <label className='labelH'>
-        <span style={{minWidth: 120}}>7tv Emote set ID</span>
-        <input
-          type="text"
-          value={Settings.emoteSetId}
-          onChange={handleEmoteSetIdChange}
-          placeholder="Enter 7vtv emote set ID"
-          style={{flex: 1, padding: 4, borderRadius: 6, border: '1px solid #ccc'}}>            
-          </input>
-      </label>
+          <label className="flex flex-col gap-1 mb-4">
+            <span>Text Outline Color</span>
+            <button
+              disabled={!Settings.textStroke}
+              onClick={() => setShowOutlinePicker(true)}
+              className="w-full bg-purple-600 hover:bg-purple-700 px-3 py-2 rounded-lg transition disabled:opacity-50"
+            >
+              Pick Outline Color
+            </button>
+          </label>
 
-      <label className='labelH'>
-        <span style={{minWidth: 120}}>Emote Lifetime</span>        
-        <input
-          type="number"
-          min="500"
-          max="20000"
-          value={Settings.emoteLifetime}
-          onChange={handleEmoteLifetimeChange}
-          style={{flex: 1, padding: 4, borderRadius: 6, border: '1px solid #ccc'}}
-          placeholder="Enter emote lifetime in ms (default 5000)"
-          ></input>
-      </label>
-      <span className='explanation'>Duration for which emotes are displayed (in ms)[Limited to 500-20000ms][Default: 5000]</span>
+          {showOutlinePicker && (
+            <div
+              className="fixed inset-0 bg-black/60 flex items-center justify-center z-50"
+              onClick={() => setShowOutlinePicker(false)}
+            >
+              <div
+                className="bg-gray-900 p-6 rounded-2xl shadow-2xl max-h-[90vh] overflow-y-auto"
+                onClick={e => e.stopPropagation()}
+              >
+                <ColorPicker
+                  value={Settings.textStrokeColor}
+                  onChange={color => updateSetting("textStrokeColor", color)}
+                  hideColorTypeBtns
+                  hideGradientTypeBtns
+                  hideControls
+                  disableDarkMode
+                />
+                <div
+                  className="mt-4 p-3 rounded-lg text-center font-medium"
+                  style={{
+                    padding: `${Settings.padding}px`,
+                    fontFamily: Settings.fontFamily,
+                    color: `rgb(${hexToRgb(Settings.fontColor)})`,
+                    background: Settings.bgColor,
+                    textShadow: getStrokeTextShadow(
+                      Settings.textStrokeSize,
+                      Settings.textStrokeColor
+                    )
+                  }}
+                >
+                  Example Artist - Example Track
+                </div>
+              </div>
+            </div>
+          )}
 
-      <label className='labelH'>
-        <span style={{minWidth: 120}}>Emote Scale</span>
-        <input
-          type="number"
-          min="0.1"
-          max="5.0"
-          step="0.1"
-          value={Settings.emoteScale}
-          onChange={handleEmoteScaleChange}
-          style={{flex: 1, padding: 4, borderRadius: 6, border: '1px solid #ccc'}}
-          placeholder="Enter emote scale (default 1.0)"
-          ></input>
-      </label>
-      <span className='explanation'>Scale of emotes when displayed [Limited to 0.1-5.0][Default: 1.0]</span>
+          {/* Layout */}
+          <h3 className="text-lg font-medium mt-6 mb-2">Layout Settings</h3>
+          <label className="flex flex-col gap-1 mb-4">
+            <span>Scale Size</span>
+            <input
+              type="number"
+              min="0.05"
+              max="10.0"
+              step="0.05"
+              value={Settings.scaleSize}
+              onChange={handleChange("scaleSize", parseFloat)}
+              className="rounded-lg px-3 py-2 bg-white/10 border border-white/20 text-sm text-white"
+            />
+          </label>
 
-      <label className='labelH'>
-        <span style={{minWidth: 120}}>Emote Delay</span>
-        <input
-        type='number'
-        min="0"
-        max="5000"
-        step="1"
-        value={Settings.emoteDelay}
-        onChange={handleEmoteDelayChange}
-        style={{flex: 1, padding: 4, borderRadius: 6, border: '1px solid #ccc'}}
-        placeholder='Enter the emote delay (default 150)'
-        ></input>
-      </label>
-      <span className='explanation'>Delay of emotes spawning from the same message (in ms)[Limited to 0-5000][Default: 150]</span>
-      <label className='labelH'>
-        <span style={{minWidth: 120}}>Enable Sub Effects</span>
-        <input
-          type="checkbox"
-          checked={Settings.subEffects}
-          onChange={handleSubEffectsToggle}
-          style={{width: 20, height: 20, cursor: 'pointer'}}          
-        />
-      </label>
-      <span className='explanation'>Enable/Disable special effects for subscribers.</span>
-      <label className='labelH'>
-        <span style={{minWidth: 120}}>Enable Raid Effect</span>
-        <input
-          type="checkbox"
-          checked={Settings.raidEffect}
-          onChange={handleRaidEffectToggle}
-          style={{width: 20, height: 20, cursor: 'pointer'}}          
-        />
-      </label>
-      <span className='explanation'>Enable/Disable raid effect.</span>
-      <label className='labelV' style={{alignItems: 'flex-start'}}>
-      <span style={{ minWidth: 120, marginBottom: 8 }}>Subscriber Effects</span>
-      <div style={{
-        flex: 1,
-        borderRadius: 6,
-        border: '1px solid #ccc',
-        padding: 8,
-        maxHeight: '100px',
-        overflowY: 'auto',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '4px',
-        opacity: Settings.subEffects ? 1 : 0.5,
-        pointerEvents: Settings.subEffects ? 'auto' : 'none'
-      }}>
-        {availableSubEffects.map(effect => {
-          const checked = Settings.subEffectTypes.includes(effect);
-          return (
-            <label key={effect} style={{ userSelect: 'none', cursor: 'pointer' }}>
-              <input
-                type="checkbox"
-                disabled={!Settings.subEffects}
-                checked={checked}
-                onChange={() => {
-                  let newSelected;
-                  if (checked) {
-                    newSelected = Settings.subEffectTypes.filter(e => e !== effect);
-                  } else {
-                    newSelected = [...Settings.subEffectTypes, effect];
-                  }
-                  updateSetting('subEffectTypes', newSelected);
-                }}
-                style={{ marginRight: 8 }}
-              />
-              {effect.charAt(0).toUpperCase() + effect.slice(1)}
-            </label>
-          );
-        })}
+          <label className="flex flex-col gap-1 mb-4">
+            <span>Padding</span>
+            <input
+              type="number"
+              min="0"
+              max="50"
+              value={Settings.padding}
+              onChange={handleChange("padding", parseInt)}
+              className="rounded-lg px-3 py-2 bg-white/10 border border-white/20 text-sm text-white"
+            />
+          </label>
+
+          <label className="flex flex-col gap-1 mb-4">
+            <span>Max Width</span>
+            <input
+              type="number"
+              min="100"
+              max="4000"
+              value={Settings.maxWidth}
+              onChange={handleChange("maxWidth", parseInt)}
+              className="rounded-lg px-3 py-2 bg-white/10 border border-white/20 text-sm text-white"
+            />
+          </label>
+        </div>
+
+        {/* ===== Emote Overlay Settings ===== */}
+        <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-6 shadow-lg">
+          <h2 className="text-xl font-semibold mb-4">Emote Overlay Settings</h2>
+          <p className="text-xs text-gray-400 mb-4">
+            Displays 7TV emotes in real-time from chat. Customize appearance & behavior.
+          </p>
+
+          <label className="flex flex-col gap-1 mb-4">
+            <span>Twitch Username</span>
+            <input
+              type="text"
+              value={Settings.twitchName}
+              onChange={handleChange("twitchName")}
+              placeholder="Enter your Twitch username"
+              className="rounded-lg px-3 py-2 bg-white/10 border border-white/20 text-sm placeholder-gray-400 text-white focus:outline-none focus:ring-2 focus:ring-purple-400"
+            />
+          </label>
+
+          <label className="flex flex-col gap-1 mb-4">
+            <span>7TV Emote Set ID</span>
+            <input
+              type="text"
+              value={Settings.emoteSetId}
+              onChange={handleChange("emoteSetId")}
+              placeholder="Enter 7TV emote set ID"
+              className="rounded-lg px-3 py-2 bg-white/10 border border-white/20 text-sm placeholder-gray-400 text-white"
+            />
+          </label>
+
+          <label className="flex flex-col gap-1 mb-4">
+            <span>Emote Lifetime (ms)</span>
+            <input
+              type="number"
+              min="500"
+              max="20000"
+              value={Settings.emoteLifetime}
+              onChange={handleChange("emoteLifetime", parseInt)}
+              className="rounded-lg px-3 py-2 bg-white/10 border border-white/20 text-sm text-white"
+            />
+            <span className="text-xs text-gray-400">
+              Milliseconds emotes remain on screen.
+            </span>
+          </label>
+
+          <label className="flex flex-col gap-1 mb-4">
+            <span>Emote Scale</span>
+            <input
+              type="number"
+              min="0.1"
+              max="5.0"
+              step="0.1"
+              value={Settings.emoteScale}
+              onChange={handleChange("emoteScale", parseFloat)}
+              className="rounded-lg px-3 py-2 bg-white/10 border border-white/20 text-sm text-white"
+            />
+          </label>
+
+          <label className="flex flex-col gap-1 mb-4">
+            <span>Emote Delay (ms)</span>
+            <input
+              type="number"
+              min="0"
+              max="5000"
+              step="1"
+              value={Settings.emoteDelay}
+              onChange={handleChange("emoteDelay", parseInt)}
+              className="rounded-lg px-3 py-2 bg-white/10 border border-white/20 text-sm text-white"
+            />
+          </label>
+
+          <label className="flex items-center gap-2 mb-4">
+            <input
+              type="checkbox"
+              checked={Settings.subEffects}
+              onChange={handleCheckbox("subEffects")}
+              className="accent-purple-500"
+            />
+            <span>Enable Sub Effects</span>
+          </label>
+
+          <label className="flex items-center gap-2 mb-4">
+            <input
+              type="checkbox"
+              checked={Settings.raidEffect}
+              onChange={handleCheckbox("raidEffect")}
+              className="accent-purple-500"
+            />
+            <span>Enable Raid Effect</span>
+          </label>
+
+          {/* Subscriber Effects List */}
+          <div
+            className={`grid grid-cols-2 sm:grid-cols-3 gap-3 mt-3 ${
+              Settings.subEffects ? "" : "opacity-50"
+            }`}
+          >
+            {availableSubEffects.map(effect => {
+              const checked = Settings.subEffectTypes.includes(effect);
+              return (
+                <label
+                  key={effect}
+                  className={`flex items-center gap-2 bg-white/5 p-2 rounded-lg border border-white/10 transition ${
+                    checked ? "bg-purple-500/30 border-purple-400" : ""
+                  }`}
+                >
+                  <span>{effect.charAt(0).toUpperCase() + effect.slice(1)}</span>
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    disabled={!Settings.subEffects}
+                    onChange={() => {
+                      let newSelected = checked
+                        ? Settings.subEffectTypes.filter(e => e !== effect)
+                        : [...Settings.subEffectTypes, effect];
+                      updateSetting("subEffectTypes", newSelected);
+                    }}
+                    className="accent-purple-500"
+                  />
+                </label>
+              );
+            })}
+          </div>
+
+          <label className="flex flex-col gap-1 mt-4 mb-4">
+            <span>Sub Effect Proc Chance</span>
+            <input
+              type="number"
+              min="0.0"
+              max="1.0"
+              step="0.05"
+              value={Settings.subEffectChance}
+              onChange={handleChange("subEffectChance", parseFloat)}
+              className="rounded-lg px-3 py-2 bg-white/10 border border-white/20 text-sm text-white"
+            />
+          </label>
+
+          <label className="flex flex-col gap-1 mb-4">
+            <span>Magnetic Effect Strength</span>
+            <input
+              type="number"
+              min="0.00001"
+              max="1.0"
+              step="0.00001"
+              value={Settings.subEffectBlackHoleStrength}
+              onChange={handleChange("subEffectBlackHoleStrength", parseFloat)}
+              className="rounded-lg px-3 py-2 bg-white/10 border border-white/20 text-sm text-white"
+            />
+          </label>
+        </div>
       </div>
-    </label>
-    <span className='explanation'>
-      Select which subscriber effects you want to enable.
-    </span>
-    <label className='labelH'>
-        <span style={{minWidth: 120}}>Sub Effect proc chance</span>
-        <input
-        type='number'
-        min="0.0"
-        max="1.0"
-        step="0.05"
-        value={Settings.subEffectChance}
-        onChange={handleSubEffectsChance}
-        style={{flex: 1, padding: 4, borderRadius: 6, border: '1px solid #ccc'}}
-        ></input>
-      </label>
-        <span className='explanation'>
-          Chance of special effects proccing [Limited to 0.0-1.0][Default: 0.25]
-        </span>
-        <label className='labelH'>
-        <span style={{minWidth: 120}}>Magnetic effect strength</span>
-        <input
-        type='number'
-        min= "0.00001"
-        max= "1.00000"
-        step="0.00001"
-        value={Settings.subEffectBlackHoleStrength}
-        onChange={handleSubEffectBlackHoleStrengthChance}
-        style={{flex: 1, padding: 4, borderRadius: 6, border: '1px solid #ccc'}}
-        ></input>
-      </label>
-        <span className='explanation'>
-          Chance of special effects proccing [Limited to 0.00001-1.0000][Default: 0.00005]
-        </span>
-
-      
-    </div>
-    </div>
     </div>
   );
 }

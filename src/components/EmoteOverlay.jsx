@@ -71,6 +71,7 @@ function EmoteOverlayCore({
   const spawnEmoteRef = useRef(null);
 
   const magneticEventRef = useRef(false);
+  const reverseGravityEventRef = useRef(false);
 
   const lifetime = typeof emoteLifetime === "number" && emoteLifetime > 0 ? emoteLifetime : 5000;
   const subChance = typeof subEffectChance === "number" && subEffectChance > 0 ? subEffectChance : 0.25;
@@ -144,7 +145,7 @@ function EmoteOverlayCore({
 
 
                             */
-    const effectsRegistry = {
+    const effectsRegistry = {      
       trailOfMiniEmotes: (el) => {
         const trail = [];
         const intervalId = setInterval(() => {
@@ -435,9 +436,24 @@ function EmoteOverlayCore({
         }, i * emoteDelay);
       });
 
-      if (isSub && emotes.length > 0 && Math.random() <= subChance && subEffectTypes.includes('magneticAttraction') && !magneticEventRef.current) {
-        console.log("event proc ", magneticEventRef.current);
-        startMagneticEvent(5000);
+      const effectsMap = {
+        magneticAttraction: startMagneticEvent,
+        reverseGravity: startReverseGravityEvent,
+      };
+
+      for (const [effectName, effectFn] of Object.entries(effectsMap)) {
+        if (
+          isSub &&
+          emotes.length > 0 &&
+          Math.random() <= subChance &&
+          subEffectTypes.includes(effectName) &&
+          !magneticEventRef.current &&
+          !reverseGravityEventRef.current
+        ) {
+          console.log(`event proc ${effectName}`);
+          effectFn(5000);
+          break; // Only trigger one effect per check
+        }
       }
     }
     
@@ -499,6 +515,37 @@ function EmoteOverlayCore({
       setTimeout(() => {
       Matter.Events.off(engine, "beforeUpdate", magneticUpdate);
       magneticEventRef.current = false;
+      console.log("event ended");
+    }, duration);
+  }
+
+  function startReverseGravityEvent(duration = 5000) {
+      if (reverseGravityEventRef.current) return;
+
+      reverseGravityEventRef.current = true;
+
+      const engine = engineRef.current;
+
+      if (!engine) {
+        console.error("Engine ref empty");
+        return;
+      }
+      // Add a beforeUpdate event listener that applies force to all emotes
+      const gravityUpdate = () => {
+        bodiesWithTimers.current.forEach(({ body, isSub }) => {
+          if (!body.isSleeping  && isSub) {
+            const upwardForce = -0.002 * body.mass; // Adjust strength
+            Matter.Body.applyForce(body, body.position, { x: 0, y: upwardForce });
+          }
+        });
+      };
+
+      Matter.Events.on(engine, "beforeUpdate", gravityUpdate);
+
+      // Remove the event after duration
+      setTimeout(() => {
+      Matter.Events.off(engine, "beforeUpdate", gravityUpdate);
+      reverseGravityEventRef.current = false;
       console.log("event ended");
     }, duration);
   }
