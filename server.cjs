@@ -230,7 +230,6 @@ app.post('/api/refresh', (req, res) => {
 
 // Available sub-effect types for the multi-select
 const availableSubEffects = [
-  "trailOfMiniEmotes",
   "colorFlash",
   "magneticAttraction",
   "reverseGravity",

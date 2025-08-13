@@ -15,7 +15,7 @@ export function EmoteOverlay() {
   const [refreshToken, setRefreshToken] = useState(0);
   const wsRef = useRef(null); 
 
-  useEffect(() => { refreshSettings(); }, [refreshToken]);
+  useEffect(() => { refreshSettings(); }, [refreshToken, refreshSettings]);
 
   useEffect(() => {
     const wsUrl = "ws://localhost:48000";
@@ -59,8 +59,16 @@ function EmoteOverlayCore({
   emoteDelay,
   subEffects,
   subEffectTypes,
-  subEffectChance,
+  //HueShift
+  subEffectHueShiftChance,
+  //MagneticAttraction
+  subEffectBlackHoleChance,
+  subEffectBlackHoleDuration,
   subEffectBlackHoleStrength,
+  //ReverseGravity
+  subEffectReverseGravityChance,
+  subEffectReverseGravityStrength,
+  subEffectReverseGravityDuration,
   raidEffect
 }) {
   const sceneRef = useRef(null);
@@ -71,11 +79,7 @@ function EmoteOverlayCore({
   const spawnEmoteRef = useRef(null);
 
   const magneticEventRef = useRef(false);
-  const reverseGravityEventRef = useRef(false);
-
-  const lifetime = typeof emoteLifetime === "number" && emoteLifetime > 0 ? emoteLifetime : 5000;
-  const subChance = typeof subEffectChance === "number" && subEffectChance > 0 ? subEffectChance : 0.25;
-  const magneticSTR = typeof subEffectBlackHoleStrength === "number" && subEffectBlackHoleStrength >= 0.00000 ? subEffectBlackHoleStrength : 0.00005;
+  const reverseGravityEventRef = useRef(false);  
 
   // Twitch client connection
   useEffect(() => {
@@ -145,48 +149,9 @@ function EmoteOverlayCore({
 
 
                             */
-    const effectsRegistry = {      
-      trailOfMiniEmotes: (el) => {
-        const trail = [];
-        const intervalId = setInterval(() => {
-          if (!document.body.contains(el)) {
-            clearInterval(intervalId);
-            trail.forEach(t => t.remove());
-            return;
-          }
-
-          const rect = el.getBoundingClientRect();
-
-          const mini = document.createElement("img");
-          mini.src = el.src;
-          mini.style.width = (rect.width / 2) + "px";
-          mini.style.height = (rect.height / 2) + "px";
-          mini.style.position = "fixed";
-          mini.style.pointerEvents = "none";
-          mini.style.zIndex = "9998";
-          mini.style.opacity = "0.95";
-          mini.style.left = rect.left + "px";
-          mini.style.top = rect.top + "px";
-          mini.style.transition = "opacity 0.5s ease, transform 0.5s ease";
-          
-          document.body.appendChild(mini);
-
-          requestAnimationFrame(() => {
-            mini.style.opacity = "0";
-            mini.style.transform = "translateY(-20px)"; // mini floats upward while fading
-            setTimeout(() => mini.remove(), 500);
-          });
-
-          trail.push(mini);
-        }, 250);
-
-        // Return cleanup function
-        return () => {
-          clearInterval(intervalId);
-          trail.forEach(t => t.remove());
-        };
-      },
+    const effectsRegistry = {
       colorFlash: (el) => {
+        if(Math.random() * 100 > subEffectHueShiftChance) return;
         let hue = 0;
         const intervalId = setInterval(() => {
           if (!document.body.contains(el)) {
@@ -324,17 +289,23 @@ function EmoteOverlayCore({
 
       const el = createEmoteElement(emote.url, sizeX, sizeY, emote.animated);
 
-      let cleanupEffect = null;
-      if (isSub && subEffects && subEffectTypes.length > 0 && Math.random() <= subChance) {
-        const filteredEffects = subEffectTypes.filter(effect => effect !== 'magneticAttraction');
+      let cleanupEffects = [];
+      if (isSub && subEffects && subEffectTypes.length > 0) {
+        // Only consider effects that exist in the registry
+        const filteredEffects = subEffectTypes.filter(effect => effectsRegistry[effect]);
+
         if (filteredEffects.length > 0) {
-          const effectName = filteredEffects[Math.floor(Math.random() * filteredEffects.length)];
-          const effect = effectsRegistry[effectName];
-          if (effect) {
-            cleanupEffect = effect(el, body, engineRef.current, userColor);
-          }
+          
+          filteredEffects.forEach(effectName => {
+            const effect = effectsRegistry[effectName];
+            if (effect) {
+              const cleanup = effect(el, body, engineRef.current, userColor);
+              if (cleanup) cleanupEffects.push(cleanup);
+            }
+          });          
         }
       }
+
 
       bodiesWithTimers.current.push({
         body,
@@ -345,7 +316,7 @@ function EmoteOverlayCore({
         animated: emote.animated,
         isSub,
         particleColor: userColor,
-        cleanupEffect
+        cleanupEffects
       });
     };
 
@@ -358,14 +329,18 @@ function EmoteOverlayCore({
           body,
           born,
           el,
-          cleanupEffect
+          cleanupEffects
         } = bodiesWithTimers.current[i];
         const age = now - born;
-        if (age >= lifetime) {
+        if (age >= 5000) {
           Matter.World.remove(world, body);
           el.style.opacity = "0";
           setTimeout(() => el.remove(), 500);
-          if (cleanupEffect) cleanupEffect();
+          if (cleanupEffects) {
+            cleanupEffects.forEach(fn => {
+              try { fn(); } catch (err) { console.error(err); }
+            });
+          }
           bodiesWithTimers.current.splice(i, 1);
         }
       }
@@ -412,7 +387,7 @@ function EmoteOverlayCore({
       emoteMap.current.clear();
       spawnEmoteRef.current = null;
     };
-  }, [emoteSetId, emoteScale, lifetime, subEffectTypes, subEffects]);
+  }, [emoteSetId, emoteScale, subEffectTypes, subEffects]);
   
 
   // Twitch message handler
@@ -420,7 +395,8 @@ function EmoteOverlayCore({
     const client = clientRef.current;
     if (!client || !spawnEmoteRef.current) return;
 
-    function onMessage(channel, userstate, message) {      
+    function onMessage(channel, userstate, message) {
+      console.log(message);
       const words = message.split(/\s+/);
       const emotes = words.filter((w) => emoteMap.current.has(w));
       const isSub =
@@ -437,21 +413,32 @@ function EmoteOverlayCore({
       });
 
       const effectsMap = {
-        magneticAttraction: startMagneticEvent,
-        reverseGravity: startReverseGravityEvent,
+        magneticAttraction: {
+          fn: startMagneticEvent,
+          duration: subEffectBlackHoleDuration,
+          str: subEffectBlackHoleStrength,
+          chance: subEffectBlackHoleChance
+        },
+        reverseGravity: {
+          fn: startReverseGravityEvent,
+          duration: subEffectReverseGravityDuration,
+          str: subEffectReverseGravityStrength,
+          chance: subEffectReverseGravityChance
+        }
       };
-
-      for (const [effectName, effectFn] of Object.entries(effectsMap)) {
+      const shuffledEffects = Object.entries(effectsMap)
+        .sort(() => Math.random() - 0.5);
+      for (const [effectName, { fn: effectFn, duration, str, chance }] of shuffledEffects) {
+        if (Math.random() * 100 > chance) continue;
         if (
           isSub &&
           emotes.length > 0 &&
-          Math.random() <= subChance &&
           subEffectTypes.includes(effectName) &&
           !magneticEventRef.current &&
           !reverseGravityEventRef.current
         ) {
-          console.log(`event proc ${effectName}`);
-          effectFn(5000);
+          console.log(`event proc ${effectName} for ${duration}s`);
+          effectFn(duration ?? 2, str);
           break; // Only trigger one effect per check
         }
       }
@@ -461,7 +448,7 @@ function EmoteOverlayCore({
     return () => {
       client.off("message", onMessage);
     };
-  }, [twitchName, emoteDelay, emoteSetId, emoteScale, emoteLifetime]);
+  }, [twitchName, emoteDelay, emoteSetId, emoteScale, emoteLifetime, subEffectTypes]);
 
   useEffect(() => {
     const client = clientRef.current;
@@ -478,14 +465,14 @@ function EmoteOverlayCore({
     return () => {
       client.off("raided", onRaid);
     }
-  }, [raidEffect]);
+  }, [raidEffect, emoteDelay]);
 
-  function startMagneticEvent(duration = 5000) {
+  function startMagneticEvent(duration, str) {
       if (magneticEventRef.current) return;
 
       magneticEventRef.current = true;
       
-      const forceMagnitude = magneticSTR;
+      const forceMagnitude = str;
       const engine = engineRef.current;
 
       if (!engine) {
@@ -516,10 +503,10 @@ function EmoteOverlayCore({
       Matter.Events.off(engine, "beforeUpdate", magneticUpdate);
       magneticEventRef.current = false;
       console.log("event ended");
-    }, duration);
+    }, duration * 1000);
   }
 
-  function startReverseGravityEvent(duration = 5000) {
+  function startReverseGravityEvent(duration, str) {
       if (reverseGravityEventRef.current) return;
 
       reverseGravityEventRef.current = true;
@@ -534,7 +521,7 @@ function EmoteOverlayCore({
       const gravityUpdate = () => {
         bodiesWithTimers.current.forEach(({ body, isSub }) => {
           if (!body.isSleeping  && isSub) {
-            const upwardForce = -0.002 * body.mass; // Adjust strength
+            const upwardForce = (str * -1) * body.mass; // Adjust strength
             Matter.Body.applyForce(body, body.position, { x: 0, y: upwardForce });
           }
         });
@@ -547,7 +534,7 @@ function EmoteOverlayCore({
       Matter.Events.off(engine, "beforeUpdate", gravityUpdate);
       reverseGravityEventRef.current = false;
       console.log("event ended");
-    }, duration);
+    }, duration * 1000);
   }
 
   return <div ref = {

@@ -29,8 +29,16 @@ export function useMetadata() {
     subEffects: true,
     raidEffect: true,
     subEffectTypes: [],
-    subEffectChance: 0.25,
+    //HueShift
+    subEffectHueShiftChance: 5,
+    // Blackhole settings
+    subEffectBlackHoleChance: 5,
     subEffectBlackHoleStrength: 0.0005,
+    subEffectBlackHoleDuration: 5,
+    //Reverse Gravity settings
+    subEffectReverseGravityChance: 5,
+    subEffectReverseGravityStrength: 0.002,
+    subEffectReverseGravityDuration: 5
   });
 
   const [availableSubEffects, setAvailableSubEffects] = useState([]);
@@ -92,8 +100,16 @@ export function useMetadata() {
           : typeof data.subEffectTypes === 'string' && data.subEffectTypes.length > 0
             ? [data.subEffectTypes]
             : [],
-        subEffectChance: toNumber(data.subEffectChance, 0.25),
+        //HueShift
+        subEffectHueShiftChance: toNumber(data.subEffectHueShiftChance, 5),
+        //blackhole
+        subEffectBlackHoleChance: toNumber(data.subEffectBlackHoleChance, 5),
+        subEffectBlackHoleDuration: toNumber(data.subEffectBlackHoleDuration, 5),
         subEffectBlackHoleStrength: toNumber(data.subEffectBlackHoleStrength, 0.00005),
+        //reverse gravity
+        subEffectReverseGravityChance: toNumber(data.subEffectReverseGravityChance, 5),
+        subEffectReverseGravityDuration: toNumber(data.subEffectReverseGravityDuration, 5),
+        subEffectReverseGravityStrength: toNumber(data.subEffectReverseGravityStrength, 0.002),
       });
       
       setError(null);

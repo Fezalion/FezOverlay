@@ -19,7 +19,7 @@ export function NowPlaying() {
   const [refreshToken, setRefreshToken] = useState(0);
   const wsRef = useRef(null); 
 
-  useEffect(() => { refreshSettings(); }, [refreshToken]);
+  useEffect(() => { refreshSettings(); }, [refreshToken, refreshSettings]);
 
   useEffect(() => {
     const wsUrl = "ws://localhost:48000";
