@@ -326,6 +326,7 @@ export function Settings() {
 
               {/* Actual color picker popup */}
               <div
+                ref={pickerRef}
                 className="gradient-picker-popup"                              
               >
                 <ColorPicker
@@ -416,6 +417,7 @@ export function Settings() {
           <>
             <div className='fullscreenBackground'></div> 
             <div             
+              ref={OutlinepickerRef}
               className="gradient-picker-popup"              
             >
               <ColorPicker
