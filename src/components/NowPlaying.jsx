@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
+import { useMetadata } from '../hooks/useMetadata';
 
 const poll_rate = 1000;
-let LASTFM_USERNAME = 'your_lastfm_username';
 const MOVE_AMOUNT = 1;
 const SCROLL_SPEED = 25; // pixels per second
 const space = '\u00A0\u00A0';
@@ -9,69 +9,57 @@ const NOTHING = 'Nothing is playing...';
 
 export function NowPlaying() {
   const [latestTrack, setLatestTrack] = useState(null);
-  const [position, setPosition] = useState({ x: 0, y: 0 });
   const [shouldAnimate, setShouldAnimate] = useState(false);
   const [scrollDuration, setScrollDuration] = useState(0);
 
-  const [textStrokeSize, setTextStrokeSize] = useState(0);
-  const [textStrokeColor, setTextStrokeColor] = useState('#000000');
+  const { settings, refreshSettings, updateSetting } = useMetadata();
 
-  const [color, setColor] = useState('linear-gradient(90deg, rgba(0, 0, 0, 0) 0%, rgba(0,0,0,1) 100%)');
+  const { bgColor, scaleSize, maxWidth, padding, fontFamily, fontColor, textStroke, textStrokeSize, textStrokeColor, lastfmName, playerLocationCoords, playerAlignment } = settings;
+    
+  const [refreshToken, setRefreshToken] = useState(0);
+  const wsRef = useRef(null); 
 
-  const [fontFamily, setFontFamily] = useState('Arial, sans-serif');
-  const [fontColor, setFontColor] = useState('#ffffff');
+  useEffect(() => { refreshSettings(); }, [refreshToken]);
 
-  const [textStroke, setTextStroke] = useState(false);
-  const [scaleSize, setScaleSize] = useState(1.0);
-  const [maxWidth, setMaxWidth] = useState(700);
-  const [padding, setPadding] = useState(10);
+  useEffect(() => {
+    const wsUrl = "ws://localhost:48000";
+
+    const ws = new WebSocket(wsUrl);
+    wsRef.current = ws;
+
+    ws.onmessage = (event) => {
+      if (event.data === "refresh") {
+        setRefreshToken((c) => c + 1);
+        console.log("refreshing");
+      }
+    };
+
+    ws.onerror = (err) => {
+      console.error("WebSocket error:", err);
+    };
+
+    ws.onclose = () => {
+      console.log("WebSocket closed");
+    };
+
+    return () => {
+      if (wsRef.current) {
+        wsRef.current.close();
+      }
+    };
+  }, []); 
 
   const wrapperRef = useRef();       // .marqueeWrapper
   const trackRef = useRef();         // .marqueeTrack
 
   const displayText = latestTrack
     ? `${latestTrack.artist} - ${latestTrack.name}`
-    : NOTHING;
-
-  const [refreshToken,setRefreshToken] = useState(0);
-
-  useEffect(() => {
-    const ws = new WebSocket('ws://localhost:48000') //TODO: CHANGE THIS TO VARIABLE LATER AND STORE THAT IN SETTINGS ALSO
-
-    ws.onmessage = (event) => {
-      if (event.data === 'refresh') {
-        setRefreshToken(c => c + 1);
-        console.log('refreshing');
-      }
-    }
-  }, []);
-
-  // 🧠 Fetch Last.fm username & user settings
-  useEffect(() => {
-    fetch('/api/settings')
-      .then(res => res.json())
-      .then(data => {
-        if (data.lastfmName?.length > 0) LASTFM_USERNAME = data.lastfmName;
-        if (data.playerLocationX !== undefined && data.playerLocationY !== undefined) {
-          setPosition({ x: data.playerLocationX, y: data.playerLocationY });
-        }
-        if (data.textStrokeSize !== undefined) setTextStrokeSize(parseInt(data.textStrokeSize));
-        if (data.textStrokeColor) setTextStrokeColor(data.textStrokeColor);
-        if (data.textStroke || !data.textStroke) {setTextStroke(data.textStroke);}
-        if (data.bgColor) setColor(data.bgColor);
-        if (data.fontColor) setFontColor(data.fontColor);
-        if (data.fontFamily) setFontFamily(data.fontFamily);
-        if (data.scaleSize) setScaleSize(data.scaleSize);
-        if (data.maxWidth) setMaxWidth(data.maxWidth);
-        if (data.padding) setPadding(data.padding);
-      })
-      .catch(console.error);
-  }, [refreshToken]);
+    : NOTHING;  
 
   // 🧠 Poll current track
   useEffect(() => {
     const fetchLatestTrack = () => {
-      fetch(`/api/lastfm/latest/${LASTFM_USERNAME}`)
+      fetch(`/api/lastfm/latest/${lastfmName}`)
         .then(res => res.json())
         .then(response => {
           if (!response || response.error) {
@@ -89,7 +77,7 @@ export function NowPlaying() {
     fetchLatestTrack();
     const interval = setInterval(fetchLatestTrack, poll_rate);
     return () => clearInterval(interval);
-  }, [refreshToken]);
+  }, [lastfmName, displayText]);
 
   // 🎞️ Calculate if animation needed + set speed
   useEffect(() => {    
@@ -118,7 +106,7 @@ export function NowPlaying() {
     }, 50); // 50ms is usually enough, tweak if needed
 
     return () => clearTimeout(timeout);
-  }, [displayText, refreshToken]);
+  }, [displayText, lastfmName]);
 
 
 
@@ -126,7 +114,8 @@ export function NowPlaying() {
   // 🎮 Move position with arrows / Shift modifier
   useEffect(() => {
     const handleKeyDown = (e) => {
-      let { x, y } = position;
+      let x = playerLocationCoords.x;
+      let y = playerLocationCoords.y;
       const moveBy = e.shiftKey ? MOVE_AMOUNT * 5 : MOVE_AMOUNT;
 
       switch (e.key) {
@@ -139,22 +128,13 @@ export function NowPlaying() {
       }
 
       e.preventDefault();
-      setPosition({ x, y });
       updateSetting('playerLocationX', x);
       updateSetting('playerLocationY', y);
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [position]);
-
-  const updateSetting = (key, value) => {
-    fetch('/api/settings', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ [key]: value })
-    });
-  };  
+  }, [playerLocationCoords, updateSetting]);  
 
   function getStrokeTextShadow(width, color) {
     if (!textStroke || width <= 0) {
@@ -175,28 +155,55 @@ export function NowPlaying() {
   return (
       <span className="songPanel"
       style={{
-        bottom: position.y * -1,
-        right: position.x * -1,
-        background: `${color}`,
+        bottom: playerLocationCoords.y * -1,
+        ...(playerAlignment === "left"
+          ? { left: playerLocationCoords.x }
+          : playerAlignment === "right"
+          ? { right: playerLocationCoords.x * -1 }
+          : {}),
+        background: `${bgColor}`,
         color: `${fontColor}`,
         padding: padding,
         transform: `scale(${scaleSize})`,
         fontFamily: `${fontFamily}`,
-        maxWidth: maxWidth
+        maxWidth: maxWidth,
+        transformOrigin: `center ${playerAlignment}`,
       }}>
         <div className="marqueeWrapper" ref={wrapperRef} key={displayText + refreshToken}>
           <div
-            className={`marqueeTrack ${shouldAnimate ? 'animate' : ''}`}
-            ref={trackRef}
-            style={{
-              animationDuration: `${scrollDuration}s`,
-              animationPlayState: shouldAnimate ? 'running' : 'paused',              
-            }}
-          >
-            
-            <span style={{ textShadow: getStrokeTextShadow(textStrokeSize, textStrokeColor) }}>{space + displayText}</span>
-            {shouldAnimate && <span style={{ textShadow: getStrokeTextShadow(textStrokeSize, textStrokeColor) }}>{space + displayText}</span>}
-          </div>
+          className="marqueeTrack"
+          ref={trackRef}
+          style={{
+            animationDuration: `${scrollDuration}s`,
+            animationPlayState: shouldAnimate ? 'running' : 'paused',
+            animationName: playerAlignment === 'left' ? 'scrollLeft' : 'scrollRight',
+            animationTimingFunction: 'linear',
+            animationIterationCount: 'infinite',
+          }}
+        >
+          {Array(2).fill(null).map((_, i) => {
+            // Base list of spans for one copy
+            const spans = [
+              shouldAnimate && (
+                <span
+                  key={`anim-${i}`}
+                  style={{ textShadow: getStrokeTextShadow(textStrokeSize, textStrokeColor) }}
+                >
+                  {space + displayText}
+                </span>
+              ),
+              <span
+                key={`static-${i}`}
+                style={{ textShadow: getStrokeTextShadow(textStrokeSize, textStrokeColor) }}
+              >
+                {space + displayText}
+              </span>,
+            ].filter(Boolean); // remove false if shouldAnimate is false
+
+            // Flip order if alignment is "Right"
+            return playerAlignment === 'right' ? spans.reverse() : spans;
+          })}
+        </div>
         </div>
       </span>
     );

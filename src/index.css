@@ -7,8 +7,6 @@
   --song-panel-max-width: 700px;
   --song-panel-padding: 10px;
   --song-panel-font-family: Arial, sans-serif;
-  --song-panel-gradient-direction: to left;
-  --song-panel-transform-origin: right;
   --song-panel-text-stroke-width: 0px;
   --song-panel-text-stroke-color: rgba(0, 0, 0, 0);
   --overlay-x: 0px;
@@ -40,6 +38,7 @@ h2 {
   color: #888;
   margin-bottom: 8px;
 }
+ /* Now Playing */
 
 .songPanel {
   margin: 0;
@@ -48,15 +47,14 @@ h2 {
   font-size: 16px;
   z-index: 1000;
   overflow: hidden; /* Added line */
-  text-align: right;
+  text-align: left;
   transition: background 0.3s ease, opacity 0.3s ease;
   line-height: normal;
-  transform-origin: center var(--song-panel-transform-origin);
 }
 
 .marqueeWrapper {
   width: 100%;
-  padding: 1px;
+  padding: 0px;
   overflow: hidden;
   position: relative;
 }
@@ -74,17 +72,20 @@ h2 {
   -webkit-font-smoothing: antialiased; /* <- helps accuracy */
 }
 
-.marqueeTrack.animate {
-  animation: scrollRight linear infinite;
-  /* animation duration set inline from React */
-}
-
 @keyframes scrollRight {
   0% {
     transform: translateX(0%);
   }
   100% {
     transform: translateX(-50%);
+  }
+}
+@keyframes scrollLeft {
+  0% {
+    transform: translateX(-50%);
+  }
+  100% {
+    transform: translateX(0%);
   }
 }
 

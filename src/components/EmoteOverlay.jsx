@@ -5,21 +5,17 @@ import {
 } from "react";
 import Matter from "matter-js";
 import tmi from "tmi.js";
+import { useMetadata } from '../hooks/useMetadata';
+
 
 export function EmoteOverlay() {
-  const [settings, setSettings] = useState(null);
-  const [refreshToken, setRefreshToken] = useState(0);
-  const wsRef = useRef(null);
 
-  async function fetchSettings() {
-    try {
-      const res = await fetch("/api/settings");
-      const json = await res.json();
-      setSettings(json);
-    } catch (err) {
-      console.error("Failed to load settings:", err);
-    }
-  }
+  const { settings, refreshSettings } = useMetadata();
+    
+  const [refreshToken, setRefreshToken] = useState(0);
+  const wsRef = useRef(null); 
+
+  useEffect(() => { refreshSettings(); }, [refreshToken]);
 
   useEffect(() => {
     const wsUrl = "ws://localhost:48000";
@@ -42,22 +38,14 @@ export function EmoteOverlay() {
       console.log("WebSocket closed");
     };
 
-    fetchSettings();
-
     return () => {
       if (wsRef.current) {
         wsRef.current.close();
       }
     };
-  }, []);
+  }, []);  
 
-  useEffect(() => {
-    fetchSettings();
-  }, [refreshToken]);
-
-  if (!settings) return null;
-
-  return <EmoteOverlayCore {
+  return <EmoteOverlayCore key={refreshToken} {
     ...settings
   }
   />;
