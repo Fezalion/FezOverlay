@@ -8,162 +8,197 @@ export default function SongOverlaySettings({ settings, updateSetting }) {
   const [showPicker, setShowPicker] = useState(false);
   const [showOutlinePicker, setShowOutlinePicker] = useState(false);
 
-  const handleChange = (key, parser = v => v) => e => updateSetting(key, parser(e.target.value));
-  const handleCheckbox = key => e => updateSetting(key, e.target.checked);
-
   const textShadow = useMemo(
     () => getStrokeTextShadow(settings.textStrokeSize, settings.textStrokeColor),
     [settings.textStrokeSize, settings.textStrokeColor]
   );
 
+  const resetDefaults = () => {
+    const defaults = {
+      lastfmName: "",
+      playerAlignment: "right",
+      bgColor: "rgba(128, 0, 128, 1)",
+      fontColor: "#ffffff",
+      textStroke: false,
+      textStrokeSize: 0,
+      textStrokeColor: "#000000",
+      scaleSize: 1.0,
+      padding: 10,
+      maxWidth: 700
+    };
+    Object.entries(defaults).forEach(([k, v]) => updateSetting(k, v));
+  };
+
   return (
-    <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-6 shadow-lg transition-transform">
-      <h2 className="text-xl font-semibold mb-4">Song Overlay Settings</h2>
-      <p className="text-xs text-gray-400 mb-4">
-        Adjust overlay position via OBS Browser Source → Interact.
-        Use arrow keys (Shift = faster). Space resets to 0,0 (bottom-right corner).
-      </p>
+    <div className="space-y-6">
+      {/* Account Settings */}
+      <div className="bg-white/5 p-4 rounded-xl border border-white/10">
+        <h3 className="text-lg font-semibold mb-4">Account</h3>
 
-      <InputField
-        label="Lastfm Username"
-        value={settings.lastfmName}
-        onChange={handleChange("lastfmName")}
-        placeholder="Enter your Lastfm username"
-      />
+        <InputField
+          label="Lastfm Username"
+          value={settings.lastfmName}
+          onChange={e => updateSetting("lastfmName", e.target.value)}          
+          placeholder="Enter your Lastfm username"
+        />
+      </div>
 
-      <label className="flex flex-col gap-1 mb-4">
-        <span>Alignment</span>
+      {/* General Settings */}
+      <div className="bg-white/5 p-4 rounded-xl border border-white/10">
+        <h3 className="text-lg font-semibold mb-4">General</h3>
+
+        <label className="block mb-2">Alignment</label>
         <select
           value={settings.playerAlignment}
-          onChange={handleChange("playerAlignment")}
-          className="rounded-lg px-3 py-2 bg-white/10 border border-white/20 text-sm text-white focus:ring-2 focus:ring-purple-400"
+          onChange={e => updateSetting("playerAlignment", e.target.value)}
+          className="appearance-none rounded-lg px-3 py-2 bg-white/10 border border-white/20 text-sm text-white focus:ring-2 focus:ring-rose-400 mb-4"
         >
           <option value="right">Right</option>
           <option value="left">Left</option>
         </select>
-        <span className="text-xs text-gray-400">
-          Defines the overlay's growth direction from the anchor point.
-        </span>
-      </label>
 
-      {/* Background Picker */}
-      <h3 className="text-lg font-medium mt-6 mb-2">Background</h3>
-      <button
-        onClick={() => setShowPicker(true)}
-        className="w-full bg-purple-600 hover:bg-purple-700 px-3 py-2 rounded-lg transition"
-      >
-        Pick Background
-      </button>
-
-      <Modal isOpen={showPicker} onClose={() => setShowPicker(false)}>
-        <ColorPicker
-          value={settings.bgColor}
-          onChange={color => updateSetting("bgColor", color)}
-          disableDarkMode
-        />
-        <div
-          className="mt-4 p-3 rounded-lg text-center font-medium"
-          style={{
-            padding: `${settings.padding}px`,
-            fontFamily: settings.fontFamily,
-            color: `rgb(${hexToRgb(settings.fontColor)})`,
-            background: settings.bgColor,
-            textShadow
-          }}
+        {/* Background Picker */}
+        <label className="block mb-2">Background Color</label>
+        <button
+          onClick={() => setShowPicker(true)}
+          className="w-full bg-rose-600 hover:bg-rose-700 px-3 py-2 rounded-lg transition"
         >
-          Example Artist - Example Track
-        </div>
-      </Modal>
+          Pick Background
+        </button>
 
-      {/* Font */}
-      <h3 className="text-lg font-medium mt-6 mb-2">Font Settings</h3>
-      <InputField
-        label="Font Color"
-        type="color"
-        value={settings.fontColor}
-        onChange={handleChange("fontColor")}
-      />
+        <Modal isOpen={showPicker} onClose={() => setShowPicker(false)}>
+          <ColorPicker
+            value={settings.bgColor}
+            onChange={color => updateSetting("bgColor", color)}
+            disableDarkMode
+          />
+          <div
+            className="my-4"          
+            style={{
+              padding: `${settings.padding}px`,
+              fontFamily: settings.fontFamily,
+              color: `rgb(${hexToRgb(settings.fontColor)})`,
+              background: settings.bgColor,
+              textAlign: settings.playerAlignment,
+              textShadow
+            }}
+          >
+            Example Artist - Example Track
+          </div>
+        </Modal>
+      </div>
 
-      {/* Outline */}
-      <h3 className="text-lg font-medium mt-6 mb-2">Text Outline</h3>
-      <label className="flex items-center gap-2 mb-4">
+      {/* Font Settings */}
+      <div className="bg-white/5 p-4 rounded-xl border border-white/10">
+        <h3 className="text-lg font-semibold mb-4">Font</h3>
+
+        <label className="font-semibold">Font Color</label>
         <input
-          type="checkbox"
-          checked={settings.textStroke}
-          onChange={handleCheckbox("textStroke")}
-          className="accent-purple-500"
+          label="Font Color"
+          type="color"
+          value={settings.fontColor}
+          onChange={e => updateSetting("fontColor", e.target.value)}
         />
-        <span>Enable Text Outline</span>
-      </label>
 
-      <InputField
-        label="Text Stroke Size"
-        type="number"
-        min="0"
-        max="50"
-        value={settings.textStrokeSize}
-        disabled={!settings.textStroke}
-        onChange={handleChange("textStrokeSize", parseInt)}
-      />
-
-      <button
-        disabled={!settings.textStroke}
-        onClick={() => setShowOutlinePicker(true)}
-        className="w-full bg-purple-600 hover:bg-purple-700 px-3 py-2 rounded-lg transition disabled:opacity-50"
-      >
-        Pick Outline Color
-      </button>
-
-      <Modal isOpen={showOutlinePicker} onClose={() => setShowOutlinePicker(false)}>
-        <ColorPicker
-          value={settings.textStrokeColor}
-          onChange={color => updateSetting("textStrokeColor", color)}
-          hideColorTypeBtns
-          hideGradientTypeBtns
-          hideControls
-          disableDarkMode
-        />
-        <div
-          className="mt-4 p-3 rounded-lg text-center font-medium"
-          style={{
-            padding: `${settings.padding}px`,
-            fontFamily: settings.fontFamily,
-            color: `rgb(${hexToRgb(settings.fontColor)})`,
-            background: settings.bgColor,
-            textShadow
-          }}
+        {/* Outline */}
+        <label className="flex items-center gap-2 mb-4 mt-4">
+          <label className="font-semibold">Enable Text Outline</label>
+          <button
+          onClick={() => updateSetting("textStroke", !settings.textStroke)}
+          className={`relative inline-flex items-center h-6 w-12 rounded-full transition-colors duration-300
+            ${settings.textStroke ? "bg-rose-500" : "bg-gray-700"}`}
         >
-          Example Artist - Example Track
-        </div>
-      </Modal>
+          <span
+            className={`inline-block w-5 h-5 transform bg-white rounded-full shadow-md transition-transform duration-300
+              ${settings.textStroke ? "translate-x-6" : "translate-x-1"}`}
+          />
+        </button>          
+        </label>
 
-      {/* Layout */}
-      <h3 className="text-lg font-medium mt-6 mb-2">Layout Settings</h3>
-      <InputField
-        label="Scale Size"
-        type="number"
-        min="0.05"
-        max="10.0"
-        step="0.05"
-        value={settings.scaleSize}
-        onChange={handleChange("scaleSize", parseFloat)}
-      />
-      <InputField
-        label="Padding"
-        type="number"
-        min="0"
-        max="50"
-        value={settings.padding}
-        onChange={handleChange("padding", parseInt)}
-      />
-      <InputField
-        label="Max Width"
-        type="number"
-        min="100"
-        max="4000"
-        value={settings.maxWidth}
-        onChange={handleChange("maxWidth", parseInt)}
-      />
+        <InputField
+          label="Text Stroke Size"
+          type="range"
+          min={0}
+          max={20}
+          step={1}
+          value={settings.textStrokeSize}
+          disabled={!settings.textStroke}
+          onChange={e => updateSetting("textStrokeSize", parseInt(e.target.value))}
+        />
+
+        <button
+          disabled={!settings.textStroke}
+          onClick={() => setShowOutlinePicker(true)}
+          className="w-full bg-rose-600 hover:bg-rose-700 px-3 py-2 rounded-lg transition disabled:opacity-50"
+        >
+          Pick Outline Color
+        </button>
+
+        <Modal isOpen={showOutlinePicker} onClose={() => setShowOutlinePicker(false)}>
+          <ColorPicker
+            value={settings.textStrokeColor}
+            onChange={color => updateSetting("textStrokeColor", color)}
+            hideColorTypeBtns
+            hideGradientTypeBtns
+            hideControls
+            disableDarkMode
+          />
+          <div            
+            style={{
+              padding: `${settings.padding}px`,
+              fontFamily: settings.fontFamily,
+              color: `rgb(${hexToRgb(settings.fontColor)})`,
+              background: settings.bgColor,              
+              textAlign: settings.playerAlignment,
+              textShadow
+            }}
+          >
+            Example Artist - Example Track
+          </div>
+        </Modal>
+      </div>
+
+      {/* Layout Settings */}
+      <div className="bg-white/5 p-4 rounded-xl border border-white/10">
+        <h3 className="text-lg font-semibold mb-4">Layout</h3>
+        <InputField
+          label="Scale Size"
+          type="range"
+          min={0.05}
+          max={10.0}
+          step={0.05}
+          value={settings.scaleSize}
+          onChange={e => updateSetting("scaleSize", parseFloat(e.target.value))}
+        />
+        <InputField
+          label="Padding"
+          type="range"
+          min={0}
+          max={20}
+          step={1}
+          value={settings.padding}
+          onChange={e => updateSetting("padding", parseInt(e.target.value))}
+        />
+        <InputField
+          label="Max Width"
+          type="range"
+          min={100}
+          max={5000}
+          step={10}
+          value={settings.maxWidth}
+          onChange={e => updateSetting("maxWidth", parseInt(e.target.value))}
+        />
+      </div>
+
+      {/* Global Controls */}
+      <div className="flex items-center justify-end bg-white/5 p-4 rounded-xl border border-white/10">
+        <button
+          onClick={resetDefaults}
+          className="px-3 py-1 text-sm font-medium text-white bg-gray-700 rounded-md hover:bg-gray-600 transition"
+        >
+          Reset
+        </button>
+      </div>
     </div>
   );
 }

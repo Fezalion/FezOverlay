@@ -104,6 +104,7 @@ function EmoteOverlayCore({
       clientRef.current = null;
     };
   }, [twitchName]);
+  
   const runnerRef = useRef(null);
   const engineRef = useRef(null);
   // Load emotes and initialize physics engine
@@ -387,7 +388,7 @@ function EmoteOverlayCore({
       emoteMap.current.clear();
       spawnEmoteRef.current = null;
     };
-  }, [emoteSetId, emoteScale, subEffectTypes, subEffects]);
+  }, [emoteSetId, emoteScale, subEffectTypes, subEffects,subEffectHueShiftChance]);
   
 
   // Twitch message handler
@@ -448,7 +449,20 @@ function EmoteOverlayCore({
     return () => {
       client.off("message", onMessage);
     };
-  }, [twitchName, emoteDelay, emoteSetId, emoteScale, emoteLifetime, subEffectTypes]);
+  }, [
+    twitchName,
+    emoteDelay,
+    emoteSetId,
+    emoteScale,
+    emoteLifetime,
+    subEffectTypes,
+    subEffectBlackHoleChance,
+    subEffectBlackHoleDuration,
+    subEffectBlackHoleStrength,
+    subEffectReverseGravityChance,
+    subEffectReverseGravityDuration,
+    subEffectReverseGravityStrength
+  ]);
 
   useEffect(() => {
     const client = clientRef.current;
@@ -472,7 +486,7 @@ function EmoteOverlayCore({
 
       magneticEventRef.current = true;
       
-      const forceMagnitude = str;
+      const forceMagnitude = str / 100000;
       const engine = engineRef.current;
 
       if (!engine) {
@@ -521,7 +535,7 @@ function EmoteOverlayCore({
       const gravityUpdate = () => {
         bodiesWithTimers.current.forEach(({ body, isSub }) => {
           if (!body.isSleeping  && isSub) {
-            const upwardForce = (str * -1) * body.mass; // Adjust strength
+            const upwardForce = (str / 1000 * -1) * body.mass; // Adjust strength
             Matter.Body.applyForce(body, body.position, { x: 0, y: upwardForce });
           }
         });

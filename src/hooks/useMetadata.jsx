@@ -1,5 +1,4 @@
-
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 export function useMetadata() {
   // Settings state
@@ -33,11 +32,11 @@ export function useMetadata() {
     subEffectHueShiftChance: 5,
     // Blackhole settings
     subEffectBlackHoleChance: 5,
-    subEffectBlackHoleStrength: 0.0005,
+    subEffectBlackHoleStrength: 5,
     subEffectBlackHoleDuration: 5,
     //Reverse Gravity settings
     subEffectReverseGravityChance: 5,
-    subEffectReverseGravityStrength: 0.002,
+    subEffectReverseGravityStrength: 2,
     subEffectReverseGravityDuration: 5
   });
 
@@ -46,6 +45,36 @@ export function useMetadata() {
   const [latestVersion, setLatestVersion] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // Ref for debounce timer
+  const refreshTimeoutRef = useRef(null);
+
+  // Debounced refresh function
+  const debouncedRefresh = useCallback((delay = 1500) => {
+    // Clear any existing timeout
+    if (refreshTimeoutRef.current) {
+      clearTimeout(refreshTimeoutRef.current);
+    }
+
+    // Set new timeout
+    refreshTimeoutRef.current = setTimeout(async () => {
+      try {
+        await fetch('/api/refresh', { method: 'POST' });
+        console.log("Debounced refresh event dispatched");
+      } catch (err) {
+        console.error('Error dispatching refresh:', err);
+      }
+    }, delay);
+  }, []);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (refreshTimeoutRef.current) {
+        clearTimeout(refreshTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Fetch all settings
   const fetchSettings = useCallback(async () => {
@@ -105,11 +134,11 @@ export function useMetadata() {
         //blackhole
         subEffectBlackHoleChance: toNumber(data.subEffectBlackHoleChance, 5),
         subEffectBlackHoleDuration: toNumber(data.subEffectBlackHoleDuration, 5),
-        subEffectBlackHoleStrength: toNumber(data.subEffectBlackHoleStrength, 0.00005),
+        subEffectBlackHoleStrength: toNumber(data.subEffectBlackHoleStrength, 5),
         //reverse gravity
         subEffectReverseGravityChance: toNumber(data.subEffectReverseGravityChance, 5),
         subEffectReverseGravityDuration: toNumber(data.subEffectReverseGravityDuration, 5),
-        subEffectReverseGravityStrength: toNumber(data.subEffectReverseGravityStrength, 0.002),
+        subEffectReverseGravityStrength: toNumber(data.subEffectReverseGravityStrength, 2),
       });
       
       setError(null);
@@ -168,19 +197,18 @@ export function useMetadata() {
       
       if (!response.ok) throw new Error(`Failed to update ${key}`);
       
-      // Update local state
+      // Update local state immediately
       setSettings(prev => ({ ...prev, [key]: value }));
       
-      // Refresh the application
-      await fetch('/api/refresh', { method: 'POST' });
-      console.log("Refresh Event dispatch");
+      // Debounce the refresh call
+      debouncedRefresh();
       
       return true;
     } catch (err) {
       console.error(`Error updating setting ${key}:`, err);
       return false;
     }
-  }, []);
+  }, [debouncedRefresh]);
 
   // Bulk update multiple settings at once
   const updateSettings = useCallback(async (updatedSettings) => {
@@ -193,19 +221,18 @@ export function useMetadata() {
       
       if (!response.ok) throw new Error('Failed to update settings');
       
-      // Update local state
+      // Update local state immediately
       setSettings(prev => ({ ...prev, ...updatedSettings }));
       
-      // Refresh the application
-      await fetch('/api/refresh', { method: 'POST' });
-      console.log("Refresh Event dispatch");
+      // Debounce the refresh call
+      debouncedRefresh();
       
       return true;
     } catch (err) {
       console.error('Error updating settings:', err);
       return false;
     }
-  }, []);
+  }, [debouncedRefresh]);
 
   // Load all data on initial mount
   useEffect(() => {
@@ -228,5 +255,7 @@ export function useMetadata() {
     updateSetting,
     updateSettings,
     refreshSettings: fetchSettings,
+    // Expose the debounced refresh function in case you need manual control
+    debouncedRefresh,
   };
 }

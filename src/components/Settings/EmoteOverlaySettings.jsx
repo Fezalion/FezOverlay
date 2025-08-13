@@ -1,125 +1,98 @@
+import { EffectCard } from './ui/EffectCard';
 import InputField from "./ui/InputField";
+import { useRef, useEffect } from 'react';
 
-function EffectCard({ effectKey, label, enabled, toggleEnabled, settings, onChange, fields }) {
-  const handleChange = (key, val) => onChange(key, val);
+export default function EmoteOverlaySettings({ settings, updateSetting }) {
+  const allEffectsEnabled = settings.subEffectTypes.length > 0;
+  let allAvailableEffects = useRef([]);
 
-  return (
-    <div className="bg-gray-900 border border-gray-700 rounded-xl p-4 shadow-md transition hover:shadow-lg">
-      <div className="flex justify-between items-center">
-        <span className="font-medium text-white">{label}</span>
+  useEffect(() => {
+    fetch("/api/subeffecttypes")
+      .then((res) => res.json())
+      .then((data) => {
+        allAvailableEffects.current = data;
+      });
+  });
 
-        {/* Toggle Switch */}
-        <button
-          onClick={toggleEnabled}
+  const toggleAllEffects = () => {
+    if (allEffectsEnabled) {
+      updateSetting("subEffectTypes", []);
+    } else {
+      updateSetting("subEffectTypes", [...allAvailableEffects.current]);
+    }
+  };
+
+  return (      
+    <div className="space-y-6">
+      {/* Account Settings */}
+      <div className="bg-white/5 p-4 rounded-xl border border-white/10">
+        <h3 className="text-lg font-semibold mb-4">Account</h3>
+
+        <InputField
+          label="Twitch Username"
+          placeholder="Twitch Username"
+          value={settings.twitchName}
+          onChange={e => updateSetting("twitchName", e.target.value)}
+        />
+
+        <InputField
+          placeholder="Emote set id"
+          label="Emote set id"
+          value={settings.emoteSetId}
+          onChange={e => updateSetting("emoteSetId", e.target.value)}
+        />        
+      </div>
+      {/* General Settings */}
+      <div className="bg-white/5 p-4 rounded-xl border border-white/10">
+        <h3 className="text-lg font-semibold mb-4">General</h3>
+
+        <InputField
+          type="range"
+          label="Emote Lifetime (ms)"
+          min={500}
+          max={20000}
+          step={100}
+          value={settings.emoteLifetime}
+          onChange={e => updateSetting("emoteLifetime", parseFloat(e.target.value))}
+        />
+
+        <InputField
+          type="range"
+          label="Emote Scale"
+          min={0.1}
+          max={2.0}
+          step={0.1}
+          value={settings.emoteScale}
+          onChange={e => updateSetting("emoteScale", parseFloat(e.target.value))}
+        />
+
+        <InputField
+          type="range"
+          label="Emote Delay (ms)"
+          min={0}
+          max={5000}
+          step={10}
+          value={settings.emoteDelay}
+          onChange={e => updateSetting("emoteDelay", parseFloat(e.target.value))}
+        />
+      </div>
+
+      {/* Global Controls */}
+      <div className="flex items-center justify-between bg-white/5 p-4 rounded-xl border border-white/10">
+        <div className="flex items-center space-x-3">
+          <label className="font-semibold">Enable All Effects</label>
+          <button
+          onClick={toggleAllEffects}
           className={`relative inline-flex items-center h-6 w-12 rounded-full transition-colors duration-300
-            ${enabled ? "bg-purple-500" : "bg-gray-700"}`}
+            ${allEffectsEnabled ? "bg-rose-500" : "bg-gray-700"}`}
         >
           <span
             className={`inline-block w-5 h-5 transform bg-white rounded-full shadow-md transition-transform duration-300
-              ${enabled ? "translate-x-6" : "translate-x-1"}`}
+              ${allEffectsEnabled ? "translate-x-6" : "translate-x-1"}`}
           />
         </button>
-      </div>
-
-      {enabled && (
-        <div className="space-y-3 mt-4">
-          {fields.map(({ key, label, min, max, step }) => (
-            <div key={key}>
-              <InputField
-                label={label}
-                type="range"
-                min={min}
-                max={max}
-                step={step}
-                value={settings[key]}
-                onChange={e => handleChange(key, parseFloat(e.target.value))}
-              />
-              
-            </div>
-          ))}
         </div>
-      )}
-    </div>
-  );
-}
-
-
-
-export default function EmoteOverlaySettings({ settings, updateSetting, availableSubEffects }) {
-  const handleChange = (key, parser = v => v) => e => updateSetting(key, parser(e.target.value));
-
-  const toggleEffect = effectKey => {
-    const newSelected = settings.subEffectTypes.includes(effectKey)
-      ? settings.subEffectTypes.filter(e => e !== effectKey)
-      : [...settings.subEffectTypes, effectKey];
-    updateSetting("subEffectTypes", newSelected);
-  };
-
-  return (
-    <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-6 shadow-lg space-y-4">
-      <h2 className="text-xl font-semibold mb-2">Emote Overlay Settings</h2>
-
-      {/* --- General Settings --- */}
-      <InputField
-        label="Twitch Username"
-        value={settings.twitchName}
-        onChange={handleChange("twitchName")}
-        placeholder="Enter your Twitch username"
-      />
-
-      <InputField
-        label="7TV Emote Set ID"
-        value={settings.emoteSetId}
-        onChange={handleChange("emoteSetId")}
-        placeholder="Enter 7TV emote set ID"
-      />
-
-      <InputField
-        label="Emote Lifetime (ms)"
-        type="number"
-        min={500}
-        max={20000}
-        value={settings.emoteLifetime}
-        onChange={handleChange("emoteLifetime", parseInt)}
-      />
-
-      <InputField
-        label="Emote Scale"
-        type="number"
-        min={0.1}
-        max={5.0}
-        step={0.1}
-        value={settings.emoteScale}
-        onChange={handleChange("emoteScale", parseFloat)}
-      />
-
-      <InputField
-        label="Emote Delay (ms)"
-        type="number"
-        min={0}
-        max={5000}
-        step={1}
-        value={settings.emoteDelay}
-        onChange={handleChange("emoteDelay", parseInt)}
-      />
-
-      {/* --- Sub Effects Toggle + Reset Button --- */}
-      <div className="flex items-center justify-between mt-4">
-        <span className="text-white font-medium">Enable Sub Effects</span>
-        <div className="flex items-center gap-3">
-          {/* Toggle Switch */}
-          <button
-            onClick={() => updateSetting("subEffects", !settings.subEffects)}
-            className={`relative inline-flex items-center h-6 w-12 rounded-full transition-colors duration-300
-              ${settings.subEffects ? "bg-purple-500" : "bg-gray-700"}`}
-          >
-            <span
-              className={`inline-block w-5 h-5 transform bg-white rounded-full shadow-md transition-transform duration-300
-                ${settings.subEffects ? "translate-x-6" : "translate-x-1"}`}
-            />
-          </button>
-
-          {/* Reset Button */}
+        {/* Reset Button */}
           <button
             onClick={() => {
               const defaultSubEffects = {
@@ -129,10 +102,10 @@ export default function EmoteOverlaySettings({ settings, updateSetting, availabl
                 subEffectHueShiftChance:5,
                 subEffectBlackHoleChance: 5,
                 subEffectBlackHoleDuration: 5,
-                subEffectBlackHoleStrength: 0.0005,
+                subEffectBlackHoleStrength: 2,
                 subEffectReverseGravityChance: 5,
                 subEffectReverseGravityDuration: 5,
-                subEffectReverseGravityStrength: 0.002,
+                subEffectReverseGravityStrength: 2,
                 subEffectTypes: [],
               };
               Object.entries(defaultSubEffects).forEach(([key, val]) => updateSetting(key, val));
@@ -141,46 +114,59 @@ export default function EmoteOverlaySettings({ settings, updateSetting, availabl
           >
             Reset
           </button>
-        </div>
       </div>
+      {/* Effects */}
+      <EffectCard
+        effectKey="hueShift"
+        label="Hue Shift"
+        enabled={settings.subEffectTypes.includes("hueShift")}
+        toggleEnabled={() => updateSetting("subEffectTypes",
+          settings.subEffectTypes.includes("hueShift")
+            ? settings.subEffectTypes.filter(t => t !== "hueShift")
+            : [...settings.subEffectTypes, "hueShift"]
+        )}
+        settings={settings}
+        onChange={updateSetting}
+        fields={[
+          { key: "subEffectHueShiftChance", label: "Chance (%)", min: 0, max: 100, step: 1, parser: parseInt }
+        ]}
+      />
 
-      {/* --- Effects Cards --- */}
-      <div className="space-y-4 mt-4">
-        {availableSubEffects.map(effect => {
-          let fields = [];
-          switch (effect) {
-            case "magneticAttraction":
-              fields = [
-                { key: "subEffectBlackHoleChance", label: "Chance", min: 0, max: 100, step: 1 },
-                { key: "subEffectBlackHoleDuration", label: "Duration (s)", min: 1, max: 20, step: 1 },
-                { key: "subEffectBlackHoleStrength", label: "Strength", min: 0.00001, max: 0.01, step: 0.00001 },
-              ];
-              break;
-            case "reverseGravity":
-              fields = [
-                { key: "subEffectReverseGravityChance", label: "Chance", min: 0, max: 100, step: 1 },
-                { key: "subEffectReverseGravityDuration", label: "Duration (s)", min: 1, max: 20, step: 1 },
-                { key: "subEffectReverseGravityStrength", label: "Strength", min: 0.0001, max: 0.01, step: 0.0001 },
-              ];
-              break;
-            default:
-              fields = [];
-          }
+      <EffectCard
+        effectKey="magneticAttraction"
+        label="Magnetic Attraction"
+        enabled={settings.subEffectTypes.includes("magneticAttraction")}
+        toggleEnabled={() => updateSetting("subEffectTypes",
+          settings.subEffectTypes.includes("magneticAttraction")
+            ? settings.subEffectTypes.filter(t => t !== "magneticAttraction")
+            : [...settings.subEffectTypes, "magneticAttraction"]
+        )}
+        settings={settings}
+        onChange={updateSetting}
+        fields={[
+          { key: "subEffectBlackHoleDuration", label: "Duration (s)", min: 1, max: 30, step: 1, parser: parseInt },
+          { key: "subEffectBlackHoleStrength", label: "Strength", min: 1, max: 50, step: 1, parser: parseInt },
+          { key: "subEffectBlackHoleChance", label: "Chance (%)", min: 1, max: 100, step: 1, parser: parseInt }
+        ]}
+      />
 
-          return (
-            <EffectCard
-              key={effect}
-              effectKey={effect}
-              label={effect.charAt(0).toUpperCase() + effect.slice(1)}
-              enabled={settings.subEffectTypes.includes(effect)}
-              toggleEnabled={() => toggleEffect(effect)}
-              settings={settings}
-              onChange={updateSetting}
-              fields={fields}
-            />
-          );
-        })}
-      </div>
+      <EffectCard
+        effectKey="reverseGravity"
+        label="Reverse Gravity"
+        enabled={settings.subEffectTypes.includes("reverseGravity")}
+        toggleEnabled={() => updateSetting("subEffectTypes",
+          settings.subEffectTypes.includes("reverseGravity")
+            ? settings.subEffectTypes.filter(t => t !== "reverseGravity")
+            : [...settings.subEffectTypes, "reverseGravity"]
+        )}
+        settings={settings}
+        onChange={updateSetting}
+        fields={[
+          { key: "subEffectReverseGravityDuration", label: "Duration (s)", min: 1, max: 30, step: 1, parser: parseInt },
+          { key: "subEffectReverseGravityStrength", label: "Strength", min: 1, max: 10, step: 1, parser: parseInt },
+          { key: "subEffectReverseGravityChance", label: "Chance (%)", min: 1, max: 100, step: 1, parser: parseInt }
+        ]}
+      />
     </div>
   );
 }
