@@ -2,7 +2,7 @@ import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useMetadata } from '../hooks/useMetadata';
 
 // Constants
-const POLL_RATE = 2000;
+const POLL_RATE = 1000;
 const MOVE_AMOUNT = 1;
 const SPACE = '\u00A0\u00A0';
 const NOTHING_PLAYING = 'Nothing is playing...';
@@ -76,7 +76,7 @@ const useTrackPolling = (lastfmName) => {
   return track;
 };
 
-const useScrollAnimation = (displayText, scrollSpeed) => {
+const useScrollAnimation = (displayText, scrollSpeed, maxWidth, fontFamily, scaleSize, padding) => {
   const [shouldAnimate, setShouldAnimate] = useState(false);
   const [scrollDuration, setScrollDuration] = useState(0);
   const [isVisible, setIsVisible] = useState(true);
@@ -109,7 +109,11 @@ const useScrollAnimation = (displayText, scrollSpeed) => {
         text: displayText,
         wrapperWidth,
         textWidth,
-        shouldAnimate: textWidth > wrapperWidth
+        shouldAnimate: textWidth > wrapperWidth,
+        scrollSpeed,
+        maxWidth,
+        fontFamily,
+        scaleSize
       });
       
       if (textWidth > wrapperWidth && textWidth > 0) {
@@ -121,8 +125,13 @@ const useScrollAnimation = (displayText, scrollSpeed) => {
       setIsVisible(true);
     };
 
-    requestAnimationFrame(calculateAnimation);
-  }, [displayText, scrollSpeed]);
+    // Use a small delay to ensure DOM has updated after settings change
+    const timeoutId = setTimeout(() => {
+      requestAnimationFrame(calculateAnimation);
+    }, 50);
+
+    return () => clearTimeout(timeoutId);
+  }, [displayText, scrollSpeed, maxWidth, fontFamily, scaleSize, padding]);
 
   return {
     shouldAnimate,
@@ -285,13 +294,19 @@ export function NowPlaying() {
     ? `${latestTrack.artist} - ${latestTrack.name}`
     : NOTHING_PLAYING;
 
+  // Force re-render when settings change that affect layout
+  const layoutKey = useMemo(() => 
+    `${maxWidth}-${fontFamily}-${scaleSize}-${padding}-${scrollSpeed}-${displayText}`,
+    [maxWidth, fontFamily, scaleSize, padding, scrollSpeed, displayText]
+  );
+
   const {
     shouldAnimate,
     scrollDuration,
     isVisible,
     wrapperRef,
     trackRef
-  } = useScrollAnimation(displayText, scrollSpeed);
+  } = useScrollAnimation(displayText, scrollSpeed, maxWidth, fontFamily, scaleSize, padding);
 
   useKeyboardMovement(playerLocationCoords, setLocalSetting, updateSettings);
 
@@ -325,7 +340,8 @@ export function NowPlaying() {
     animationName: shouldAnimate ? 'scrollRight' : 'none',
     animationDirection: playerAlignment === 'left' ? 'reverse' : 'normal',
     animationTimingFunction: 'linear',
-    animationIterationCount: 'infinite'
+    animationIterationCount: 'infinite',
+    animationFillMode: 'none'
   }), [scrollDuration, shouldAnimate, playerAlignment]);
 
   const textShadow = useMemo(() => 
@@ -340,8 +356,8 @@ export function NowPlaying() {
   );
 
   return (
-    <span className="songPanel" style={containerStyles} key={refreshToken}>
-      <div className="marqueeWrapper" ref={wrapperRef}>
+    <span className="songPanel" style={containerStyles}>
+      <div className="marqueeWrapper" ref={wrapperRef} key={layoutKey}>
         <div
           className="marqueeTrack"
           ref={trackRef}
