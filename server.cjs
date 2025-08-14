@@ -325,6 +325,6 @@ if (!fs.existsSync(distRoot)) {
 }
 
 server.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server + WS running on https://localhost:${PORT}`);
+  console.log(`Server + WS running on http://localhost:${PORT}`);
   broadcast('refresh');
 });
