@@ -53,7 +53,7 @@ export function useMessageHandler(
           chance: battleEventChance
         }
       };
-
+      let b = false;
       const shuffledEffects = Object.entries(effectsMap)
         .sort(() => Math.random() - 0.5);
       for (const [effectName, { fn: effectFn, duration, str, chance }] of shuffledEffects) {
@@ -69,19 +69,22 @@ export function useMessageHandler(
           console.log(`event proc ${effectName} for ${duration}s`);
           if (effectName === 'battleEvent') {
             effectFn();
+            b = true;
           } else {
             effectFn(duration ?? 2, str);
           }
           break;
         }
       }
-
-      emotes.forEach((emoteName, i) => {
+      if (!b) {
+        emotes.forEach((emoteName, i) => {
         setTimeout(() => {          
           const userColor = userstate.color || "orange";
-          spawnEmote(emoteName, isSub, userColor);
-        }, i * emoteDelay);
-      });
+            spawnEmote(emoteName, isSub, userColor);
+          }, i * emoteDelay);
+        });
+      }
+      
     }
     
     client.on("message", onMessage);

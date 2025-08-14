@@ -46,7 +46,7 @@ export default function EmoteOverlay() {
     };
   }, []);  
 
-  return <EmoteOverlayCore key={refreshToken} {...settings} />;
+  return <EmoteOverlayCore {...settings} />;
 }
 
 function EmoteOverlayCore(settings) {
@@ -71,6 +71,11 @@ function EmoteOverlayCore(settings) {
   const globalEffects = useGlobalEffects(physics.engine, bodiesWithTimers, emoteMap, battleSettings, subscriberTracker);
   const { spawnEmote } = useEmoteSpawner(physics.engine, emoteMap, bodiesWithTimers, settings);
   const { clearAllEmotes } = useEmoteLifecycle(physics.engine, bodiesWithTimers, settings.emoteLifetime);
+
+  if (globalEffects.battleSystem.isActive) {
+    globalEffects.battleSystem.endBattle();
+    console.log("end battle called");
+  }
 
   // Start DOM updates when physics engine is ready
   useEffect(() => {

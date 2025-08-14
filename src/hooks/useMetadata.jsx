@@ -43,9 +43,9 @@ export function useMetadata() {
     subEffectReverseGravityDuration: 5,
     // Battle Event settings
     battleEventChance: 5,
-    battleEventParticipants: 3,
-    battleEventHp: 30,
-    battleEventDamage: 5,
+    battleEventParticipants: 8,
+    battleEventHp: 300,
+    battleEventDamage: 50,
     battleEventDuration: 15
   });
 
@@ -153,9 +153,9 @@ export function useMetadata() {
         subEffectReverseGravityStrength: toNumber(data.subEffectReverseGravityStrength, 2),
         // Battle Event settings
         battleEventChance: toNumber(data.battleEventChance, 5),
-        battleEventParticipants: toNumber(data.battleEventParticipants, 3),
-        battleEventHp: toNumber(data.battleEventHp, 30),
-        battleEventDamage: toNumber(data.battleEventDamage, 5),
+        battleEventParticipants: toNumber(data.battleEventParticipants, 8),
+        battleEventHp: toNumber(data.battleEventHp, 300),
+        battleEventDamage: toNumber(data.battleEventDamage, 50),
         battleEventDuration: toNumber(data.battleEventDuration, 15),
       });
       

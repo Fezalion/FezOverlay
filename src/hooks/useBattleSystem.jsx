@@ -60,36 +60,22 @@ export function useBattleSystem(engine, emoteMap, bodiesWithTimers, battleSettin
     }
   }, []);
 
-  const createBattleParticipant = useCallback((subscriber, position, id) => {
+  const createBattleParticipant = useCallback((subscriber, position, id, emoteName) => {
     if (!engine) return null;
 
-    // Try to find a good emote for this subscriber, fallback to default ones
-    const availableEmotes = ['PogChamp', 'KEKW', 'EZ', 'OMEGALUL', 'Kreygasm', '5Head', 'AYAYA', 'Pog', 'pepePls', 'POGGERS'];
-    const fallbackEmote = availableEmotes[Math.floor(Math.random() * availableEmotes.length)];
-    
-    // Try to find an emote that exists in the emote map
-    let selectedEmote = fallbackEmote;
-    for (const emote of availableEmotes) {
-      if (emoteMap.has(emote)) {
-        selectedEmote = emote;
-        break;
-      }
-    }
-
-    if (!emoteMap.has(selectedEmote)) {
+    const emote = emoteMap.get(emoteName);
+    if (!emote) {
       console.warn(`No suitable emote found for ${subscriber.name}, skipping`);
       return null;
     }
 
-    const emote = emoteMap.get(selectedEmote);
     const sizeX = emote.width * 0.8;
     const sizeY = emote.height * 0.8;
 
-    // Create Matter body
     const body = Matter.Bodies.rectangle(position.x, position.y, sizeX, sizeY, {
       render: { visible: false, isStatic: false },
-      restitution: 0.8,
-      friction: 0.1,
+      restitution: 1,
+      friction: 0.03,
       frictionAir: 0.01,
       isBattleParticipant: true,
       participantId: id
@@ -98,15 +84,12 @@ export function useBattleSystem(engine, emoteMap, bodiesWithTimers, battleSettin
     Matter.World.add(engine.world, body);
 
     const el = createEmoteElement(emote.url, sizeX, sizeY);
-    
-    // Add battle glow effect with subscriber's color
     el.style.boxShadow = `0 0 20px ${subscriber.color}`;
     el.style.border = `2px solid ${subscriber.color}`;
     el.style.borderRadius = '50%';
 
     const { healthBar, healthFill } = createHealthBar();
-    
-    // Create name label
+
     const nameLabel = document.createElement('div');
     nameLabel.textContent = subscriber.name;
     nameLabel.style.position = 'fixed';
@@ -119,8 +102,8 @@ export function useBattleSystem(engine, emoteMap, bodiesWithTimers, battleSettin
     nameLabel.style.pointerEvents = 'none';
     nameLabel.style.whiteSpace = 'nowrap';
     document.body.appendChild(nameLabel);
-    
-    const participant = {
+
+    return {
       id,
       body,
       el,
@@ -131,10 +114,10 @@ export function useBattleSystem(engine, emoteMap, bodiesWithTimers, battleSettin
       maxHp: battleSettings.battleEventHp,
       sizeX,
       sizeY,
-      emoteName: selectedEmote,
+      emoteName,
       subscriberName: subscriber.name,
       userColor: subscriber.color,
-      subscriber: subscriber,
+      subscriber,
       isAlive: true,
       lastDamageTime: 0,
       invulnerabilityDuration: 1000,
@@ -145,16 +128,17 @@ export function useBattleSystem(engine, emoteMap, bodiesWithTimers, battleSettin
       cleanupEffects: [],
       isBattleParticipant: true
     };
-
-    return participant;
   }, [engine, emoteMap, battleSettings.battleEventHp, createHealthBar]);
+
+
 
   const spawnBattleArena = useCallback(() => {
     if (!engine || !subscriberTracker) return [];
 
-    // Get recent subscribers for battle
-    const selectedSubscribers = subscriberTracker.getRandomSubscribers(battleSettings.battleEventParticipants);
-    
+    const selectedSubscribers = subscriberTracker.getRandomSubscribers(
+      battleSettings.battleEventParticipants
+    );
+
     if (selectedSubscribers.length === 0) {
       console.log("No subscribers available for battle");
       return [];
@@ -166,39 +150,103 @@ export function useBattleSystem(engine, emoteMap, bodiesWithTimers, battleSettin
     const centerY = height / 2;
     const radius = Math.min(width, height) * 0.3;
 
+    // ✅ Only keep square emotes
+    const availableEmotes = Array.from(emoteMap.keys()).filter(key => {
+      const emote = emoteMap.get(key);
+      return emote?.width === emote?.height;
+    });
+
+    if (availableEmotes.length === 0) {
+      console.warn("No emotes loaded yet, skipping battle");
+      return [];
+    }
+
+    // Shuffle for randomness
+    const shuffledEmotes = availableEmotes.sort(() => Math.random() - 0.5);
+    const usedEmotes = new Set();
     const participants = [];
 
-    console.log(`Spawning ${selectedSubscribers.length} battle participants from recent subs`);
+    const normalize = str => str.toLowerCase().replace(/[^a-z0-9]/gi, '');
 
     selectedSubscribers.forEach((subscriber, i) => {
       const angle = (i / selectedSubscribers.length) * Math.PI * 2;
       const spawnX = centerX + Math.cos(angle) * radius;
       const spawnY = centerY + Math.sin(angle) * radius;
-      
-      console.log(`Spawning ${subscriber.name} at position:`, { x: spawnX, y: spawnY });
-      
+
+      const subNameNorm = normalize(subscriber.name);
+
+      // 1️⃣ Fuzzy match first
+      let emoteName = availableEmotes.find(e => {
+        const eNorm = normalize(e);
+        return (
+          subNameNorm.length >= 3 && eNorm.includes(subNameNorm)
+        );
+      });
+
+      // 2️⃣ If no match or already taken, find another unique random
+      if (!emoteName || usedEmotes.has(emoteName)) {
+        emoteName = shuffledEmotes.find(e => !usedEmotes.has(e));
+      }
+
+      // 3️⃣ If still nothing, fallback wrap
+      if (!emoteName) {
+        emoteName = shuffledEmotes[i % shuffledEmotes.length];
+      }
+
+      usedEmotes.add(emoteName);
+
       const participant = createBattleParticipant(
         subscriber,
-        { x: spawnX, y: spawnY }, 
-        `battle_${subscriber.username}_${i}`
+        { x: spawnX, y: spawnY },
+        `battle_${subscriber.username}_${i}`,
+        emoteName
       );
-      
+
       if (participant) {
-        // Give participants some initial velocity toward center
         const velocityStrength = 2;
         const velX = (centerX - spawnX) * (velocityStrength / radius);
         const velY = (centerY - spawnY) * (velocityStrength / radius);
-        
+
         Matter.Body.setVelocity(participant.body, { x: velX, y: velY });
-        
-        participants.push(participant);
-        console.log(`Created battle participant: ${participant.subscriberName} with velocity:`, { x: velX, y: velY });
+
+        participants.push(participant);       
       }
     });
-
-    console.log(`Total participants created: ${participants.length}`);
     return participants;
-  }, [engine, battleSettings.battleEventParticipants, createBattleParticipant, subscriberTracker]);
+  }, [
+    engine,
+    battleSettings.battleEventParticipants,
+    createBattleParticipant,
+    subscriberTracker,
+    emoteMap
+  ]);
+
+  function showDamageFlyup(x, y, damage, color = '#ff0000') {
+    const dmgEl = document.createElement('div');
+    dmgEl.textContent = Math.floor(damage); // show integer damage
+    dmgEl.style.position = 'fixed';
+    dmgEl.style.left = `${x}px`;
+    dmgEl.style.top = `${y}px`;
+    dmgEl.style.color = color;
+    dmgEl.style.fontWeight = 'bold';
+    dmgEl.style.fontSize = '16px';
+    dmgEl.style.pointerEvents = 'none';
+    dmgEl.style.textShadow = '1px 1px 2px rgba(0,0,0,0.7)';
+    dmgEl.style.transition = 'transform 0.8s ease-out, opacity 0.8s ease-out';
+    document.body.appendChild(dmgEl);
+
+    // Trigger fly-up animation
+    requestAnimationFrame(() => {
+      dmgEl.style.transform = 'translateY(-30px)';
+      dmgEl.style.opacity = '0';
+    });
+
+    // Remove from DOM after animation
+    setTimeout(() => {
+      dmgEl.remove();
+    }, 800);
+  }
+
 
   const handleCollisions = useCallback(() => {
     if (!activeBattleRef.current || battleParticipants.current.length === 0) return;
@@ -223,8 +271,10 @@ export function useBattleSystem(engine, emoteMap, bodiesWithTimers, battleSettin
 
           // Apply damage
           if (canDamageP1) {
-            p1.hp -= battleSettings.battleEventDamage;
+            const damage = battleSettings.battleEventDamage * (0.8 + Math.random() * 0.4);
+            p1.hp -= damage;
             p1.lastDamageTime = now;
+            showDamageFlyup(p1.body.position.x, p1.body.position.y - 40, damage, p1.userColor);
             // Flash effect
             p1.el.style.filter = 'brightness(2) hue-rotate(180deg)';
             setTimeout(() => {
@@ -233,7 +283,9 @@ export function useBattleSystem(engine, emoteMap, bodiesWithTimers, battleSettin
           }
 
           if (canDamageP2) {
-            p2.hp -= battleSettings.battleEventDamage;
+            const damage = battleSettings.battleEventDamage * (0.8 + Math.random() * 0.4);
+            p2.hp -= damage;
+            showDamageFlyup(p2.body.position.x, p2.body.position.y - 40, damage, p2.userColor);
             p2.lastDamageTime = now;
             // Flash effect
             p2.el.style.filter = 'brightness(2) hue-rotate(180deg)';
@@ -322,7 +374,11 @@ export function useBattleSystem(engine, emoteMap, bodiesWithTimers, battleSettin
     if (!activeBattleRef.current) return;
 
     const aliveParticipants = battleParticipants.current.filter(p => p.isAlive);
-    const attractionStrength = 0.0008;
+    let attractionStrength = 0.0008;
+
+    if (aliveParticipants.length == 2) {
+      attractionStrength = 0.01;
+    }
 
     for (let i = 0; i < aliveParticipants.length; i++) {
       for (let j = i + 1; j < aliveParticipants.length; j++) {
@@ -379,6 +435,41 @@ export function useBattleSystem(engine, emoteMap, bodiesWithTimers, battleSettin
     }, 5000);
   }, []);
 
+  const displayDraw = useCallback((draw) => {
+    if (!draw) return;
+
+    const winnerDisplay = document.createElement('div');
+    winnerDisplay.innerHTML = `🏆 DRAW 🏆`;
+    winnerDisplay.style.position = 'fixed';
+    winnerDisplay.style.top = '50%';
+    winnerDisplay.style.left = '50%';
+    winnerDisplay.style.transform = 'translate(-50%, -50%)';
+    winnerDisplay.style.fontSize = '48px';
+    winnerDisplay.style.fontWeight = 'bold';
+    winnerDisplay.style.color = "#ff0000";
+    winnerDisplay.style.textShadow = '2px 2px 4px rgba(0,0,0,0.8)';
+    winnerDisplay.style.zIndex = '10001';
+    winnerDisplay.style.pointerEvents = 'none';
+    winnerDisplay.style.textAlign = 'center';
+    winnerDisplay.style.animation = 'bounce 1s ease-in-out infinite';
+    
+    // Add bounce animation
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes bounce {
+        0%, 100% { transform: translate(-50%, -50%) scale(1); }
+        50% { transform: translate(-50%, -50%) scale(1.1); }
+      }
+    `;
+    document.head.appendChild(style);
+    document.body.appendChild(winnerDisplay);
+
+    setTimeout(() => {
+      winnerDisplay.remove();
+      style.remove();
+    }, 5000);
+  }, []);
+
   const endBattle = useCallback(() => {
     if (!activeBattleRef.current || !engine) return;
 
@@ -395,65 +486,48 @@ export function useBattleSystem(engine, emoteMap, bodiesWithTimers, battleSettin
         current.hp > prev.hp ? current : prev
       );
     } else {
-        draw = true;
+      draw = true;
     }    
 
     if (winner) {
       displayWinner(winner);
-      // Victory effect for winner
-      winner.el.style.animation = 'spin 2s linear infinite';
-      const spinStyle = document.createElement('style');
-      spinStyle.textContent = `
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-      `;
-      document.head.appendChild(spinStyle);
-      setTimeout(() => spinStyle.remove(), 2000);
+    } else if (draw) {
+      displayDraw(draw);
     }
 
-    // Clean up battle
+    // 🔹 Stop physics: remove update listener
     if (battleUpdateListener.current) {
       Matter.Events.off(engine, "beforeUpdate", battleUpdateListener.current);
       battleUpdateListener.current = null;
     }
 
-    // Clean up any remaining participants (including the winner and any dead ones not yet cleaned up)
+    // 🔹 Freeze remaining participants
+    aliveParticipants.forEach(p => {
+      Matter.Body.setVelocity(p.body, { x: 0, y: 0 });
+      Matter.Body.setAngularVelocity(p.body, 0);
+      Matter.Body.setStatic(p.body, true); // optional: makes body completely immovable
+    });
+
+    // Clean up battle after a delay (DOM removal, etc.)
     setTimeout(() => {
       battleParticipants.current.forEach(participant => {
-        // Remove from main bodiesWithTimers array if still there
         const index = bodiesWithTimers.current.findIndex(body => body.id === participant.id);
-        if (index !== -1) {
-          bodiesWithTimers.current.splice(index, 1);
-        }
-        
-        // Remove physics body if still exists
+        if (index !== -1) bodiesWithTimers.current.splice(index, 1);
+
         if (participant.body && engine) {
-          try {
-            Matter.World.remove(engine.world, participant.body);
-          } catch (e) {
-            // Body might already be removed, ignore error
-          }
+          try { Matter.World.remove(engine.world, participant.body); } catch(e) {}
         }
-        
-        // Remove DOM elements if they still exist
-        if (participant.el && participant.el.parentNode) {
-          participant.el.remove();
-        }
-        if (participant.healthBar && participant.healthBar.parentNode) {
-          participant.healthBar.remove();
-        }
-        if (participant.nameLabel && participant.nameLabel.parentNode) {
-          participant.nameLabel.remove();
-        }
+        if (participant.el && participant.el.parentNode) participant.el.remove();
+        if (participant.healthBar && participant.healthBar.parentNode) participant.healthBar.remove();
+        if (participant.nameLabel && participant.nameLabel.parentNode) participant.nameLabel.remove();
       });
-      
+
       battleParticipants.current = [];
       activeBattleRef.current = null;
       console.log("Battle ended and all participants cleaned up");
-    }, 3000); // Give a bit more time for victory effects
-  }, [engine, displayWinner, bodiesWithTimers]);
+    }, 3000);
+  }, [engine, displayWinner, bodiesWithTimers, displayDraw]);
+
 
   const updateBattle = useCallback(() => {
     if (!activeBattleRef.current) return;
@@ -474,9 +548,7 @@ export function useBattleSystem(engine, emoteMap, bodiesWithTimers, battleSettin
     // Check win conditions - only count truly alive participants
     const aliveParticipants = battleParticipants.current.filter(p => p.isAlive);
     const battleDuration = Date.now() - activeBattleRef.current.startTime;
-    
-    console.log(`Battle update: ${aliveParticipants.length} participants alive`);
-    
+        
     if (aliveParticipants.length <= 1 || battleDuration >= battleSettings.battleEventDuration * 1000) {
       endBattle();
     }
@@ -494,7 +566,7 @@ export function useBattleSystem(engine, emoteMap, bodiesWithTimers, battleSettin
       return;
     }
 
-    console.log("Starting battle event with real subscribers!");
+    console.log(`Starting battle event with ${battleSettings.battleEventParticipants} real subscribers!`);
     
     const participants = spawnBattleArena();
     if (participants.length === 0) return;
@@ -534,7 +606,7 @@ export function useBattleSystem(engine, emoteMap, bodiesWithTimers, battleSettin
 
     setTimeout(() => announcement.remove(), 4000);
   }, [engine, spawnBattleArena, updateBattle, bodiesWithTimers, subscriberTracker, battleSettings.battleEventParticipants]);
-
+  
   return {
     startBattle,
     endBattle,

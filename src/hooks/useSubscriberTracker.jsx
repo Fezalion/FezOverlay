@@ -7,7 +7,7 @@ export function useSubscriberTracker(client, enableMock = false) {
   // Optional: Add mock data for testing
   useEffect(() => {
     if (enableMock) {
-      recentSubscribersRef.current = Array.from({ length: 5 }, (_, i) => ({
+      recentSubscribersRef.current = Array.from({ length: 20 }, (_, i) => ({
         name: `TestUser${i + 1}`,
         color: `hsl(${Math.floor(Math.random() * 360)}, 70%, 50%)`,
         username: `testuser${i + 1}`,

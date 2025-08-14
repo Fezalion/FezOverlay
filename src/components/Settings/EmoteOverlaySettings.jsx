@@ -115,6 +115,11 @@ export default function EmoteOverlaySettings({ settings, updateSetting }) {
                 subEffectReverseGravityChance: 5,
                 subEffectReverseGravityDuration: 5,
                 subEffectReverseGravityStrength: 2,
+                battleEventChance: 5,
+                battleEventParticipants: 8,
+                battleEventHp: 30,
+                battleEventDamage: 5,
+                battleEventDuration: 15,
                 subOnlyMode: false,
                 subEffectTypes: [],
               };

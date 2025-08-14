@@ -15,7 +15,7 @@ export function usePhysicsEngine() {
     const width = window.innerWidth;
     const height = window.innerHeight;
 
-    const wallThickness = 40;
+    const wallThickness = 200;
     const walls = [
       Matter.Bodies.rectangle(-wallThickness / 2, height / 2, wallThickness, height, {
         isStatic: true
