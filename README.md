@@ -11,11 +11,7 @@ A React-based overlay application for streaming with Last.fm integration and cus
 
 ## Demo
 
-![Demo](readme/demo.gif)
-
-- **Settings**
-
-![Settings](readme/settings.png)
+https://www.youtube.com/watch?v=nzPYJCWTqC8
 
 ## Update System
 
