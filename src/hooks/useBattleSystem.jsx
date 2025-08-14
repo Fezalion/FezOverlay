@@ -136,24 +136,24 @@ export function useBattleSystem(engine, emoteMap, bodiesWithTimers, battleSettin
     if (!engine || !subscriberTracker) return [];
 
     // Get all available subscribers
-    const availableSubscribers = subscriberTracker.getAllSubscribers();
+    const availableSubscribers = subscriberTracker.getSubscriberCount();
 
-    if (availableSubscribers.length < 3) {
+    if (availableSubscribers < 3) {
       console.log("Not enough subscribers to start a battle (minimum 3 required)");
       return [];
     }
 
     // Determine random number of participants: min 3, max battleEventParticipants or total subscribers
-    const maxParticipants = Math.min(battleSettings.battleEventParticipants, availableSubscribers.length);
-    const numParticipants = Math.max(3, Math.floor(Math.random() * (maxParticipants - 2) + 3)); // random between 3 and maxParticipants
+    const maxParticipants = Math.min(battleSettings.battleEventParticipants, availableSubscribers);
 
     // Randomly select subscribers for the battle
-    const selectedSubscribers = subscriberTracker.getRandomSubscribers(numParticipants);
+    const selectedSubscribers = subscriberTracker.getRandomSubscribers(maxParticipants);
 
     if (selectedSubscribers.length === 0) {
       console.log("No subscribers available for battle");
       return [];
-    }
+    }    
+    console.log(`Starting battle event with ${selectedSubscribers.length} subscribers!`);
 
     const width = window.innerWidth;
     const height = window.innerHeight;
@@ -566,8 +566,6 @@ export function useBattleSystem(engine, emoteMap, bodiesWithTimers, battleSettin
       return;
     }
 
-    console.log(`Starting battle event with ${battleSettings.battleEventParticipants} real subscribers!`);
-    
     const participants = spawnBattleArena();
     if (participants.length === 0) return;
     
