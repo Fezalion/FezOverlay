@@ -176,7 +176,8 @@ export default function SongOverlaySettings({ settings, updateSetting }) {
                 scaleSize: 1.0,
                 padding: 10,
                 maxWidth: 700,
-                scrollSpeed: 25 
+                scrollSpeed: 25,
+                hideOnNothing: false
               };
               Object.entries(defaultSubEffects).forEach(([key, val]) => updateSetting(key, val));
             }}
@@ -184,6 +185,19 @@ export default function SongOverlaySettings({ settings, updateSetting }) {
           >
             Reset
         </button>
+        <label className="flex items-center gap-2 mb-4 mt-4">
+          <label className="font-semibold">Hide when no song is playing.</label>
+          <button
+          onClick={() => updateSetting("hideOnNothing", !settings.hideOnNothing)}
+          className={`relative inline-flex items-center h-6 w-12 rounded-full transition-colors duration-300
+            ${settings.hideOnNothing ? "bg-rose-500" : "bg-gray-700"}`}
+        >
+          <span
+            className={`inline-block w-5 h-5 transform bg-white rounded-full shadow-md transition-transform duration-300
+              ${settings.hideOnNothing ? "translate-x-6" : "translate-x-1"}`}
+          />
+        </button>          
+        </label>
         <InputField
           label="Scale Size"
           type="range"

@@ -16,6 +16,7 @@ export function useMetadata() {
     playerLocationCoords: { x: 0, y: 0 },
     playerAlignment: 'right',
     scrollSpeed: 25,
+    hideOnNothing: false,
     
     // Service Settings
     twitchName: '',
@@ -114,6 +115,7 @@ export function useMetadata() {
         },
         playerAlignment: data.playerAlignment || 'right',
         scrollSpeed: data.scrollSpeed || 25,
+        hideOnNothing: data.hideOnNothing || false,
         
         // Service Settings
         twitchName: data.twitchName || '',

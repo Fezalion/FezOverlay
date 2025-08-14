@@ -8,7 +8,7 @@ const SPACE = '\u00A0\u00A0';
 const NOTHING_PLAYING = 'Nothing is playing...';
 const WS_URL = "ws://localhost:48000";
 const MOVEMENT_DEBOUNCE_MS = 1000;
-const OPACITY_TRANSITION_MS = 100;
+const OPACITY_TRANSITION_MS = 300; // Increased for smoother song transitions
 
 // Custom hooks
 const useWebSocket = (onRefresh) => {
@@ -76,20 +76,55 @@ const useTrackPolling = (lastfmName) => {
   return track;
 };
 
+const useOpacityAnimation = (displayText, shouldHide) => {
+  const [opacity, setOpacity] = useState(1);
+  const [currentText, setCurrentText] = useState(displayText);
+  const previousTextRef = useRef(displayText);
+  const previousHideRef = useRef(shouldHide);
+
+  useEffect(() => {
+    const textChanged = displayText !== previousTextRef.current;
+    const hideStateChanged = shouldHide !== previousHideRef.current;
+
+    if (textChanged || hideStateChanged) {
+      // Fade out
+      setOpacity(0);
+      
+      // After fade out completes, update text and fade in (unless we're hiding)
+      const timeout = setTimeout(() => {
+        setCurrentText(displayText);
+        previousTextRef.current = displayText;
+        previousHideRef.current = shouldHide;
+        
+        // Only fade back in if we're not hiding
+        if (!shouldHide) {
+          setOpacity(1);
+        }
+      }, OPACITY_TRANSITION_MS);
+
+      return () => clearTimeout(timeout);
+    } else if (currentText !== displayText) {
+      // Handle initial load or when currentText hasn't been set yet
+      setCurrentText(displayText);
+      previousTextRef.current = displayText;
+      previousHideRef.current = shouldHide;
+    }
+  }, [displayText, currentText, shouldHide]);
+
+  return { opacity, currentText };
+};
+
 const useScrollAnimation = (displayText, scrollSpeed, maxWidth, fontFamily, scaleSize, padding) => {
   const [shouldAnimate, setShouldAnimate] = useState(false);
   const [scrollDuration, setScrollDuration] = useState(0);
-  const [isVisible, setIsVisible] = useState(true);
   
   const wrapperRef = useRef(null);
   const trackRef = useRef(null);
 
   useEffect(() => {
-    setIsVisible(false);
     setShouldAnimate(false);
     
     if (displayText === NOTHING_PLAYING) {
-      setIsVisible(true);
       return;
     }
 
@@ -98,7 +133,6 @@ const useScrollAnimation = (displayText, scrollSpeed, maxWidth, fontFamily, scal
       const track = trackRef.current;
       
       if (!wrapper || !track) {
-        setIsVisible(true);
         return;
       }
 
@@ -120,9 +154,7 @@ const useScrollAnimation = (displayText, scrollSpeed, maxWidth, fontFamily, scal
         const duration = textWidth / scrollSpeed;
         setScrollDuration(duration);
         setShouldAnimate(true);
-      }
-      
-      setIsVisible(true);
+      }      
     };
 
     // Use a small delay to ensure DOM has updated after settings change
@@ -136,7 +168,6 @@ const useScrollAnimation = (displayText, scrollSpeed, maxWidth, fontFamily, scal
   return {
     shouldAnimate,
     scrollDuration,
-    isVisible,
     wrapperRef,
     trackRef
   };
@@ -274,7 +305,8 @@ export function NowPlaying() {
     textStrokeColor,
     lastfmName,
     playerLocationCoords,
-    playerAlignment
+    playerAlignment,
+    hideOnNothing
   } = settings;
 
   // Custom hooks
@@ -294,19 +326,24 @@ export function NowPlaying() {
     ? `${latestTrack.artist} - ${latestTrack.name}`
     : NOTHING_PLAYING;
 
+  // Hide component if hideOnNothing is true and nothing is playing
+  const shouldHide = hideOnNothing && !latestTrack;
+
+  // Use opacity animation hook (pass shouldHide to trigger animation on hide state changes)
+  const { opacity, currentText } = useOpacityAnimation(displayText, shouldHide);
+
   // Force re-render when settings change that affect layout
   const layoutKey = useMemo(() => 
-    `${maxWidth}-${fontFamily}-${scaleSize}-${padding}-${scrollSpeed}-${displayText}`,
-    [maxWidth, fontFamily, scaleSize, padding, scrollSpeed, displayText]
+    `${maxWidth}-${fontFamily}-${scaleSize}-${padding}-${scrollSpeed}-${currentText}`,
+    [maxWidth, fontFamily, scaleSize, padding, scrollSpeed, currentText]
   );
 
   const {
     shouldAnimate,
     scrollDuration,
-    isVisible,
     wrapperRef,
     trackRef
-  } = useScrollAnimation(displayText, scrollSpeed, maxWidth, fontFamily, scaleSize, padding);
+  } = useScrollAnimation(currentText, scrollSpeed, maxWidth, fontFamily, scaleSize, padding);
 
   useKeyboardMovement(playerLocationCoords, setLocalSetting, updateSettings);
 
@@ -320,8 +357,8 @@ export function NowPlaying() {
     fontFamily,
     maxWidth,
     transformOrigin: `center ${playerAlignment}`,
-    opacity: isVisible ? 1 : 0,
-    transition: `opacity ${OPACITY_TRANSITION_MS / 1000}s ease`
+    transition: `opacity ${OPACITY_TRANSITION_MS / 1000}s ease`,
+    opacity: shouldHide ? 0 : opacity
   }), [
     playerLocationCoords,
     playerAlignment,
@@ -331,7 +368,8 @@ export function NowPlaying() {
     scaleSize,
     fontFamily,
     maxWidth,
-    isVisible
+    opacity,
+    shouldHide
   ]);
 
   const animationStyles = useMemo(() => ({
@@ -365,11 +403,11 @@ export function NowPlaying() {
         >
           {shouldAnimate ? (
             <>
-              {renderText(displayText)}
-              {renderText(displayText)}
+              {renderText(currentText)}
+              {renderText(currentText)}
             </>
           ) : (
-            renderText(displayText)
+            renderText(currentText)
           )}
         </div>
       </div>
