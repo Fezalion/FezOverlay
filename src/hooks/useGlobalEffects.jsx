@@ -1,0 +1,70 @@
+import { useRef, useCallback } from 'react';
+import Matter from 'matter-js';
+
+export function useGlobalEffects(engine, bodiesWithTimers) {
+  const magneticEventRef = useRef(false);
+  const reverseGravityEventRef = useRef(false);
+  const battleEventRef = useRef();
+
+  const startMagneticEvent = useCallback((duration, str) => {
+    if (magneticEventRef.current || !engine) return;
+
+    magneticEventRef.current = true;
+    
+    const forceMagnitude = str / 100000;
+
+    const magneticUpdate = () => {
+      const centerX = window.innerWidth / 2;
+      const centerY = window.innerHeight / 2;
+
+      bodiesWithTimers.current.forEach(({ body }) => {
+        if (!body.isSleeping) {
+          const dx = centerX - body.position.x;
+          const dy = centerY - body.position.y;
+          Matter.Body.applyForce(body, body.position, {
+            x: dx * forceMagnitude,
+            y: dy * forceMagnitude,
+          });
+        }
+      });
+    };
+
+    Matter.Events.on(engine, "beforeUpdate", magneticUpdate);
+
+    setTimeout(() => {
+      Matter.Events.off(engine, "beforeUpdate", magneticUpdate);
+      magneticEventRef.current = false;
+      console.log("magnetic event ended");
+    }, duration * 1000);
+  }, [engine, bodiesWithTimers]);
+
+  const startReverseGravityEvent = useCallback((duration, str) => {
+    if (reverseGravityEventRef.current || !engine) return;
+
+    reverseGravityEventRef.current = true;
+
+    const gravityUpdate = () => {
+      bodiesWithTimers.current.forEach(({ body, isSub }) => {
+        if (!body.isSleeping && isSub) {
+          const upwardForce = (str / 1000 * -1) * body.mass;
+          Matter.Body.applyForce(body, body.position, { x: 0, y: upwardForce });
+        }
+      });
+    };
+
+    Matter.Events.on(engine, "beforeUpdate", gravityUpdate);
+
+    setTimeout(() => {
+      Matter.Events.off(engine, "beforeUpdate", gravityUpdate);
+      reverseGravityEventRef.current = false;
+      console.log("reverse gravity event ended");
+    }, duration * 1000);
+  }, [engine, bodiesWithTimers]);
+
+  return {
+    startMagneticEvent,
+    startReverseGravityEvent,
+    magneticEventActive: magneticEventRef.current,
+    reverseGravityEventActive: reverseGravityEventRef.current
+  };
+}

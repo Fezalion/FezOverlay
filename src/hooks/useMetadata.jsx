@@ -30,6 +30,7 @@ export function useMetadata() {
     subEffects: true,
     raidEffect: true,
     subEffectTypes: [],
+    subOnlyMode: false,
     //HueShift
     subEffectHueShiftChance: 5,
     // Blackhole settings
@@ -39,7 +40,13 @@ export function useMetadata() {
     //Reverse Gravity settings
     subEffectReverseGravityChance: 5,
     subEffectReverseGravityStrength: 2,
-    subEffectReverseGravityDuration: 5
+    subEffectReverseGravityDuration: 5,
+    // Battle Event settings
+    battleEventChance: 5,
+    battleEventParticipants: 3,
+    battleEventHp: 30,
+    battleEventDamage: 5,
+    battleEventDuration: 15
   });
 
   const [availableSubEffects, setAvailableSubEffects] = useState([]);
@@ -133,6 +140,7 @@ export function useMetadata() {
           : typeof data.subEffectTypes === 'string' && data.subEffectTypes.length > 0
             ? [data.subEffectTypes]
             : [],
+        subOnlyMode: Boolean(data.subOnlyMode),
         //HueShift
         subEffectHueShiftChance: toNumber(data.subEffectHueShiftChance, 5),
         //blackhole
@@ -143,6 +151,12 @@ export function useMetadata() {
         subEffectReverseGravityChance: toNumber(data.subEffectReverseGravityChance, 5),
         subEffectReverseGravityDuration: toNumber(data.subEffectReverseGravityDuration, 5),
         subEffectReverseGravityStrength: toNumber(data.subEffectReverseGravityStrength, 2),
+        // Battle Event settings
+        battleEventChance: toNumber(data.battleEventChance, 5),
+        battleEventParticipants: toNumber(data.battleEventParticipants, 3),
+        battleEventHp: toNumber(data.battleEventHp, 30),
+        battleEventDamage: toNumber(data.battleEventDamage, 5),
+        battleEventDuration: toNumber(data.battleEventDuration, 15),
       });
       
       setError(null);

@@ -115,6 +115,7 @@ export default function EmoteOverlaySettings({ settings, updateSetting }) {
                 subEffectReverseGravityChance: 5,
                 subEffectReverseGravityDuration: 5,
                 subEffectReverseGravityStrength: 2,
+                subOnlyMode: false,
                 subEffectTypes: [],
               };
               Object.entries(defaultSubEffects).forEach(([key, val]) => updateSetting(key, val));
@@ -124,6 +125,23 @@ export default function EmoteOverlaySettings({ settings, updateSetting }) {
             Reset
           </button>
       </div>
+      
+      <div className="flex items-center justify-between bg-white/5 p-4 rounded-xl border border-white/10">
+        <div className="flex items-center space-x-3">
+          <label className="font-semibold">Sub only mode.</label>
+          <button
+          onClick={() => updateSetting("subOnlyMode", !settings.subOnlyMode)}
+          className={`relative inline-flex items-center h-6 w-12 rounded-full transition-colors duration-300
+            ${settings.subOnlyMode ? "bg-rose-500" : "bg-gray-700"}`}
+        >
+          <span
+            className={`inline-block w-5 h-5 transform bg-white rounded-full shadow-md transition-transform duration-300
+              ${settings.subOnlyMode ? "translate-x-6" : "translate-x-1"}`}
+          />
+        </button> 
+        </div>
+      </div>
+
       {/* Effects */}
       <EffectCard
         effectKey="hueShift"
@@ -174,8 +192,8 @@ export default function EmoteOverlaySettings({ settings, updateSetting }) {
           { key: "subEffectReverseGravityDuration", label: "Duration (s)", min: 1, max: 30, step: 1, parser: parseInt },
           { key: "subEffectReverseGravityStrength", label: "Strength", min: 1, max: 10, step: 1, parser: parseInt },
           { key: "subEffectReverseGravityChance", label: "Chance (%)", min: 1, max: 100, step: 1, parser: parseInt }
-        ]}
-      />
+        ]}        
+      />    
     </div>
   );
 }

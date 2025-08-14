@@ -233,6 +233,7 @@ const availableSubEffects = [
   "hueShift",
   "magneticAttraction",
   "reverseGravity",
+  "battleEvent",
 ];
 
 app.get('/api/subeffecttypes', (req, res) => {

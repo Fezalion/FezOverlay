@@ -1,25 +1,25 @@
-import {
-  useState,
-  useEffect,
-  useRef
-} from "react";
-import Matter from "matter-js";
-import tmi from "tmi.js";
+import { useState, useEffect, useRef } from "react";
 import { useMetadata } from '../hooks/useMetadata';
+import { useTwitchClient } from '../hooks/useTwitchClient';
+import { useEmoteLoader } from '../hooks/useEmoteLoader';
+import { usePhysicsEngine } from '../hooks/usePhysicsEngine';
+import { useEmoteSpawner } from '../hooks/useEmoteSpawner';
+import { useGlobalEffects } from '../hooks/useGlobalEffects';
+import { useMessageHandler } from '../hooks/useMessageHandler';
+import { useEmoteLifecycle } from '../hooks/useEmoteLifecycle';
+import { useRaidHandler } from '../hooks/useRaidHandler';
 
-
-export function EmoteOverlay() {
-
+export default function EmoteOverlay() {
   const { settings, refreshSettings } = useMetadata();
-    
   const [refreshToken, setRefreshToken] = useState(0);
   const wsRef = useRef(null); 
 
-  useEffect(() => { refreshSettings(); }, [refreshToken, refreshSettings]);
+  useEffect(() => { 
+    refreshSettings(); 
+  }, [refreshToken, refreshSettings]);
 
   useEffect(() => {
     const wsUrl = "ws://localhost:48000";
-
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 
@@ -45,523 +45,48 @@ export function EmoteOverlay() {
     };
   }, []);  
 
-  return <EmoteOverlayCore key={refreshToken} {
-    ...settings
-  }
-  />;
+  return <EmoteOverlayCore key={refreshToken} {...settings} />;
 }
 
-function EmoteOverlayCore({
-  twitchName,
-  emoteSetId,
-  emoteLifetime,
-  emoteScale,
-  emoteDelay,
-  subEffects,
-  subEffectTypes,
-  //HueShift
-  subEffectHueShiftChance,
-  //MagneticAttraction
-  subEffectBlackHoleChance,
-  subEffectBlackHoleDuration,
-  subEffectBlackHoleStrength,
-  //ReverseGravity
-  subEffectReverseGravityChance,
-  subEffectReverseGravityStrength,
-  subEffectReverseGravityDuration,
-  raidEffect
-}) {
+function EmoteOverlayCore(settings) {
   const sceneRef = useRef(null);
-  const emoteMap = useRef(new Map());
   const bodiesWithTimers = useRef([]);
-  const rafId = useRef(null);
-  const clientRef = useRef(null);
-  const spawnEmoteRef = useRef(null);
 
-  const magneticEventRef = useRef(false);
-  const reverseGravityEventRef = useRef(false);  
+  // Initialize all hooks
+  const client = useTwitchClient(settings.twitchName);
+  const emoteMap = useEmoteLoader(settings.emoteSetId);
+  const physics = usePhysicsEngine();
+  const globalEffects = useGlobalEffects(physics.engine, bodiesWithTimers);
+  const { spawnEmote } = useEmoteSpawner(physics.engine, emoteMap, bodiesWithTimers, settings);
+  const { clearAllEmotes } = useEmoteLifecycle(physics.engine, bodiesWithTimers, settings.emoteLifetime);
 
-  // Twitch client connection
+  // Start DOM updates when physics engine is ready
   useEffect(() => {
-    if (!twitchName) return;
+    if (physics.engine) {
+      physics.startDOMUpdates(bodiesWithTimers);
+      return () => {
+        physics.stopDOMUpdates();
+        clearAllEmotes();
+      };
+    }
+  }, [physics.engine, physics.startDOMUpdates, physics.stopDOMUpdates, clearAllEmotes]);
 
-    const client = new tmi.Client({
-      options: {
-        debug: false
-      },
-      connection: {
-        reconnect: true,
-        secure: true
-      },
-      channels: [twitchName],
-    });
-
-    client.connect().catch(console.error);
-    clientRef.current = client;
-
-    return () => {
-      client.disconnect().catch(() => {});
-      clientRef.current = null;
-    };
-  }, [twitchName]);
+  // Set up message handling
+  useMessageHandler(client, emoteMap, spawnEmote, globalEffects, settings);
   
-  const runnerRef = useRef(null);
-  const engineRef = useRef(null);
-  // Load emotes and initialize physics engine
-  useEffect(() => {
-    if (!emoteSetId) return;
+  // Set up raid handling
+  useRaidHandler(client, spawnEmote, settings.raidEffect, settings.emoteDelay);
 
-    const engine = Matter.Engine.create();
-    engineRef.current = engine;
-    let world = engine.world;
-    engine.gravity.y = 1;
-
-    const width = window.innerWidth;
-    const height = window.innerHeight;
-
-    const wallThickness = 40;
-    const walls = [
-      Matter.Bodies.rectangle(-wallThickness / 2, height / 2, wallThickness, height, {
-        isStatic: true
-      }),
-      Matter.Bodies.rectangle(width + wallThickness / 2, height / 2, wallThickness, height, {
-        isStatic: true
-      }),
-      Matter.Bodies.rectangle(width / 2, -wallThickness / 2, width, wallThickness, {
-        isStatic: true
-      }),
-      Matter.Bodies.rectangle(width / 2, height + wallThickness / 2, width, wallThickness, {
-        isStatic: true
-      }),
-    ];
-    Matter.World.add(world, walls);
-
-    let runner = Matter.Runner.create();
-    runnerRef.current = runner;
-    Matter.Runner.run(runner, engine);
-    /* -------------------
-      |     Effects      |
-      -------------------- */
-
-    /*
-      Ideas: hyperspeed
-      channel point redeeming ? name on emotes ?
-      presets for multiple scenes
-
-
-                            */
-    const effectsRegistry = {
-      colorFlash: (el) => {
-        if(Math.random() * 100 > subEffectHueShiftChance) return;
-        let hue = 0;
-        const intervalId = setInterval(() => {
-          if (!document.body.contains(el)) {
-            clearInterval(intervalId);
-            return;
-          }
-          hue = (hue + 30) % 360;
-          el.style.filter = `hue-rotate(${hue}deg)`;
-        }, 100);
-
-        return () => clearInterval(intervalId);
-      }
-    };
-
-    async function fetchEmoteSet(set) {
-      const res = await fetch(`https://7tv.io/v3/emote-sets/${set}`);
-      if (!res.ok) throw new Error(res.statusText);
-      const data = await res.json();
-      return data?.emotes || [];
-    }
-
-    async function loadEmotes() {
-      try {
-        const [setEmotes, globalEmotes] = await Promise.all([fetchEmoteSet(emoteSetId), fetchEmoteSet("global")]);
-        const allEmotes = [...setEmotes, ...globalEmotes];
-        const newMap = new Map();
-        allEmotes.forEach((emote) => {
-          if (!emote.name || !emote.id) return;
-          const file = emote.data.host.files[1]; // 2x res
-          const url = `https:${emote.data.host.url}/${file.name}`;
-          newMap.set(emote.name, {
-            url,
-            width: file.width,
-            height: file.height,
-            animated: emote.data.animated || false,
-          });
-        });
-        emoteMap.current = newMap;
-        console.log(`Loaded ${newMap.size} emotes`);
-      } catch (e) {
-        console.error("Error loading emotes:", e);
-      }
-    }
-
-    loadEmotes();
-
-    function createEmoteElement(url, sizeX, sizeY) {
-      const img = document.createElement("img");
-      img.src = url;
-      img.style.width = sizeX + "px";
-      img.style.height = sizeY + "px";
-      img.style.position = "fixed";
-      img.style.pointerEvents = "none";
-      img.style.zIndex = "9999";
-      img.style.opacity = "0";
-      img.style.transition = "opacity 0.5s ease";
-      document.body.appendChild(img);
-
-      requestAnimationFrame(() => {
-        img.style.opacity = "1";
-      });
-
-      return img;
-    }
-
-    spawnEmoteRef.current = (emoteName, isSub = false, userColor = "orange") => {
-      const emote = emoteMap.current.get(emoteName);
-      if (!emote) return;
-
-      const sizeX = emote.width * emoteScale;
-      const sizeY = emote.height * emoteScale;
-
-      const width = window.innerWidth;
-      const height = window.innerHeight;
-
-      const cellW = width / 3;
-      const cellH = height / 3;
-
-      // All outer cells except center
-      const edgeCells = [];
-      for (let row = 0; row < 3; row++) {
-        for (let col = 0; col < 3; col++) {
-          if (!(col === 1 && row === 1)) {
-            edgeCells.push({ col, row });
-          }
-        }
-      }
-
-      // Pick random spawn cell
-      const spawnCell = edgeCells[Math.floor(Math.random() * edgeCells.length)];
-      const x = spawnCell.col * cellW + Math.random() * cellW;
-      const y = spawnCell.row * cellH + Math.random() * cellH;
-
-      // Pick a random target point inside middle cell
-      const targetX = cellW + Math.random() * cellW;
-      const targetY = cellH + Math.random() * cellH;
-
-      // Direction vector toward target
-      let dx = targetX - x;
-      let dy = targetY - y;
-      const len = Math.sqrt(dx * dx + dy * dy);
-      dx /= len;
-      dy /= len;
-
-      // Determine if this is a corner or edge
-      const isCorner = (spawnCell.col !== 1 && spawnCell.row !== 1); // both col & row are outer
-      const maxAngleOffset = isCorner ? Math.PI / 3 : Math.PI / 6; // 60° for corners, 30° for edges
-
-      // Apply a random angle offset
-      const angleOffset = (Math.random() - 0.5) * (2 * maxAngleOffset);
-      const cos = Math.cos(angleOffset);
-      const sin = Math.sin(angleOffset);
-      const rotatedDx = dx * cos - dy * sin;
-      const rotatedDy = dx * sin + dy * cos;
-
-      // Speed with slight variation
-      const baseSpeed = 15;
-      const speedVariance = 5;
-      const speed = baseSpeed + (Math.random() * speedVariance - speedVariance / 2);
-
-      const velX = rotatedDx * speed;
-      const velY = rotatedDy * speed;
-
-      // Create Matter body
-      const body = Matter.Bodies.rectangle(x, y, sizeX, sizeY, {
-        render: { visible: false, isStatic: false },
-        restitution: 1,
-        friction: 0.1,
-        frictionAir: 0.007
-      });
-
-      Matter.World.add(engineRef.current.world, body);
-      Matter.Body.setVelocity(body, { x: velX, y: velY });
-      Matter.Body.setAngularVelocity(body, (Math.random() - 0.5) * 0.2);
-
-      const el = createEmoteElement(emote.url, sizeX, sizeY, emote.animated);
-
-      let cleanupEffects = [];
-      if (isSub && subEffects && subEffectTypes.length > 0) {
-        // Only consider effects that exist in the registry
-        const filteredEffects = subEffectTypes.filter(effect => effectsRegistry[effect]);
-
-        if (filteredEffects.length > 0) {
-          
-          filteredEffects.forEach(effectName => {
-            const effect = effectsRegistry[effectName];
-            if (effect) {
-              const cleanup = effect(el, body, engineRef.current, userColor);
-              if (cleanup) cleanupEffects.push(cleanup);
-            }
-          });          
-        }
-      }
-
-
-      bodiesWithTimers.current.push({
-        body,
-        born: Date.now(),
-        el,
-        sizeX,
-        sizeY,
-        animated: emote.animated,
-        isSub,
-        particleColor: userColor,
-        cleanupEffects
-      });
-    };
-
-
-
-    Matter.Events.on(engine, "beforeUpdate", () => {
-      const now = Date.now();
-      for (let i = bodiesWithTimers.current.length - 1; i >= 0; i--) {
-        const {
-          body,
-          born,
-          el,
-          cleanupEffects
-        } = bodiesWithTimers.current[i];
-        const age = now - born;
-        if (age >= 5000) {
-          Matter.World.remove(world, body);
-          el.style.opacity = "0";
-          setTimeout(() => el.remove(), 500);
-          if (cleanupEffects) {
-            cleanupEffects.forEach(fn => {
-              try { fn(); } catch (err) { console.error(err); }
-            });
-          }
-          bodiesWithTimers.current.splice(i, 1);
-        }
-      }
-    });
-
-    function updateDOM() {
-      bodiesWithTimers.current.forEach((obj) => {
-        const {
-          body,
-          el,
-          sizeX,
-          sizeY,
-        } = obj;
-        const x = body.position.x - sizeX / 2;
-        const y = body.position.y - sizeY / 2;
-        el.style.transform = `translate(${x}px, ${y}px) rotate(${body.angle}rad)`;       
-      });
-      rafId.current = requestAnimationFrame(updateDOM);
-    }
-    rafId.current = requestAnimationFrame(updateDOM);
-
-    // Clear all emotes on reload/update
-    bodiesWithTimers.current.forEach(({
-      body,
-      el
-    }) => {
-      Matter.World.remove(world, body);
-      el.remove();      
-    });
-    bodiesWithTimers.current = [];
-
-    return () => {
-      cancelAnimationFrame(rafId.current);
-      bodiesWithTimers.current.forEach(({
-        el,
-      }) => {
-        el.remove();        
-      });
-      bodiesWithTimers.current.length = 0;
-      Matter.Runner.stop(runner);
-      Matter.Engine.clear(engine);
-      engineRef.current = null;
-      runnerRef.current = null;
-      emoteMap.current.clear();
-      spawnEmoteRef.current = null;
-    };
-  }, [emoteSetId, emoteScale, subEffectTypes, subEffects,subEffectHueShiftChance]);
-  
-
-  // Twitch message handler
-  useEffect(() => {
-    const client = clientRef.current;
-    if (!client || !spawnEmoteRef.current) return;
-
-    function onMessage(channel, userstate, message) {
-      console.log(message);
-      const words = message.split(/\s+/);
-      const emotes = words.filter((w) => emoteMap.current.has(w));
-      const isSub =
-            userstate.subscriber ||
-            userstate.mod ||
-            userstate.badges?.vip ||
-            userstate.badges?.broadcaster;
-
-      emotes.forEach((emoteName, i) => {
-        setTimeout(() => {          
-          const userColor = userstate.color || "orange"; // fallback color
-          spawnEmoteRef.current?.(emoteName, isSub, userColor);
-        }, i * emoteDelay);
-      });
-
-      const effectsMap = {
-        magneticAttraction: {
-          fn: startMagneticEvent,
-          duration: subEffectBlackHoleDuration,
-          str: subEffectBlackHoleStrength,
-          chance: subEffectBlackHoleChance
-        },
-        reverseGravity: {
-          fn: startReverseGravityEvent,
-          duration: subEffectReverseGravityDuration,
-          str: subEffectReverseGravityStrength,
-          chance: subEffectReverseGravityChance
-        }
-      };
-      const shuffledEffects = Object.entries(effectsMap)
-        .sort(() => Math.random() - 0.5);
-      for (const [effectName, { fn: effectFn, duration, str, chance }] of shuffledEffects) {
-        if (Math.random() * 100 > chance) continue;
-        if (
-          isSub &&
-          emotes.length > 0 &&
-          subEffectTypes.includes(effectName) &&
-          !magneticEventRef.current &&
-          !reverseGravityEventRef.current
-        ) {
-          console.log(`event proc ${effectName} for ${duration}s`);
-          effectFn(duration ?? 2, str);
-          break; // Only trigger one effect per check
-        }
-      }
-    }
-    
-    client.on("message", onMessage);
-    return () => {
-      client.off("message", onMessage);
-    };
-  }, [
-    twitchName,
-    emoteDelay,
-    emoteSetId,
-    emoteScale,
-    emoteLifetime,
-    subEffectTypes,
-    subEffectBlackHoleChance,
-    subEffectBlackHoleDuration,
-    subEffectBlackHoleStrength,
-    subEffectReverseGravityChance,
-    subEffectReverseGravityDuration,
-    subEffectReverseGravityStrength
-  ]);
-
-  useEffect(() => {
-    const client = clientRef.current;
-    if (!client || !raidEffect) return;
-
-    function onRaid(channel, username, viewers) {
-      for (let i = 0; i < viewers; i++) {
-        setTimeout(() => { 
-          spawnEmoteRef.current?.("AYAYA", false, "red");
-        }, i * emoteDelay);
-      }
-    }
-    client.on("raided", onRaid);
-    return () => {
-      client.off("raided", onRaid);
-    }
-  }, [raidEffect, emoteDelay]);
-
-  function startMagneticEvent(duration, str) {
-      if (magneticEventRef.current) return;
-
-      magneticEventRef.current = true;
-      
-      const forceMagnitude = str / 100000;
-      const engine = engineRef.current;
-
-      if (!engine) {
-        console.error("Engine ref empty");
-        return;
-      }
-      // Add a beforeUpdate event listener that applies force to all emotes
-      const magneticUpdate = () => {
-        const centerX = window.innerWidth / 2;
-        const centerY = window.innerHeight / 2;
-
-        bodiesWithTimers.current.forEach(({ body }) => {
-          if (!body.isSleeping) {
-            const dx = centerX - body.position.x;
-            const dy = centerY - body.position.y;
-            Matter.Body.applyForce(body, body.position, {
-              x: dx * forceMagnitude,
-              y: dy * forceMagnitude,
-            });
-          }
-        });
-      };
-
-      Matter.Events.on(engine, "beforeUpdate", magneticUpdate);
-
-      // Remove the event after duration
-      setTimeout(() => {
-      Matter.Events.off(engine, "beforeUpdate", magneticUpdate);
-      magneticEventRef.current = false;
-      console.log("event ended");
-    }, duration * 1000);
-  }
-
-  function startReverseGravityEvent(duration, str) {
-      if (reverseGravityEventRef.current) return;
-
-      reverseGravityEventRef.current = true;
-
-      const engine = engineRef.current;
-
-      if (!engine) {
-        console.error("Engine ref empty");
-        return;
-      }
-      // Add a beforeUpdate event listener that applies force to all emotes
-      const gravityUpdate = () => {
-        bodiesWithTimers.current.forEach(({ body, isSub }) => {
-          if (!body.isSleeping  && isSub) {
-            const upwardForce = (str / 1000 * -1) * body.mass; // Adjust strength
-            Matter.Body.applyForce(body, body.position, { x: 0, y: upwardForce });
-          }
-        });
-      };
-
-      Matter.Events.on(engine, "beforeUpdate", gravityUpdate);
-
-      // Remove the event after duration
-      setTimeout(() => {
-      Matter.Events.off(engine, "beforeUpdate", gravityUpdate);
-      reverseGravityEventRef.current = false;
-      console.log("event ended");
-    }, duration * 1000);
-  }
-
-  return <div ref = {
-    sceneRef
-  }
-  style = {
-    {
-      position: "fixed",
-      top: 0,
-      left: 0,
-      pointerEvents: "none",
-      zIndex: 9999
-    }
-  }
-  />;
+  return (
+    <div 
+      ref={sceneRef}
+      style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        pointerEvents: "none",
+        zIndex: 9999
+      }}
+    />
+  );
 }
