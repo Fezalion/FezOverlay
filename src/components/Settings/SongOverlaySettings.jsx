@@ -175,7 +175,8 @@ export default function SongOverlaySettings({ settings, updateSetting }) {
               const defaultSubEffects = {
                 scaleSize: 1.0,
                 padding: 10,
-                maxWidth: 700      
+                maxWidth: 700,
+                scrollSpeed: 25 
               };
               Object.entries(defaultSubEffects).forEach(([key, val]) => updateSetting(key, val));
             }}
@@ -200,6 +201,15 @@ export default function SongOverlaySettings({ settings, updateSetting }) {
           step={1}
           value={settings.padding}
           onChange={e => updateSetting("padding", parseInt(e.target.value))}
+        />
+        <InputField
+          label="Scroll Speed"
+          type="range"
+          min={0}
+          max={100}
+          step={1}
+          value={settings.scrollSpeed}
+          onChange={e => updateSetting("scrollSpeed", parseInt(e.target.value))}
         />
         <InputField
           label="Max Width"

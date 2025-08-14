@@ -15,6 +15,7 @@ export function useMetadata() {
     textStrokeColor: 'rgba(0, 0, 0, 1)',
     playerLocationCoords: { x: 0, y: 0 },
     playerAlignment: 'right',
+    scrollSpeed: 25,
     
     // Service Settings
     twitchName: '',
@@ -112,6 +113,7 @@ export function useMetadata() {
           y: toNumber(data.playerLocationY, 0)
         },
         playerAlignment: data.playerAlignment || 'right',
+        scrollSpeed: data.scrollSpeed || 25,
         
         // Service Settings
         twitchName: data.twitchName || '',

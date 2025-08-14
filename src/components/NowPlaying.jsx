@@ -1,35 +1,26 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useMetadata } from '../hooks/useMetadata';
 
-const poll_rate = 1000;
+// Constants
+const POLL_RATE = 2000;
 const MOVE_AMOUNT = 1;
-const SCROLL_SPEED = 25; // pixels per second
-const space = '\u00A0\u00A0';
-const NOTHING = 'Nothing is playing...';
+const SPACE = '\u00A0\u00A0';
+const NOTHING_PLAYING = 'Nothing is playing...';
+const WS_URL = "ws://localhost:48000";
+const MOVEMENT_DEBOUNCE_MS = 1000;
+const OPACITY_TRANSITION_MS = 100;
 
-export function NowPlaying() {
-  const [latestTrack, setLatestTrack] = useState(null);
-  const [shouldAnimate, setShouldAnimate] = useState(false);
-  const [scrollDuration, setScrollDuration] = useState(0);
-
-  const { settings, refreshSettings, updateSettings, setLocalSetting } = useMetadata();
-
-  const { bgColor, scaleSize, maxWidth, padding, fontFamily, fontColor, textStroke, textStrokeSize, textStrokeColor, lastfmName, playerLocationCoords, playerAlignment } = settings;
-    
-  const [refreshToken, setRefreshToken] = useState(0);
-  const wsRef = useRef(null); 
-
-  useEffect(() => { refreshSettings(); }, [refreshToken, refreshSettings]);
+// Custom hooks
+const useWebSocket = (onRefresh) => {
+  const wsRef = useRef(null);
 
   useEffect(() => {
-    const wsUrl = "ws://localhost:48000";
-
-    const ws = new WebSocket(wsUrl);
+    const ws = new WebSocket(WS_URL);
     wsRef.current = ws;
 
     ws.onmessage = (event) => {
       if (event.data === "refresh") {
-        setRefreshToken((c) => c + 1);
+        onRefresh();
         console.log("refreshing");
       }
     };
@@ -43,76 +34,114 @@ export function NowPlaying() {
     };
 
     return () => {
-      if (wsRef.current) {
-        wsRef.current.close();
+      ws.current?.close();
+    };
+  }, [onRefresh]);
+
+  return wsRef;
+};
+
+const useTrackPolling = (lastfmName) => {
+  const [track, setTrack] = useState(null);
+
+  useEffect(() => {
+    if (!lastfmName) return;
+
+    const fetchTrack = async () => {
+      try {
+        const response = await fetch(`/api/lastfm/latest/${lastfmName}`);
+        const data = await response.json();
+        
+        if (!data || data.error) {
+          setTrack(null);
+          return;
+        }
+
+        setTrack({
+          name: data.track.name,
+          artist: data.track.artist
+        });
+      } catch (error) {
+        console.error('Failed to fetch track:', error);
+        setTrack(null);
       }
     };
-  }, []); 
 
-  const wrapperRef = useRef();       // .marqueeWrapper
-  const trackRef = useRef();         // .marqueeTrack
-
-  const displayText = latestTrack
-    ? `${latestTrack.artist} - ${latestTrack.name}`
-    : NOTHING;  
-
-  // 🧠 Poll current track
-  useEffect(() => {
-    const fetchLatestTrack = () => {
-      fetch(`/api/lastfm/latest/${lastfmName}`)
-        .then(res => res.json())
-        .then(response => {
-          if (!response || response.error) {
-            setLatestTrack(null);
-            return;
-          }
-          setLatestTrack({
-            name: response.track.name,
-            artist: response.track.artist
-          });
-        })
-        .catch(() => setLatestTrack(null));
-    };
-
-    fetchLatestTrack();
-    const interval = setInterval(fetchLatestTrack, poll_rate);
+    fetchTrack();
+    const interval = setInterval(fetchTrack, POLL_RATE);
+    
     return () => clearInterval(interval);
-  }, [lastfmName, displayText]);
+  }, [lastfmName]);
 
-  // 🎞️ Calculate if animation needed + set speed
-  useEffect(() => {    
-    const wrapper = wrapperRef.current;
-    const track = trackRef.current;
-    setShouldAnimate(false); //Reset animate just in case
+  return track;
+};
 
-    if (displayText == NOTHING) {
-      setShouldAnimate(false);
+const useScrollAnimation = (displayText, scrollSpeed) => {
+  const [shouldAnimate, setShouldAnimate] = useState(false);
+  const [scrollDuration, setScrollDuration] = useState(0);
+  const [isVisible, setIsVisible] = useState(true);
+  
+  const wrapperRef = useRef(null);
+  const trackRef = useRef(null);
+
+  useEffect(() => {
+    setIsVisible(false);
+    setShouldAnimate(false);
+    
+    if (displayText === NOTHING_PLAYING) {
+      setIsVisible(true);
       return;
     }
-    if (!wrapper || !track) return;
 
-    // Wait a tick for render to settle
-    const timeout = setTimeout(() => {
+    const calculateAnimation = () => {
+      const wrapper = wrapperRef.current;
+      const track = trackRef.current;
+      
+      if (!wrapper || !track) {
+        setIsVisible(true);
+        return;
+      }
+
       const wrapperWidth = wrapper.offsetWidth;
       const textWidth = track.scrollWidth;
-      console.log('Calculating animation for:', displayText, 'Wrapper:', wrapperWidth, 'Text:', textWidth, 'Should animate:', textWidth > wrapperWidth);
-      if (textWidth > wrapperWidth) {
-        const duration = textWidth / SCROLL_SPEED;
-        setShouldAnimate(true);
+      
+      console.log('Calculating animation:', {
+        text: displayText,
+        wrapperWidth,
+        textWidth,
+        shouldAnimate: textWidth > wrapperWidth
+      });
+      
+      if (textWidth > wrapperWidth && textWidth > 0) {
+        const duration = textWidth / scrollSpeed;
         setScrollDuration(duration);
-      } else {
-        setShouldAnimate(false);
+        setShouldAnimate(true);
       }
-    }, 50); // 50ms is usually enough, tweak if needed
+      
+      setIsVisible(true);
+    };
 
-    return () => clearTimeout(timeout);
-  }, [displayText, lastfmName]);
+    requestAnimationFrame(calculateAnimation);
+  }, [displayText, scrollSpeed]);
 
-  // 🎮 Move position with arrows / Shift modifier
+  return {
+    shouldAnimate,
+    scrollDuration,
+    isVisible,
+    wrapperRef,
+    trackRef
+  };
+};
+
+const useKeyboardMovement = (
+  playerLocationCoords,
+  setLocalSetting,
+  updateSettings
+) => {
   const movementTimeoutRef = useRef(null);
   const currentPositionRef = useRef({ x: 0, y: 0 });
 
-  // Keep currentPositionRef in sync with actual coordinates
+  // Sync ref with props
   useEffect(() => {
     currentPositionRef.current = {
       x: playerLocationCoords.x,
@@ -120,59 +149,61 @@ export function NowPlaying() {
     };
   }, [playerLocationCoords]);
 
+  const handleMovement = useCallback((newPosition) => {
+    currentPositionRef.current = newPosition;
+
+    if (setLocalSetting) {
+      setLocalSetting('playerLocationCoords', newPosition);
+    }
+
+    // Debounce server updates
+    if (movementTimeoutRef.current) {
+      clearTimeout(movementTimeoutRef.current);
+    }
+
+    movementTimeoutRef.current = setTimeout(() => {
+      updateSettings({
+        playerLocationX: newPosition.x,
+        playerLocationY: newPosition.y
+      });
+    }, MOVEMENT_DEBOUNCE_MS);
+  }, [setLocalSetting, updateSettings]);
+
   useEffect(() => {
     const handleKeyDown = (e) => {
       const moveBy = e.shiftKey ? MOVE_AMOUNT * 5 : MOVE_AMOUNT;
+      let newPosition = { ...currentPositionRef.current };
       let moved = false;
 
-      // Update current position ref based on key press
       switch (e.key) {
-        case 'ArrowUp': 
-          currentPositionRef.current.y -= moveBy;
+        case 'ArrowUp':
+          newPosition.y -= moveBy;
           moved = true;
           break;
-        case 'ArrowDown': 
-          currentPositionRef.current.y += moveBy;
+        case 'ArrowDown':
+          newPosition.y += moveBy;
           moved = true;
           break;
-        case 'ArrowLeft': 
-          currentPositionRef.current.x -= moveBy;
+        case 'ArrowLeft':
+          newPosition.x -= moveBy;
           moved = true;
           break;
-        case 'ArrowRight': 
-          currentPositionRef.current.x += moveBy;
+        case 'ArrowRight':
+          newPosition.x += moveBy;
           moved = true;
           break;
-        case ' ': 
-          currentPositionRef.current = { x: 0, y: 0 };
+        case ' ':
+          newPosition = { x: 0, y: 0 };
           moved = true;
           break;
-        default: return;
+        default:
+          return;
       }
 
-      if (!moved) return;
-      e.preventDefault();
-
-      // Update local state immediately for visual feedback
-      if (setLocalSetting) {
-        setLocalSetting('playerLocationCoords', { 
-          x: currentPositionRef.current.x, 
-          y: currentPositionRef.current.y 
-        });
+      if (moved) {
+        e.preventDefault();
+        handleMovement(newPosition);
       }
-
-      // Clear existing timeout
-      if (movementTimeoutRef.current) {
-        clearTimeout(movementTimeoutRef.current);
-      }
-
-      // Set new timeout to apply the movement to API after a delay
-      movementTimeoutRef.current = setTimeout(() => {
-        updateSettings({
-          playerLocationX: currentPositionRef.current.x,
-          playerLocationY: currentPositionRef.current.y
-        });
-      }, 200); // Increased to 200ms to make it more obvious
     };
 
     window.addEventListener('keydown', handleKeyDown);
@@ -183,77 +214,149 @@ export function NowPlaying() {
         clearTimeout(movementTimeoutRef.current);
       }
     };
-  }, [updateSettings, setLocalSetting]);
+  }, [handleMovement]);
+};
 
-  function getStrokeTextShadow(width, color) {
-    if (!textStroke || width <= 0) {
-      return 'none'
-    };
-    const shadows = [];
-
-    for (let dx = -width; dx <= width; dx++) {
-      for (let dy = -width; dy <= width; dy++) {
-        if (dx === 0 && dy === 0) continue;
-        shadows.push(`${dx}px ${dy}px 0 ${color}`);
-      }
+// Utility functions
+const createTextShadow = (isEnabled, width, color) => {
+  if (!isEnabled || width <= 0) return 'none';
+  
+  const shadows = [];
+  for (let dx = -width; dx <= width; dx++) {
+    for (let dy = -width; dy <= width; dy++) {
+      if (dx === 0 && dy === 0) continue;
+      shadows.push(`${dx}px ${dy}px 0 ${color}`);
     }
-       
-    return shadows.join(', ');
   }
+  
+  return shadows.join(', ');
+};
+
+const getPositionStyles = (coords, alignment) => {
+  const baseStyles = {
+    bottom: coords.y * -1,
+  };
+
+  switch (alignment) {
+    case 'left':
+      return { ...baseStyles, left: coords.x };
+    case 'right':
+      return { ...baseStyles, right: coords.x * -1 };
+    default:
+      return baseStyles;
+  }
+};
+
+// Main component
+export function NowPlaying() {
+  const [refreshToken, setRefreshToken] = useState(0);
+  const { settings, refreshSettings, updateSettings, setLocalSetting } = useMetadata();
+
+  const {
+    bgColor,
+    scrollSpeed,
+    scaleSize,
+    maxWidth,
+    padding,
+    fontFamily,
+    fontColor,
+    textStroke,
+    textStrokeSize,
+    textStrokeColor,
+    lastfmName,
+    playerLocationCoords,
+    playerAlignment
+  } = settings;
+
+  // Custom hooks
+  const handleRefresh = useCallback(() => {
+    setRefreshToken(prev => prev + 1);
+  }, []);
+
+  useWebSocket(handleRefresh);
+  
+  useEffect(() => {
+    refreshSettings();
+  }, [refreshToken, refreshSettings]);
+
+  const latestTrack = useTrackPolling(lastfmName);
+  
+  const displayText = latestTrack
+    ? `${latestTrack.artist} - ${latestTrack.name}`
+    : NOTHING_PLAYING;
+
+  const {
+    shouldAnimate,
+    scrollDuration,
+    isVisible,
+    wrapperRef,
+    trackRef
+  } = useScrollAnimation(displayText, scrollSpeed);
+
+  useKeyboardMovement(playerLocationCoords, setLocalSetting, updateSettings);
+
+  // Memoized styles
+  const containerStyles = useMemo(() => ({
+    ...getPositionStyles(playerLocationCoords, playerAlignment),
+    background: bgColor,
+    color: fontColor,
+    padding,
+    transform: `scale(${scaleSize})`,
+    fontFamily,
+    maxWidth,
+    transformOrigin: `center ${playerAlignment}`,
+    opacity: isVisible ? 1 : 0,
+    transition: `opacity ${OPACITY_TRANSITION_MS / 1000}s ease`
+  }), [
+    playerLocationCoords,
+    playerAlignment,
+    bgColor,
+    fontColor,
+    padding,
+    scaleSize,
+    fontFamily,
+    maxWidth,
+    isVisible
+  ]);
+
+  const animationStyles = useMemo(() => ({
+    animationDuration: `${scrollDuration}s`,
+    animationPlayState: shouldAnimate ? 'running' : 'paused',
+    animationName: shouldAnimate ? 'scrollRight' : 'none',
+    animationDirection: playerAlignment === 'left' ? 'reverse' : 'normal',
+    animationTimingFunction: 'linear',
+    animationIterationCount: 'infinite'
+  }), [scrollDuration, shouldAnimate, playerAlignment]);
+
+  const textShadow = useMemo(() => 
+    createTextShadow(textStroke, textStrokeSize, textStrokeColor),
+    [textStroke, textStrokeSize, textStrokeColor]
+  );
+
+  const renderText = (text, withShadow = true) => (
+    <span style={withShadow ? { textShadow } : undefined}>
+      {SPACE + text}
+    </span>
+  );
 
   return (
-      <span className="songPanel"
-      style={{
-        bottom: playerLocationCoords.y * -1,
-        ...(playerAlignment === "left"
-          ? { left: playerLocationCoords.x }
-          : playerAlignment === "right"
-          ? { right: playerLocationCoords.x * -1 }
-          : {}),
-        background: `${bgColor}`,
-        color: `${fontColor}`,
-        padding: padding,
-        transform: `scale(${scaleSize})`,
-        fontFamily: `${fontFamily}`,
-        maxWidth: maxWidth,
-        transformOrigin: `center ${playerAlignment}`,
-      }}>
-        <div className="marqueeWrapper" ref={wrapperRef} key={displayText + refreshToken}>
-          <div
+    <span className="songPanel" style={containerStyles} key={refreshToken}>
+      <div className="marqueeWrapper" ref={wrapperRef}>
+        <div
           className="marqueeTrack"
           ref={trackRef}
-          style={{
-            animationDuration: `${scrollDuration}s`,
-            animationPlayState: shouldAnimate ? 'running' : 'paused',
-            animationName: playerAlignment === 'left' ? 'scrollLeft' : 'scrollRight',
-            animationTimingFunction: 'linear',
-            animationIterationCount: 'infinite',
-          }}
+          style={animationStyles}
         >
-          {Array(2).fill(null).map((_, i) => {
-            // Base list of spans for one copy
-            const spans = [
-              shouldAnimate && (
-                <span
-                  key={`anim-${i}`}
-                  style={{ textShadow: getStrokeTextShadow(textStrokeSize, textStrokeColor) }}
-                >
-                  {space + displayText}
-                </span>
-              ),
-              <span
-                key={`static-${i}`}
-                style={{ textShadow: getStrokeTextShadow(textStrokeSize, textStrokeColor) }}
-              >
-                {space + displayText}
-              </span>,
-            ].filter(Boolean); // remove false if shouldAnimate is false
-
-            // Flip order if alignment is "Right"
-            return playerAlignment === 'right' ? spans.reverse() : spans;
-          })}
+          {shouldAnimate ? (
+            <>
+              {renderText(displayText)}
+              {renderText(displayText)}
+            </>
+          ) : (
+            renderText(displayText)
+          )}
         </div>
-        </div>
-      </span>
-    );
+      </div>
+    </span>
+  );
 }
