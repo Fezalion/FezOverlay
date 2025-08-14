@@ -8,7 +8,13 @@ export function useEmoteLifecycle(engine, bodiesWithTimers, emoteLifetime = 5000
     const lifecycleUpdate = () => {
       const now = Date.now();
       for (let i = bodiesWithTimers.current.length - 1; i >= 0; i--) {
-        const { body, born, el, cleanupEffects } = bodiesWithTimers.current[i];
+        const { body, born, el, cleanupEffects, isBattleParticipant } = bodiesWithTimers.current[i];
+        
+        // Skip battle participants - they have their own lifecycle management
+        if (isBattleParticipant || body.isBattleParticipant) {
+          continue;
+        }
+        
         const age = now - born;
         
         if (age >= emoteLifetime) {
@@ -41,7 +47,12 @@ export function useEmoteLifecycle(engine, bodiesWithTimers, emoteLifetime = 5000
 
   // Cleanup function for clearing all emotes
   const clearAllEmotes = () => {
-    bodiesWithTimers.current.forEach(({ body, el, cleanupEffects }) => {
+    bodiesWithTimers.current.forEach(({ body, el, cleanupEffects, isBattleParticipant }) => {
+      // Skip battle participants during regular cleanup
+      if (isBattleParticipant || body.isBattleParticipant) {
+        return;
+      }
+      
       if (engine) {
         Matter.World.remove(engine.world, body);
       }
@@ -52,7 +63,11 @@ export function useEmoteLifecycle(engine, bodiesWithTimers, emoteLifetime = 5000
         });
       }
     });
-    bodiesWithTimers.current.length = 0;
+    
+    // Filter out non-battle participants
+    bodiesWithTimers.current = bodiesWithTimers.current.filter(({ body, isBattleParticipant }) => 
+      isBattleParticipant || body.isBattleParticipant
+    );
   };
 
   return { clearAllEmotes };

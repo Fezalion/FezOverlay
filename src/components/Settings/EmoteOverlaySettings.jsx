@@ -125,7 +125,7 @@ export default function EmoteOverlaySettings({ settings, updateSetting }) {
             Reset
           </button>
       </div>
-      
+
       <div className="flex items-center justify-between bg-white/5 p-4 rounded-xl border border-white/10">
         <div className="flex items-center space-x-3">
           <label className="font-semibold">Sub only mode.</label>
@@ -193,7 +193,27 @@ export default function EmoteOverlaySettings({ settings, updateSetting }) {
           { key: "subEffectReverseGravityStrength", label: "Strength", min: 1, max: 10, step: 1, parser: parseInt },
           { key: "subEffectReverseGravityChance", label: "Chance (%)", min: 1, max: 100, step: 1, parser: parseInt }
         ]}        
-      />    
+      />
+
+      <EffectCard
+        effectKey="battleEvent"
+        label="Battle Event"
+        enabled={settings.subEffectTypes.includes("battleEvent")}
+        toggleEnabled={() => updateSetting("subEffectTypes",
+          settings.subEffectTypes.includes("battleEvent")
+            ? settings.subEffectTypes.filter(t => t !== "battleEvent")
+            : [...settings.subEffectTypes, "battleEvent"]
+        )}
+        settings={settings}
+        onChange={updateSetting}
+        fields={[
+          { key: "battleEventDuration", label: "Maximum Duration (s)", min: 1, max: 60, step: 1, parser: parseInt },
+          { key: "battleEventParticipants", label: "Participants", min: 2, max: 20, step: 1, parser: parseInt },
+          { key: "battleEventChance", label: "Chance (%)", min: 1, max: 100, step: 1, parser: parseInt },
+          { key: "battleEventHp", label: "Max HP", min: 1, max: 100, step: 1, parser: parseInt },
+          { key: "battleEventDamage", label: "Damage per hit (+-20%)", min: 1, max: 100, step: 1, parser: parseInt }
+        ]}        
+      />
     </div>
   );
 }

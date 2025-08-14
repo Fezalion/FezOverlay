@@ -15,7 +15,8 @@ export function useMessageHandler(
     subEffectBlackHoleStrength,
     subEffectReverseGravityChance,
     subEffectReverseGravityDuration,
-    subEffectReverseGravityStrength
+    subEffectReverseGravityStrength,
+    battleEventChance
   } = settings;
 
   useEffect(() => {
@@ -29,14 +30,7 @@ export function useMessageHandler(
         userstate.subscriber ||
         userstate.mod ||
         userstate.badges?.vip ||
-        userstate.badges?.broadcaster;
-
-      emotes.forEach((emoteName, i) => {
-        setTimeout(() => {          
-          const userColor = userstate.color || "orange";
-          spawnEmote(emoteName, isSub, userColor);
-        }, i * emoteDelay);
-      });
+        userstate.badges?.broadcaster;      
 
       // Handle global effects
       const effectsMap = {
@@ -51,12 +45,17 @@ export function useMessageHandler(
           duration: subEffectReverseGravityDuration,
           str: subEffectReverseGravityStrength,
           chance: subEffectReverseGravityChance
+        },
+        battleEvent: {
+          fn: globalEffects.battleSystem.startBattle,
+          duration: null,
+          str: null,
+          chance: battleEventChance
         }
       };
 
       const shuffledEffects = Object.entries(effectsMap)
         .sort(() => Math.random() - 0.5);
-        
       for (const [effectName, { fn: effectFn, duration, str, chance }] of shuffledEffects) {
         if (Math.random() * 100 > chance) continue;
         if (
@@ -64,13 +63,25 @@ export function useMessageHandler(
           emotes.length > 0 &&
           subEffectTypes.includes(effectName) &&
           !globalEffects.magneticEventActive &&
-          !globalEffects.reverseGravityEventActive
+          !globalEffects.reverseGravityEventActive &&
+          !globalEffects.battleSystem.isActive
         ) {
           console.log(`event proc ${effectName} for ${duration}s`);
-          effectFn(duration ?? 2, str);
+          if (effectName === 'battleEvent') {
+            effectFn();
+          } else {
+            effectFn(duration ?? 2, str);
+          }
           break;
         }
       }
+
+      emotes.forEach((emoteName, i) => {
+        setTimeout(() => {          
+          const userColor = userstate.color || "orange";
+          spawnEmote(emoteName, isSub, userColor);
+        }, i * emoteDelay);
+      });
     }
     
     client.on("message", onMessage);
@@ -89,6 +100,7 @@ export function useMessageHandler(
     subEffectBlackHoleStrength,
     subEffectReverseGravityChance,
     subEffectReverseGravityDuration,
-    subEffectReverseGravityStrength
+    subEffectReverseGravityStrength,
+    battleEventChance
   ]);
 }

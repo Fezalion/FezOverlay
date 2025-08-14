@@ -8,6 +8,7 @@ import { useGlobalEffects } from '../hooks/useGlobalEffects';
 import { useMessageHandler } from '../hooks/useMessageHandler';
 import { useEmoteLifecycle } from '../hooks/useEmoteLifecycle';
 import { useRaidHandler } from '../hooks/useRaidHandler';
+import { useSubscriberTracker } from '../hooks/useSubscriberTracker';
 
 export default function EmoteOverlay() {
   const { settings, refreshSettings } = useMetadata();
@@ -56,7 +57,18 @@ function EmoteOverlayCore(settings) {
   const client = useTwitchClient(settings.twitchName);
   const emoteMap = useEmoteLoader(settings.emoteSetId);
   const physics = usePhysicsEngine();
-  const globalEffects = useGlobalEffects(physics.engine, bodiesWithTimers);
+  const subscriberTracker = useSubscriberTracker(client);
+  
+  // Extract battle settings
+  const battleSettings = {
+    battleEventChance: settings.battleEventChance,
+    battleEventParticipants: settings.battleEventParticipants,
+    battleEventHp: settings.battleEventHp,
+    battleEventDamage: settings.battleEventDamage,
+    battleEventDuration: settings.battleEventDuration
+  };
+  
+  const globalEffects = useGlobalEffects(physics.engine, bodiesWithTimers, emoteMap, battleSettings, subscriberTracker);
   const { spawnEmote } = useEmoteSpawner(physics.engine, emoteMap, bodiesWithTimers, settings);
   const { clearAllEmotes } = useEmoteLifecycle(physics.engine, bodiesWithTimers, settings.emoteLifetime);
 
