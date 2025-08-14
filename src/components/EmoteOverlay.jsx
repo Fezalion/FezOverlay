@@ -57,7 +57,7 @@ function EmoteOverlayCore(settings) {
   const client = useTwitchClient(settings.twitchName);
   const emoteMap = useEmoteLoader(settings.emoteSetId);
   const physics = usePhysicsEngine();
-  const subscriberTracker = useSubscriberTracker(client, true);
+  const subscriberTracker = useSubscriberTracker(client);
   
   // Extract battle settings
   const battleSettings = {
