@@ -135,9 +135,20 @@ export function useBattleSystem(engine, emoteMap, bodiesWithTimers, battleSettin
   const spawnBattleArena = useCallback(() => {
     if (!engine || !subscriberTracker) return [];
 
-    const selectedSubscribers = subscriberTracker.getRandomSubscribers(
-      battleSettings.battleEventParticipants
-    );
+    // Get all available subscribers
+    const availableSubscribers = subscriberTracker.getAllSubscribers();
+
+    if (availableSubscribers.length < 3) {
+      console.log("Not enough subscribers to start a battle (minimum 3 required)");
+      return [];
+    }
+
+    // Determine random number of participants: min 3, max battleEventParticipants or total subscribers
+    const maxParticipants = Math.min(battleSettings.battleEventParticipants, availableSubscribers.length);
+    const numParticipants = Math.max(3, Math.floor(Math.random() * (maxParticipants - 2) + 3)); // random between 3 and maxParticipants
+
+    // Randomly select subscribers for the battle
+    const selectedSubscribers = subscriberTracker.getRandomSubscribers(numParticipants);
 
     if (selectedSubscribers.length === 0) {
       console.log("No subscribers available for battle");
@@ -150,7 +161,7 @@ export function useBattleSystem(engine, emoteMap, bodiesWithTimers, battleSettin
     const centerY = height / 2;
     const radius = Math.min(width, height) * 0.3;
 
-    // ✅ Only keep square emotes
+    // Only square emotes
     const availableEmotes = Array.from(emoteMap.keys()).filter(key => {
       const emote = emoteMap.get(key);
       return emote?.width === emote?.height;
@@ -161,7 +172,7 @@ export function useBattleSystem(engine, emoteMap, bodiesWithTimers, battleSettin
       return [];
     }
 
-    // Shuffle for randomness
+    // Shuffle emotes
     const shuffledEmotes = availableEmotes.sort(() => Math.random() - 0.5);
     const usedEmotes = new Set();
     const participants = [];
@@ -175,20 +186,15 @@ export function useBattleSystem(engine, emoteMap, bodiesWithTimers, battleSettin
 
       const subNameNorm = normalize(subscriber.name);
 
-      // 1️⃣ Fuzzy match first
       let emoteName = availableEmotes.find(e => {
         const eNorm = normalize(e);
-        return (
-          subNameNorm.length >= 3 && eNorm.includes(subNameNorm)
-        );
+        return subNameNorm.length >= 3 && eNorm.includes(subNameNorm);
       });
 
-      // 2️⃣ If no match or already taken, find another unique random
       if (!emoteName || usedEmotes.has(emoteName)) {
         emoteName = shuffledEmotes.find(e => !usedEmotes.has(e));
       }
 
-      // 3️⃣ If still nothing, fallback wrap
       if (!emoteName) {
         emoteName = shuffledEmotes[i % shuffledEmotes.length];
       }
@@ -206,20 +212,14 @@ export function useBattleSystem(engine, emoteMap, bodiesWithTimers, battleSettin
         const velocityStrength = 2;
         const velX = (centerX - spawnX) * (velocityStrength / radius);
         const velY = (centerY - spawnY) * (velocityStrength / radius);
-
         Matter.Body.setVelocity(participant.body, { x: velX, y: velY });
-
-        participants.push(participant);       
+        participants.push(participant);
       }
     });
+
     return participants;
-  }, [
-    engine,
-    battleSettings.battleEventParticipants,
-    createBattleParticipant,
-    subscriberTracker,
-    emoteMap
-  ]);
+  }, [engine, battleSettings.battleEventParticipants, createBattleParticipant, subscriberTracker, emoteMap]);
+
 
   function showDamageFlyup(x, y, damage, color = '#ff0000') {
     const dmgEl = document.createElement('div');
@@ -560,9 +560,9 @@ export function useBattleSystem(engine, emoteMap, bodiesWithTimers, battleSettin
       return;
     }
 
-    // Check if we have enough subscribers
-    if (!subscriberTracker || subscriberTracker.getSubscriberCount() < battleSettings.battleEventParticipants) {
-      console.log(`Not enough subscribers for battle. Need ${battleSettings.battleEventParticipants}, have ${subscriberTracker?.getSubscriberCount() || 0}`);
+    // Check if we have at least 3 subscribers
+    if (!subscriberTracker || subscriberTracker.getSubscriberCount() < 3) {
+      console.log("Not enough subscribers for battle (minimum 3 required)");
       return;
     }
 
