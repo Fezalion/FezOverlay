@@ -213,7 +213,7 @@ export default function EmoteOverlaySettings({ settings, updateSetting }) {
         onChange={updateSetting}
         fields={[
           { key: "battleEventDuration", label: "Maximum Duration (s)", min: 1, max: 60, step: 1, parser: parseInt },
-          { key: "battleEventParticipants", label: "Participants", min: 2, max: 20, step: 1, parser: parseInt },
+          { key: "battleEventParticipants", label: "Max Participants", min: 3, max: 20, step: 1, parser: parseInt },
           { key: "battleEventChance", label: "Chance (%)", min: 1, max: 100, step: 1, parser: parseInt },
           { key: "battleEventHp", label: "Max HP", min: 1, max: 100, step: 1, parser: parseInt },
           { key: "battleEventDamage", label: "Damage per hit (+-20%)", min: 1, max: 100, step: 1, parser: parseInt }
