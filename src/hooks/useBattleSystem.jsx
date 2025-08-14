@@ -38,7 +38,7 @@ export function useBattleSystem(engine, emoteMap, bodiesWithTimers, battleSettin
     
     const healthPercent = Math.max(0, hp / maxHp);
     const x = body.position.x - 30; // Center above emote
-    const y = body.position.y - 40; // Above emote
+    const y = body.position.y - 60; // Above emote
     
     healthBar.style.transform = `translate(${x}px, ${y}px)`;
     healthFill.style.width = `${healthPercent * 100}%`;
@@ -46,7 +46,7 @@ export function useBattleSystem(engine, emoteMap, bodiesWithTimers, battleSettin
     // Update name label position
     if (nameLabel) {
       const nameX = body.position.x - 40; // Center name under emote
-      const nameY = body.position.y + 35; // Below emote
+      const nameY = body.position.y - 50; // Below emote
       nameLabel.style.transform = `translate(${nameX}px, ${nameY}px)`;
     }
     
@@ -385,6 +385,7 @@ export function useBattleSystem(engine, emoteMap, bodiesWithTimers, battleSettin
     // Find winner from remaining alive participants
     const aliveParticipants = battleParticipants.current.filter(p => p.isAlive);
     let winner;
+    let draw = false;
     
     if (aliveParticipants.length === 1) {
       winner = aliveParticipants[0];
@@ -393,7 +394,9 @@ export function useBattleSystem(engine, emoteMap, bodiesWithTimers, battleSettin
       winner = aliveParticipants.reduce((prev, current) => 
         current.hp > prev.hp ? current : prev
       );
-    }
+    } else {
+        draw = true;
+    }    
 
     if (winner) {
       displayWinner(winner);
