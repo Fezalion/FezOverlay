@@ -24,13 +24,17 @@ export function useMessageHandler(
 
     function onMessage(channel, userstate, message) {
       console.log(message);
-      const words = message.split(/\s+/);
+      const words = message.split(/\s+/);      
       const emotes = words.filter((w) => emoteMap.has(w));
       const isSub =
         userstate.subscriber ||
         userstate.mod ||
         userstate.badges?.vip ||
         userstate.badges?.broadcaster;      
+      
+      const isMod =        
+        userstate.mod ||
+        userstate.badges?.broadcaster;  
 
       // Handle global effects
       const effectsMap = {
@@ -84,6 +88,19 @@ export function useMessageHandler(
           }, i * emoteDelay);
         });
       }
+
+      if(words[0] == "!force" && isMod) {
+        const battleEvent = shuffledEffects.find(([key]) => key === 'battleEvent');
+        switch (words[1]) {
+          case "battleEvent":
+            if (battleEvent && subEffectTypes.includes("battleEvent")) {battleEvent[1].fn();}
+            break;
+        
+          default:
+            break;
+        }
+      }
+
       
     }
     
