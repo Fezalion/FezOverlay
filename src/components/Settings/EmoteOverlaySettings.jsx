@@ -3,7 +3,6 @@ import InputField from "./ui/InputField";
 import { useRef, useEffect } from 'react';
 
 export default function EmoteOverlaySettings({ settings, updateSetting }) {
-  const allEffectsEnabled = settings.subEffectTypes.length > 0;
   let allAvailableEffects = useRef([]);
 
   useEffect(() => {
@@ -14,12 +13,8 @@ export default function EmoteOverlaySettings({ settings, updateSetting }) {
       });
   });
 
-  const toggleAllEffects = () => {
-    if (allEffectsEnabled) {
-      updateSetting("subEffectTypes", []);
-    } else {
-      updateSetting("subEffectTypes", [...allAvailableEffects.current]);
-    }
+  const toggleAllEffects = () => {    
+    updateSetting("subEffectTypes", [...allAvailableEffects.current]);
   };
 
   return (      
@@ -92,16 +87,11 @@ export default function EmoteOverlaySettings({ settings, updateSetting }) {
       {/* Global Controls */}
       <div className="flex items-center justify-between bg-white/5 p-4 rounded-xl border border-white/10">
         <div className="flex items-center space-x-3">
-          <label className="font-semibold">Enable All Effects</label>
           <button
           onClick={toggleAllEffects}
-          className={`relative inline-flex items-center h-6 w-12 rounded-full transition-colors duration-300
-            ${allEffectsEnabled ? "bg-rose-500" : "bg-gray-700"}`}
+          className="px-3 py-1 text-sm font-medium text-white bg-gray-700 rounded-md hover:bg-gray-600 transition"
         >
-          <span
-            className={`inline-block w-5 h-5 transform bg-white rounded-full shadow-md transition-transform duration-300
-              ${allEffectsEnabled ? "translate-x-6" : "translate-x-1"}`}
-          />
+          Enable All Effects
         </button>
         </div>
         {/* Reset Button */}
@@ -117,8 +107,8 @@ export default function EmoteOverlaySettings({ settings, updateSetting }) {
                 subEffectReverseGravityStrength: 2,
                 battleEventChance: 5,
                 battleEventParticipants: 8,
-                battleEventHp: 30,
-                battleEventDamage: 5,
+                battleEventHp: 300,
+                battleEventDamage: 50,
                 battleEventDuration: 15,
                 subOnlyMode: false,
                 subEffectTypes: [],
@@ -215,8 +205,8 @@ export default function EmoteOverlaySettings({ settings, updateSetting }) {
           { key: "battleEventDuration", label: "Maximum Duration (s)", min: 1, max: 60, step: 1, parser: parseInt },
           { key: "battleEventParticipants", label: "Max Participants", min: 3, max: 20, step: 1, parser: parseInt },
           { key: "battleEventChance", label: "Chance (%)", min: 1, max: 100, step: 1, parser: parseInt },
-          { key: "battleEventHp", label: "Max HP", min: 1, max: 100, step: 1, parser: parseInt },
-          { key: "battleEventDamage", label: "Damage per hit (+-20%)", min: 1, max: 100, step: 1, parser: parseInt }
+          { key: "battleEventHp", label: "Max HP", min: 1, max: 600, step: 1, parser: parseInt },
+          { key: "battleEventDamage", label: "Damage per hit (+-20%)", min: 5, max: 100, step: 1, parser: parseInt }
         ]}        
       />
     </div>
