@@ -25,7 +25,7 @@ export function useBattleSystem(engineRef, emoteMap, bodiesWithTimers, battleSet
     },
     shield: {
       name: 'Shield',
-      disabled: true,
+      disabled: false,
       duration: 2000,
       effect: (p) => {
         showText(p, "🛡️ SHIELD", "#00aaff");
@@ -217,7 +217,7 @@ export function useBattleSystem(engineRef, emoteMap, bodiesWithTimers, battleSet
     },
     shinraTensei: {
       name: 'Shinra Tensei',
-      disabled: true,
+      disabled: false,
       effect: (participant) => {
         const engine = engineRef.current;
         engine.timing.timeScale = 0;
@@ -230,7 +230,7 @@ export function useBattleSystem(engineRef, emoteMap, bodiesWithTimers, battleSet
     },
     omaewamou: {
       name: 'Omae wa mou shindeiru',
-      disabled: true,
+      disabled: false,
       effect: (participant) => {
         const engine = engineRef.current;
         engine.timing.timeScale = 0.01;
@@ -246,7 +246,7 @@ export function useBattleSystem(engineRef, emoteMap, bodiesWithTimers, battleSet
     },
     lightning: {
       name: 'Lightning',
-      disabled: true,
+      disabled: false,
       effect: (participant) => {
         // Find nearest enemy and deal AOE damage
         const farEnemy = findNearestEnemy(participant);
