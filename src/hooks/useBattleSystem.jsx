@@ -25,7 +25,7 @@ export function useBattleSystem(engineRef, emoteMap, bodiesWithTimers, battleSet
     },
     shield: {
       name: 'Shield',
-      disabled: false,
+      disabled: true,
       duration: 2000,
       effect: (p) => {
         showText(p, "🛡️ SHIELD", "#00aaff");
@@ -38,9 +38,186 @@ export function useBattleSystem(engineRef, emoteMap, bodiesWithTimers, battleSet
         }, 2000);
       }
     },
+    kamehameha: {
+      name: 'kamehameha',
+      disabled: false,
+      effect: (participant) => {
+        const engine = engineRef.current;
+        engine.timing.timeScale = 0; // dramatic slow-mo
+
+        const farEnemy = findFarthestEnemy(participant);
+        const { x: pointX, y: pointY } = findPopulatedPoint(participant);
+        teleport(participant, farEnemy.body.position.x, farEnemy.body.position.y);
+
+        // --- Step 1: Charge phase ---
+        showText(participant, "KAME...");
+        const chargeDuration = 500;
+
+        const glow = document.createElement("div");
+        glow.style.position = "absolute";
+        glow.style.width = "60px";
+        glow.style.height = "60px";
+        glow.style.borderRadius = "50%";
+        glow.style.background = "radial-gradient(circle, #00f, transparent)";
+        glow.style.pointerEvents = "none";
+        glow.style.zIndex = 1000;
+        sceneRef.current.appendChild(glow);
+
+        const updateGlow = () => {
+          const pos = participant.body.position;
+          glow.style.left = `${pos.x - 30}px`;
+          glow.style.top = `${pos.y - 30}px`;
+        };
+        const glowInterval = setInterval(updateGlow, 16);
+
+        setTimeout(() => {
+          showText(participant, "HAME HA!");
+          clearInterval(glowInterval);
+          sceneRef.current.removeChild(glow);
+
+          // --- Step 2: Fire beam ---
+          const svg = document.getElementById("effects-layer");
+          const beamWidth = 80;
+          const beamLength = 5000; // “infinite” length
+
+          // Create beam
+          const beam = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+          beam.setAttribute("width", beamLength);
+          beam.setAttribute("height", beamWidth);
+          beam.setAttribute("rx", beamWidth / 2);
+          beam.setAttribute("ry", beamWidth / 2);
+          beam.setAttribute("fill", "url(#kameGradient)");
+          beam.setAttribute("opacity", 1);
+          svg.appendChild(beam);
+
+          // Gradient setup
+          if (!document.getElementById("kameGradient")) {
+            const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
+            const grad = document.createElementNS("http://www.w3.org/2000/svg", "linearGradient");
+            grad.setAttribute("id", "kameGradient");
+            grad.setAttribute("x1", "0");
+            grad.setAttribute("y1", "0");
+            grad.setAttribute("x2", "0");
+            grad.setAttribute("y2", beamWidth);
+
+            const stop1 = document.createElementNS("http://www.w3.org/2000/svg", "stop");
+            stop1.setAttribute("offset", "0%");
+            stop1.setAttribute("stop-color", "rgba(0, 0, 255, 0.8)");
+            grad.appendChild(stop1);
+
+            const stop2 = document.createElementNS("http://www.w3.org/2000/svg", "stop");
+            stop2.setAttribute("offset", "50%");
+            stop2.setAttribute("stop-color", "rgba(0, 0, 255, 1)");
+            grad.appendChild(stop2);
+
+            const stop3 = document.createElementNS("http://www.w3.org/2000/svg", "stop");
+            stop3.setAttribute("offset", "100%");
+            stop3.setAttribute("stop-color", "rgba(0, 0, 255, 0.8)");
+            grad.appendChild(stop3);
+
+            defs.appendChild(grad);
+            svg.appendChild(defs);
+          }
+
+          // --- Beam positioning ---
+          const updateBeam = () => {
+            const start = participant.body?.position;
+            if (!start || isNaN(start.x) || isNaN(start.y)) return;
+
+            const dx = pointX - start.x;
+            const dy = pointY - start.y;
+            const angleRad = Math.atan2(dy, dx);
+            const angleDeg = angleRad * (180 / Math.PI);
+
+            beam.setAttribute("x", start.x);
+            beam.setAttribute("y", start.y - beamWidth / 2);
+            beam.setAttribute("transform", `rotate(${angleDeg}, ${start.x}, ${start.y})`);
+          };
+          updateBeam();
+          const beamInterval = setInterval(updateBeam, 16);
+
+          // --- Damage loop ---
+          const enemies = bodiesWithTimers.current.filter(p => p.isAlive && p.id != participant.id);
+          const damageLoop = setInterval(() => {
+            const start = participant.body.position;
+            const dx = pointX - start.x;
+            const dy = pointY - start.y;
+            const angleRad = Math.atan2(dy, dx);
+            const cos = Math.cos(angleRad);
+            const sin = Math.sin(angleRad);
+
+            enemies.forEach(enemy => {
+              const ex = enemy.body.position.x - start.x;
+              const ey = enemy.body.position.y - start.y;
+
+              const proj = ex * cos + ey * sin;      // distance along the beam
+              const perp = -ex * sin + ey * cos;     // perpendicular distance to beam
+
+              if (proj >= 0 && Math.abs(perp) < beamWidth / 2) {
+                dealDamage(enemy, battleSettings.battleEventDamage * 0.2, participant, false);
+              }
+            });
+          }, 100);          
+
+          // --- Cleanup with fade & shrink ---
+          setTimeout(() => {
+            const startTime = Date.now();
+            const fadeDuration = 500; // ms
+
+            const fadeInterval = setInterval(() => {
+                const elapsed = Date.now() - startTime;
+                const t = Math.min(1, elapsed / fadeDuration);
+
+                // Width shrinks from full → 0
+                const currentWidth = beamWidth * (1 - t);
+
+                const startPos = participant.body.position;
+
+                const dx = pointX - startPos.x;
+                const dy = pointY - startPos.y;
+                const angleRad = Math.atan2(dy, dx);
+                const angleDeg = angleRad * (180 / Math.PI);
+
+                // Build polygon with shrinking width
+                const p1x = startPos.x;
+                const p1y = startPos.y - currentWidth / 2;
+
+                const p2x = startPos.x;
+                const p2y = startPos.y + currentWidth / 2;
+
+                const p3x = startPos.x + beamLength;
+                const p3y = startPos.y + currentWidth / 2;
+
+                const p4x = startPos.x + beamLength;
+                const p4y = startPos.y - currentWidth / 2;
+
+                beam.setAttribute(
+                  "points",
+                  `${p1x},${p1y} ${p2x},${p2y} ${p3x},${p3y} ${p4x},${p4y}`
+                );
+                beam.setAttribute(
+                  "transform",
+                  `rotate(${angleDeg}, ${startPos.x}, ${startPos.y})`
+                );
+
+                // Fade opacity too (optional)
+                beam.setAttribute("opacity", 1 - t);
+
+                if (t >= 1) {
+                  clearInterval(fadeInterval);
+                  clearInterval(beamInterval);
+                  svg.removeChild(beam);
+                  engine.timing.timeScale = 1;
+                }
+              }, 16);
+          }, chargeDuration + 1000); // after charge + beam duration
+        }, chargeDuration);
+      }
+
+    },
     shinraTensei: {
       name: 'Shinra Tensei',
-      disabled: false,
+      disabled: true,
       effect: (participant) => {
         const engine = engineRef.current;
         engine.timing.timeScale = 0;
@@ -53,7 +230,7 @@ export function useBattleSystem(engineRef, emoteMap, bodiesWithTimers, battleSet
     },
     omaewamou: {
       name: 'Omae wa mou shindeiru',
-      disabled: false,
+      disabled: true,
       effect: (participant) => {
         const engine = engineRef.current;
         engine.timing.timeScale = 0.01;
@@ -69,7 +246,7 @@ export function useBattleSystem(engineRef, emoteMap, bodiesWithTimers, battleSet
     },
     lightning: {
       name: 'Lightning',
-      disabled: false,
+      disabled: true,
       effect: (participant) => {
         // Find nearest enemy and deal AOE damage
         const farEnemy = findNearestEnemy(participant);
@@ -111,6 +288,28 @@ export function useBattleSystem(engineRef, emoteMap, bodiesWithTimers, battleSet
       }
     }
   }, []);
+
+  const teleport = (caster, targetX, targetY) => {
+    const offset = 100;
+    Matter.Body.setPosition(caster.body, {
+      x: targetX - offset,
+      y: targetY
+    });
+  }
+
+  const findPopulatedPoint = (participant) => {
+    const aliveParticipants = battleParticipants.current.filter(p => p.isAlive && p.id !== participant.id);
+    if (aliveParticipants.length === 0) {
+      // fallback: just return participant’s current position
+      return { x: participant.body.position.x, y: participant.body.position.y };
+    }
+
+    const middleX = aliveParticipants.reduce((sum, p) => sum + p.body.position.x, 0) / aliveParticipants.length;
+    const middleY = aliveParticipants.reduce((sum, p) => sum + p.body.position.y, 0) / aliveParticipants.length;
+
+    return { x: middleX, y: middleY };
+  };
+
 
   const findNearestEnemy = (participant, ...exceptions) => {
     const exceptionIds = exceptions.map(e => e.id);
@@ -463,7 +662,7 @@ export function useBattleSystem(engineRef, emoteMap, bodiesWithTimers, battleSet
     }
 
     if (attacker && canGainMana) {
-      const manaGain = 5 + (damage * 0.5);
+      const manaGain = 10 + (damage * 0.2);
       attacker.mana = Math.min(attacker.maxMana, attacker.mana + manaGain);
       showManaGain(attacker, manaGain);
     }
