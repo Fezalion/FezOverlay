@@ -57,7 +57,7 @@ export function usePhysicsEngine() {
         const { body, el, sizeX, sizeY } = obj;
         const x = body.position.x - sizeX / 2;
         const y = body.position.y - sizeY / 2;
-        el.style.transform = `translate(${x}px, ${y}px) rotate(${body.angle}rad)`;       
+        el.style.transform = `translate(${x}px, ${y}px) rotate(${body.angle}rad)`;
       });
       rafId.current = requestAnimationFrame(updateDOM);
     }
@@ -72,8 +72,8 @@ export function usePhysicsEngine() {
   };
 
   return {
-    engine: engineRef.current,
-    runner: runnerRef.current,
+    engineRef,
+    runnerRef,
     startDOMUpdates,
     stopDOMUpdates
   };

@@ -68,9 +68,9 @@ function EmoteOverlayCore(settings) {
     battleEventDuration: settings.battleEventDuration
   };
   
-  const globalEffects = useGlobalEffects(physics.engine, bodiesWithTimers, emoteMap, battleSettings, subscriberTracker);
-  const { spawnEmote } = useEmoteSpawner(physics.engine, emoteMap, bodiesWithTimers, settings);
-  const { clearAllEmotes } = useEmoteLifecycle(physics.engine, bodiesWithTimers, settings.emoteLifetime);
+  const globalEffects = useGlobalEffects(physics.engineRef, bodiesWithTimers, emoteMap, battleSettings, subscriberTracker, sceneRef);
+  const { spawnEmote } = useEmoteSpawner(physics.engineRef.current, emoteMap, bodiesWithTimers, settings);
+  const { clearAllEmotes } = useEmoteLifecycle(physics.engineRef.current, bodiesWithTimers, settings.emoteLifetime);
 
   if (globalEffects.battleSystem.isActive) {
     globalEffects.battleSystem.endBattle();
@@ -79,7 +79,7 @@ function EmoteOverlayCore(settings) {
 
   // Start DOM updates when physics engine is ready
   useEffect(() => {
-    if (physics.engine) {
+    if (physics.engineRef.current) {
       physics.startDOMUpdates(bodiesWithTimers);
       return () => {
         physics.stopDOMUpdates();
@@ -102,6 +102,8 @@ function EmoteOverlayCore(settings) {
         position: "fixed",
         top: 0,
         left: 0,
+        width: "100%",
+        height: "100%",
         pointerEvents: "none",
         zIndex: 9999
       }}
