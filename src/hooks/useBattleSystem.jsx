@@ -276,7 +276,7 @@ export function useBattleSystem(engine, emoteMap, bodiesWithTimers, battleSettin
       subscriber,
       isAlive: true,
       lastDamageTime: 0,
-      invulnerabilityDuration: 1000,
+      invulnerabilityDuration: 500,
       hasShield: false,
       born: Date.now(),
       animated: emote.animated || false,
@@ -345,7 +345,7 @@ export function useBattleSystem(engine, emoteMap, bodiesWithTimers, battleSettin
     target.lastDamageTime = Date.now();
 
     if (attacker && canGainMana) {
-      const manaGain = 30 + (damage * 0.3);
+      const manaGain = 18 + (damage * 0.3);
       attacker.mana = Math.min(attacker.maxMana, attacker.mana + manaGain);
       showManaGain(attacker, manaGain);
     }
