@@ -206,6 +206,7 @@ export function useBattleSystem(engineRef, emoteMap, bodiesWithTimers, battleSet
                 if (t >= 1) {
                   clearInterval(fadeInterval);
                   clearInterval(beamInterval);
+                  clearInterval(damageLoop);
                   svg.removeChild(beam);
                   engine.timing.timeScale = 1;
                 }
@@ -662,7 +663,7 @@ export function useBattleSystem(engineRef, emoteMap, bodiesWithTimers, battleSet
     }
 
     if (attacker && canGainMana) {
-      const manaGain = 10 + (damage * 0.2);
+      const manaGain = 15 + (damage * 0.25);
       attacker.mana = Math.min(attacker.maxMana, attacker.mana + manaGain);
       showManaGain(attacker, manaGain);
     }
@@ -827,8 +828,8 @@ export function useBattleSystem(engineRef, emoteMap, bodiesWithTimers, battleSet
 
     selectedSubscribers.forEach((subscriber, i) => {
       const angle = (i / selectedSubscribers.length) * Math.PI * 2;
-      const spawnX = centerX + Math.cos(angle) * radius;
-      const spawnY = centerY + Math.sin(angle) * radius;
+      const spawnX = centerX + Math.cos(angle) * radius + Math.random() * 600 - 300;
+      const spawnY = centerY + Math.sin(angle) * radius + Math.random() * 600 - 300;
 
       const subNameNorm = normalize(subscriber.name);
 
@@ -918,12 +919,12 @@ export function useBattleSystem(engineRef, emoteMap, bodiesWithTimers, battleSet
 
           // Apply damage
           if (canDamageP1) {
-            const damage = battleSettings.battleEventDamage * (0.8 + Math.random() * 0.4);
+            const damage = (battleSettings.battleEventDamage * (0.6 + Math.random() * 0.3)) - 10;
             dealDamage(p1, damage, p2);
           }
 
           if (canDamageP2) {
-            const damage = battleSettings.battleEventDamage * (0.8 + Math.random() * 0.4);
+            const damage = (battleSettings.battleEventDamage * (0.6 + Math.random() * 0.3)) - 10;
             dealDamage(p2, damage, p1);
           }
 
