@@ -86,7 +86,7 @@ function EmoteOverlayCore(settings) {
         clearAllEmotes();
       };
     }
-  }, [physics.engine, physics.startDOMUpdates, physics.stopDOMUpdates, clearAllEmotes]);
+  }, [physics, physics.engine, physics.startDOMUpdates, physics.stopDOMUpdates, clearAllEmotes]);
 
   // Set up message handling
   useMessageHandler(client, emoteMap, spawnEmote, globalEffects, settings);
@@ -95,7 +95,8 @@ function EmoteOverlayCore(settings) {
   useRaidHandler(client, spawnEmote, settings.raidEffect, settings.emoteDelay);
 
   return (
-    <div 
+    <>
+      <div 
       ref={sceneRef}
       style={{
         position: "fixed",
@@ -104,6 +105,17 @@ function EmoteOverlayCore(settings) {
         pointerEvents: "none",
         zIndex: 9999
       }}
-    />
+      />
+      <svg id="effects-layer" style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        width: "100%",
+        height: "100%",
+        pointerEvents: "none",
+        zIndex: 9999,
+      }}>
+      </svg>
+    </>
   );
 }
