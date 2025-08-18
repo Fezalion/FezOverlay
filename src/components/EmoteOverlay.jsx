@@ -11,13 +11,15 @@ import { useRaidHandler } from '../hooks/useRaidHandler';
 import { useSubscriberTracker } from '../hooks/useSubscriberTracker';
 
 export default function EmoteOverlay() {
-  const { settings, refreshSettings } = useMetadata();
+  const { settings, refreshSettings, version } = useMetadata();
   const [refreshToken, setRefreshToken] = useState(0);
   const wsRef = useRef(null); 
+  const versionref = useRef(null); 
 
   useEffect(() => { 
     refreshSettings(); 
-  }, [refreshToken, refreshSettings]);
+    versionref.current = version;
+  }, [refreshToken, refreshSettings, version]);
 
   useEffect(() => {
     const wsUrl = "ws://localhost:48000";
@@ -46,10 +48,10 @@ export default function EmoteOverlay() {
     };
   }, []);  
 
-  return <EmoteOverlayCore {...settings} />;
+  return <EmoteOverlayCore {...settings} version={versionref} />;
 }
 
-function EmoteOverlayCore(settings) {
+function EmoteOverlayCore({version, ...settings }) {
   const sceneRef = useRef(null);
   const bodiesWithTimers = useRef([]);
 
@@ -87,9 +89,8 @@ function EmoteOverlayCore(settings) {
       };
     }
   }, [physics, physics.engine, physics.startDOMUpdates, physics.stopDOMUpdates, clearAllEmotes]);
-
   // Set up message handling
-  useMessageHandler(client, emoteMap, spawnEmote, globalEffects, settings);
+  useMessageHandler(client, emoteMap, spawnEmote, globalEffects, settings, version.current);
   
   // Set up raid handling
   useRaidHandler(client, spawnEmote, settings.raidEffect, settings.emoteDelay);
