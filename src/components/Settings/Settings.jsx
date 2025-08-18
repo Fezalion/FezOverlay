@@ -1,9 +1,15 @@
-import { useMetadata } from "../../hooks/useMetadata"
+import { useMetadata } from "../../hooks/useMetadata";
 import SongOverlaySettings from "./SongOverlaySettings";
 import EmoteOverlaySettings from "./EmoteOverlaySettings";
 
 function Settings() {
-  const { settings, updateSetting, availableSubEffects, version, latestVersion } = useMetadata();
+  const {
+    settings,
+    updateSetting,
+    availableSubEffects,
+    version,
+    latestVersion,
+  } = useMetadata();
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black p-6 text-white">
@@ -13,13 +19,17 @@ function Settings() {
         <span className="text-sm text-gray-400">installed {version}</span>
         {latestVersion !== version && (
           <span className="text-sm text-yellow-400">
-            | update available: <span className="font-semibold">{latestVersion}</span>
+            | update available:{" "}
+            <span className="font-semibold">{latestVersion}</span>
           </span>
         )}
       </h1>
 
       <div className="grid gap-8 md:grid-cols-2">
-        <SongOverlaySettings settings={settings} updateSetting={updateSetting} />
+        <SongOverlaySettings
+          settings={settings}
+          updateSetting={updateSetting}
+        />
         <EmoteOverlaySettings
           settings={settings}
           updateSetting={updateSetting}

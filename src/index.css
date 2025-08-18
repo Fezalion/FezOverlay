@@ -3,7 +3,7 @@
 :root {
   --song-panel-bg: 128, 0, 128;
   --song-panel-text-color: white;
-  --song-panel-scale-size: 1.0;
+  --song-panel-scale-size: 1;
   --song-panel-max-width: 700px;
   --song-panel-padding: 10px;
   --song-panel-font-family: Arial, sans-serif;
@@ -28,36 +28,49 @@
   height: 100%;
   border-radius: 50%;
   display: block;
-  z-index:1;
+  z-index: 1;
 }
 
 /* the actual shield */
 .participant.has-shield::before {
   content: "";
   position: absolute;
-  inset: -3px;                /* a little outside the avatar */
+  inset: -3px; /* a little outside the avatar */
   border-radius: 50%;
-  background: linear-gradient(135deg, #007BFF 0%, #00BFFF 100%);
+  background: linear-gradient(135deg, #007bff 0%, #00bfff 100%);
   /* punch a hole so it's a ring, not a solid disk */
-  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 6px), #000 calc(100% - 6px));
-          mask: radial-gradient(farthest-side, transparent calc(100% - 6px), #000 calc(100% - 6px));
-  box-shadow: 0 0 12px #00BFFF, 0 0 28px rgba(0,123,255,.6);
-  animation: glow .5s ease-in-out infinite alternate;
+  -webkit-mask: radial-gradient(
+    farthest-side,
+    transparent calc(100% - 6px),
+    #000 calc(100% - 6px)
+  );
+  mask: radial-gradient(
+    farthest-side,
+    transparent calc(100% - 6px),
+    #000 calc(100% - 6px)
+  );
+  box-shadow: 0 0 12px #00bfff, 0 0 28px rgba(0, 123, 255, 0.6);
+  animation: glow 0.5s ease-in-out infinite alternate;
   pointer-events: none;
-  z-index: 2;                 /* above the image */
+  z-index: 2; /* above the image */
 }
 
 @keyframes glow {
-  0%   { opacity: .05; transform: scale(1); }
-  100% { opacity: 1;    transform: scale(1.1); }
+  0% {
+    opacity: 0.05;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
 }
-
 
 /* Now Playing */
 .songPanel {
   margin: 0;
-  position: fixed;  
-  display: block;  
+  position: fixed;
+  display: block;
   font-size: 16px;
   z-index: 1000;
   overflow: hidden;
@@ -87,6 +100,10 @@
 }
 
 @keyframes scrollRight {
-  0% { transform: translateX(0%); }
-  100% { transform: translateX(-50%); }
+  0% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
 }

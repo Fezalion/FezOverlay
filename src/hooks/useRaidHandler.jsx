@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect } from "react";
 
 export function useRaidHandler(client, spawnEmote, raidEffect, emoteDelay) {
   useEffect(() => {
@@ -6,14 +6,14 @@ export function useRaidHandler(client, spawnEmote, raidEffect, emoteDelay) {
 
     function onRaid(channel, username, viewers) {
       for (let i = 0; i < viewers; i++) {
-        setTimeout(() => { 
+        setTimeout(() => {
           spawnEmote("AYAYA", false, "red");
         }, i * emoteDelay);
       }
     }
-    
+
     client.on("raided", onRaid);
-    
+
     return () => {
       client.off("raided", onRaid);
     };

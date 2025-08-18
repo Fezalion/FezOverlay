@@ -1,75 +1,98 @@
-import { useRef, useCallback } from 'react';
-import Matter from 'matter-js';
-import { useBattleSystem } from './useBattleSystem';
+import { useRef, useCallback } from "react";
+import Matter from "matter-js";
+import { useBattleSystem } from "./useBattleSystem";
 
-export function useGlobalEffects(engineRef, bodiesWithTimers, emoteMap, battleSettings, subscriberTracker, sceneRef) {
+export function useGlobalEffects(
+  engineRef,
+  bodiesWithTimers,
+  emoteMap,
+  battleSettings,
+  subscriberTracker,
+  sceneRef
+) {
   const magneticEventRef = useRef(false);
   const reverseGravityEventRef = useRef(false);
-  
-  const battleSystem = useBattleSystem(engineRef, emoteMap, bodiesWithTimers, battleSettings, subscriberTracker, sceneRef);
 
-  const startMagneticEvent = useCallback((duration, str) => {
-    const engine = engineRef.current;
-    if (magneticEventRef.current || !engine) return;
+  const battleSystem = useBattleSystem(
+    engineRef,
+    emoteMap,
+    bodiesWithTimers,
+    battleSettings,
+    subscriberTracker,
+    sceneRef
+  );
 
-    magneticEventRef.current = true;
-    
-    const forceMagnitude = str / 100000;
+  const startMagneticEvent = useCallback(
+    (duration, str) => {
+      const engine = engineRef.current;
+      if (magneticEventRef.current || !engine) return;
 
-    const magneticUpdate = () => {
-      const centerX = window.innerWidth / 2;
-      const centerY = window.innerHeight / 2;
+      magneticEventRef.current = true;
 
-      bodiesWithTimers.current.forEach(({ body }) => {
-        if (!body.isSleeping) {
-          const dx = centerX - body.position.x;
-          const dy = centerY - body.position.y;
-          Matter.Body.applyForce(body, body.position, {
-            x: dx * forceMagnitude,
-            y: dy * forceMagnitude,
-          });
-        }
-      });
-    };
+      const forceMagnitude = str / 100000;
 
-    Matter.Events.on(engine, "beforeUpdate", magneticUpdate);
+      const magneticUpdate = () => {
+        const centerX = window.innerWidth / 2;
+        const centerY = window.innerHeight / 2;
 
-    setTimeout(() => {
-      Matter.Events.off(engine, "beforeUpdate", magneticUpdate);
-      magneticEventRef.current = false;
-      console.log("magnetic event ended");
-    }, duration * 1000);
-  }, [engineRef, bodiesWithTimers]);
+        bodiesWithTimers.current.forEach(({ body }) => {
+          if (!body.isSleeping) {
+            const dx = centerX - body.position.x;
+            const dy = centerY - body.position.y;
+            Matter.Body.applyForce(body, body.position, {
+              x: dx * forceMagnitude,
+              y: dy * forceMagnitude,
+            });
+          }
+        });
+      };
 
-  const startReverseGravityEvent = useCallback((duration, str) => {
-    const engine = engineRef.current;
-    if (reverseGravityEventRef.current || !engine) return;
+      Matter.Events.on(engine, "beforeUpdate", magneticUpdate);
 
-    reverseGravityEventRef.current = true;
+      setTimeout(() => {
+        Matter.Events.off(engine, "beforeUpdate", magneticUpdate);
+        magneticEventRef.current = false;
+        console.log("magnetic event ended");
+      }, duration * 1000);
+    },
+    [engineRef, bodiesWithTimers]
+  );
 
-    const gravityUpdate = () => {
-      bodiesWithTimers.current.forEach(({ body, isSub }) => {
-        if (!body.isSleeping && isSub) {
-          const upwardForce = (str / 1000 * -1) * body.mass;
-          Matter.Body.applyForce(body, body.position, { x: 0, y: upwardForce });
-        }
-      });
-    };
+  const startReverseGravityEvent = useCallback(
+    (duration, str) => {
+      const engine = engineRef.current;
+      if (reverseGravityEventRef.current || !engine) return;
 
-    Matter.Events.on(engine, "beforeUpdate", gravityUpdate);
+      reverseGravityEventRef.current = true;
 
-    setTimeout(() => {
-      Matter.Events.off(engine, "beforeUpdate", gravityUpdate);
-      reverseGravityEventRef.current = false;
-      console.log("reverse gravity event ended");
-    }, duration * 1000);
-  }, [engineRef, bodiesWithTimers]);
+      const gravityUpdate = () => {
+        bodiesWithTimers.current.forEach(({ body, isSub }) => {
+          if (!body.isSleeping && isSub) {
+            const upwardForce = (str / 1000) * -1 * body.mass;
+            Matter.Body.applyForce(body, body.position, {
+              x: 0,
+              y: upwardForce,
+            });
+          }
+        });
+      };
+
+      Matter.Events.on(engine, "beforeUpdate", gravityUpdate);
+
+      setTimeout(() => {
+        Matter.Events.off(engine, "beforeUpdate", gravityUpdate);
+        reverseGravityEventRef.current = false;
+        console.log("reverse gravity event ended");
+      }, duration * 1000);
+    },
+    [engineRef, bodiesWithTimers]
+  );
 
   return {
     startMagneticEvent,
     startReverseGravityEvent,
     magneticEventActive: magneticEventRef.current,
     reverseGravityEventActive: reverseGravityEventRef.current,
-    battleSystem
+    battleSystem,
   };
 }

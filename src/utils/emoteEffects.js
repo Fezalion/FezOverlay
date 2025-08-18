@@ -1,7 +1,7 @@
 export const createEffectsRegistry = (effectSettings) => ({
   colorFlash: (el) => {
     if (Math.random() * 100 > effectSettings.subEffectHueShiftChance) return;
-    
+
     let hue = 0;
     const intervalId = setInterval(() => {
       if (!document.body.contains(el)) {
@@ -13,7 +13,7 @@ export const createEffectsRegistry = (effectSettings) => ({
     }, 100);
 
     return () => clearInterval(intervalId);
-  }
+  },
 });
 
 export function createEmoteElement(url, sizeX, sizeY) {

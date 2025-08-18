@@ -1,13 +1,24 @@
 import InputField from "./InputField";
 
-export function EffectCard({ effectKey, label, enabled, toggleEnabled, settings, onChange, fields }) {
-  const handleFieldChange = (key, parser) => e => {
+export function EffectCard({
+  effectKey,
+  label,
+  enabled,
+  toggleEnabled,
+  settings,
+  onChange,
+  fields,
+}) {
+  const handleFieldChange = (key, parser) => (e) => {
     const value = parser ? parser(e.target.value) : e.target.value;
     onChange(key, value);
   };
 
   return (
-    <div key={effectKey} className="bg-gray-900 border border-gray-700 rounded-xl p-4 shadow-md transition hover:shadow-lg">
+    <div
+      key={effectKey}
+      className="bg-gray-900 border border-gray-700 rounded-xl p-4 shadow-md transition hover:shadow-lg"
+    >
       <div className="flex justify-between items-center">
         <label className="font-medium text-white">{label}</label>
         {/* Toggle Switch */}

@@ -1,5 +1,5 @@
-import { useRef, useEffect } from 'react';
-import tmi from 'tmi.js';
+import { useRef, useEffect } from "react";
+import tmi from "tmi.js";
 
 export function useTwitchClient(twitchName) {
   const clientRef = useRef(null);
@@ -9,11 +9,11 @@ export function useTwitchClient(twitchName) {
 
     const client = new tmi.Client({
       options: {
-        debug: false
+        debug: false,
       },
       connection: {
         reconnect: true,
-        secure: true
+        secure: true,
       },
       channels: [twitchName],
     });

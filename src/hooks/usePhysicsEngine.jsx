@@ -1,5 +1,5 @@
-import { useRef, useEffect } from 'react';
-import Matter from 'matter-js';
+import { useRef, useEffect } from "react";
+import Matter from "matter-js";
 
 export function usePhysicsEngine() {
   const engineRef = useRef(null);
@@ -17,18 +17,42 @@ export function usePhysicsEngine() {
 
     const wallThickness = 200;
     const walls = [
-      Matter.Bodies.rectangle(-wallThickness / 2, height / 2, wallThickness, height, {
-        isStatic: true
-      }),
-      Matter.Bodies.rectangle(width + wallThickness / 2, height / 2, wallThickness, height, {
-        isStatic: true
-      }),
-      Matter.Bodies.rectangle(width / 2, -wallThickness / 2, width, wallThickness, {
-        isStatic: true
-      }),
-      Matter.Bodies.rectangle(width / 2, height + wallThickness / 2, width, wallThickness, {
-        isStatic: true
-      }),
+      Matter.Bodies.rectangle(
+        -wallThickness / 2,
+        height / 2,
+        wallThickness,
+        height,
+        {
+          isStatic: true,
+        }
+      ),
+      Matter.Bodies.rectangle(
+        width + wallThickness / 2,
+        height / 2,
+        wallThickness,
+        height,
+        {
+          isStatic: true,
+        }
+      ),
+      Matter.Bodies.rectangle(
+        width / 2,
+        -wallThickness / 2,
+        width,
+        wallThickness,
+        {
+          isStatic: true,
+        }
+      ),
+      Matter.Bodies.rectangle(
+        width / 2,
+        height + wallThickness / 2,
+        width,
+        wallThickness,
+        {
+          isStatic: true,
+        }
+      ),
     ];
     Matter.World.add(world, walls);
 
@@ -75,6 +99,6 @@ export function usePhysicsEngine() {
     engineRef,
     runnerRef,
     startDOMUpdates,
-    stopDOMUpdates
+    stopDOMUpdates,
   };
 }

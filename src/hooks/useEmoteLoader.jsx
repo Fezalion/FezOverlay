@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect } from "react";
 
 export function useEmoteLoader(emoteSetId) {
   const emoteMapRef = useRef(new Map());
@@ -16,12 +16,12 @@ export function useEmoteLoader(emoteSetId) {
     async function loadEmotes() {
       try {
         const [setEmotes, globalEmotes] = await Promise.all([
-          fetchEmoteSet(emoteSetId), 
-          fetchEmoteSet("global")
+          fetchEmoteSet(emoteSetId),
+          fetchEmoteSet("global"),
         ]);
         const allEmotes = [...setEmotes, ...globalEmotes];
         const newMap = new Map();
-        
+
         allEmotes.forEach((emote) => {
           if (!emote.name || !emote.id) return;
           const file = emote.data.host.files[1]; // 2x res
@@ -33,7 +33,7 @@ export function useEmoteLoader(emoteSetId) {
             animated: emote.data.animated || false,
           });
         });
-        
+
         emoteMapRef.current = newMap;
         console.log(`Loaded ${newMap.size} emotes`);
       } catch (e) {

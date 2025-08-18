@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect } from "react";
 
 export function useSubscriberTracker(client, enableMock = false) {
   const recentSubscribersRef = useRef([]);
@@ -12,10 +12,10 @@ export function useSubscriberTracker(client, enableMock = false) {
         color: `hsl(${Math.floor(Math.random() * 360)}, 70%, 50%)`,
         username: `testuser${i + 1}`,
         timestamp: Date.now() - i * 1000 * 60,
-        badges: { subscriber: '1' },
+        badges: { subscriber: "1" },
         isMod: false,
         isVip: false,
-        isBroadcaster: i === 0 // make first mock broadcaster
+        isBroadcaster: i === 0, // make first mock broadcaster
       }));
     }
   }, [enableMock]);
@@ -30,21 +30,21 @@ export function useSubscriberTracker(client, enableMock = false) {
         userstate.badges?.vip ||
         userstate.badges?.broadcaster;
 
-      if (isSub && userstate['display-name']) {
+      if (isSub && userstate["display-name"]) {
         const subscriber = {
-          name: userstate['display-name'],
-          color: userstate.color || '#ff6600',
+          name: userstate["display-name"],
+          color: userstate.color || "#ff6600",
           username: userstate.username,
           timestamp: Date.now(),
           badges: userstate.badges || {},
           isMod: userstate.mod,
           isVip: userstate.badges?.vip,
-          isBroadcaster: userstate.badges?.broadcaster
+          isBroadcaster: userstate.badges?.broadcaster,
         };
 
         // Add/update subscriber in list
         const existingIndex = recentSubscribersRef.current.findIndex(
-          sub => sub.username === subscriber.username
+          (sub) => sub.username === subscriber.username
         );
 
         if (existingIndex !== -1) {
@@ -52,15 +52,18 @@ export function useSubscriberTracker(client, enableMock = false) {
         } else {
           recentSubscribersRef.current.unshift(subscriber);
           if (recentSubscribersRef.current.length > maxSubscribers) {
-            recentSubscribersRef.current = recentSubscribersRef.current.slice(0, maxSubscribers);
+            recentSubscribersRef.current = recentSubscribersRef.current.slice(
+              0,
+              maxSubscribers
+            );
           }
         }
       }
     }
 
-    client.on('message', onMessage);
+    client.on("message", onMessage);
     return () => {
-      client.off('message', onMessage);
+      client.off("message", onMessage);
     };
   }, [client, maxSubscribers]);
 
@@ -81,6 +84,6 @@ export function useSubscriberTracker(client, enableMock = false) {
   return {
     recentSubscribers: recentSubscribersRef.current,
     getRandomSubscribers,
-    getSubscriberCount
+    getSubscriberCount,
   };
 }
