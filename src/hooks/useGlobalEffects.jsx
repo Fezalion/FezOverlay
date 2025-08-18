@@ -2,13 +2,14 @@ import { useRef, useCallback } from 'react';
 import Matter from 'matter-js';
 import { useBattleSystem } from './useBattleSystem';
 
-export function useGlobalEffects(engine, bodiesWithTimers, emoteMap, battleSettings, subscriberTracker, sceneRef) {
+export function useGlobalEffects(engineRef, bodiesWithTimers, emoteMap, battleSettings, subscriberTracker, sceneRef) {
   const magneticEventRef = useRef(false);
   const reverseGravityEventRef = useRef(false);
   
-  const battleSystem = useBattleSystem(engine, emoteMap, bodiesWithTimers, battleSettings, subscriberTracker, sceneRef);
+  const battleSystem = useBattleSystem(engineRef, emoteMap, bodiesWithTimers, battleSettings, subscriberTracker, sceneRef);
 
   const startMagneticEvent = useCallback((duration, str) => {
+    const engine = engineRef.current;
     if (magneticEventRef.current || !engine) return;
 
     magneticEventRef.current = true;
@@ -38,9 +39,10 @@ export function useGlobalEffects(engine, bodiesWithTimers, emoteMap, battleSetti
       magneticEventRef.current = false;
       console.log("magnetic event ended");
     }, duration * 1000);
-  }, [engine, bodiesWithTimers]);
+  }, [engineRef, bodiesWithTimers]);
 
   const startReverseGravityEvent = useCallback((duration, str) => {
+    const engine = engineRef.current;
     if (reverseGravityEventRef.current || !engine) return;
 
     reverseGravityEventRef.current = true;
@@ -61,7 +63,7 @@ export function useGlobalEffects(engine, bodiesWithTimers, emoteMap, battleSetti
       reverseGravityEventRef.current = false;
       console.log("reverse gravity event ended");
     }, duration * 1000);
-  }, [engine, bodiesWithTimers]);
+  }, [engineRef, bodiesWithTimers]);
 
   return {
     startMagneticEvent,

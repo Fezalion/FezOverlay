@@ -1195,17 +1195,17 @@ export function useBattleSystem(engineRef, emoteMap, bodiesWithTimers, battleSet
     const engine = engineRef.current;
     if (activeBattleRef.current || !engine) {
       console.log("Battle already active or no engine");
-      return;
+      return false;
     }
     
     // Check if we have at least 3 subscribers
     if (!subscriberTracker || subscriberTracker.getSubscriberCount() < 3) {
       console.log("Not enough subscribers for battle (minimum 3 required)");
-      return;
+      return false;
     }
 
     const participants = spawnBattleArena();
-    if (participants.length === 0) return;
+    if (participants.length === 0) return false;
     
     // Add battle participants to the main bodiesWithTimers array so they get rendered
     participants.forEach(participant => {
@@ -1241,6 +1241,7 @@ export function useBattleSystem(engineRef, emoteMap, bodiesWithTimers, battleSet
     document.body.appendChild(announcement);
 
     setTimeout(() => announcement.remove(), 4000);
+    return true;
   }, [engineRef, spawnBattleArena, updateBattle, bodiesWithTimers, subscriberTracker]);
   
   function kill(participant) {

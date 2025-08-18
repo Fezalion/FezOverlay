@@ -71,9 +71,8 @@ export function useMessageHandler(
           !globalEffects.battleSystem.isActive
         ) {
           console.log(`event proc ${effectName} for ${duration}s`);
-          if (effectName === 'battleEvent') {
-            effectFn();
-            b = true;
+          if (effectName === 'battleEvent') {            
+            b = effectFn();
           } else {
             effectFn(duration ?? 2, str);
           }
