@@ -322,7 +322,20 @@ export function useBattleSystem(engineRef, emoteMap, bodiesWithTimers, battleSet
           }, 150);
         }
       }
-    }
+    },
+    shinraTensei: {
+      name: 'Shinra Tensei',
+      disabled: false,
+      effect: (participant) => {
+        const engine = engineRef.current;
+        engine.timing.timeScale = 0;
+        showText(participant, "🙏🏻 SHINRA TENSEI", "#ffee00ff");
+
+        setTimeout(() => {
+          radialKnockback(participant);
+        }, 500);
+      }
+    },
   }, []);
 
   const teleport = (caster, targetX, targetY) => {
