@@ -268,7 +268,7 @@ app.get("/api/currentversion", (req, res) => {
 });
 
 app.get("/api/twitch", (req, res) => {
-  if (!TWITCH_ACCESS_TOKEN) {
+  if (!process.env.TWITCH_ACCESS_TOKEN) {
     console.error(
       "[Twitch API] TWITCH_ACCESS_TOKEN and/or CLIENT_ID is not set"
     );
@@ -276,8 +276,9 @@ app.get("/api/twitch", (req, res) => {
       .status(500)
       .json({ error: "TWITCH_ACCESS_TOKEN and/or CLIENT_ID is not set" });
   }
+  let val = process.env.TWITCH_ACCESS_TOKEN;
   res.json({
-    auth: TWITCH_ACCESS_TOKEN,
+    auth: val,
     client: "pro83yr2qxpqs1qwy85uqkp17w5wpl",
   });
 });
