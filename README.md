@@ -13,7 +13,7 @@ A React-based overlay application for streaming with Last.fm integration and cus
 
 https://www.youtube.com/watch?v=nzPYJCWTqC8
 
-### Usage
+## Usage
 
 ### Overlay Usage
 
