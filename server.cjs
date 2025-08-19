@@ -15,9 +15,18 @@ const server = http.createServer(app);
 
 const wss = new WebSocketServer({ server });
 
-const envPath = path.join(__dirname, ".env");
-
 // Load env initially
+function getEnvPath() {
+  if (process.pkg) {
+    // running as a pkg executable → look next to the .exe
+    return path.join(process.cwd(), ".env");
+  } else {
+    // running in dev (node) → look next to server.cjs
+    return path.join(__dirname, ".env");
+  }
+}
+
+const envPath = getEnvPath();
 dotenv.config({ path: envPath });
 
 function reloadEnv() {
