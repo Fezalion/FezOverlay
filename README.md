@@ -23,23 +23,22 @@ https://www.youtube.com/watch?v=nzPYJCWTqC8
 
      ```
      LASTFM_API_KEY=your_lastfm_api_key_here
-     TWITCH_ACCESS_TOKEN=access_token
-     CLIENT_ID=client_id
      ```
-
-   - You can use https://twitchtokengenerator.com to generate the access token and client id.
-   - Only scopes needed are "chat:read" and "chat:edit".
 
 2. **Running:**
 
    - Run `updater.exe` to update and install the files, after update is done launch `fezoverlay.exe`
 
-3. **Open the Settings Page:**
+3. **Twitch Auth:**
+
+   - Click the link in the terminal window to authenticate with Twitch API.
+
+4. **Open the Settings Page:**
 
    - Go to [http://localhost:48000/](http://localhost:48000/) in your browser.
    - Here you can customize the overlay's color, font, padding, and more.
 
-4. **Add the Overlays to OBS:**
+5. **Add the Overlays to OBS:**
 
    - In OBS, add a new **Browser Source**.
    - Set the URL for widgets and make the resolution same as your screen:  
@@ -48,11 +47,11 @@ https://www.youtube.com/watch?v=nzPYJCWTqC8
    - Set your LastFM user name in the settings page mentioned above.
    - Set your twitch username and 7tv emoteset IDs in the settings page mentioned above.
 
-5. **Position the Overlay:**
+6. **Position the Overlay:**
 
    - You should have both overlays be the same size of your Scene, you can move the NowPlaying widget by either pressing interact in obs then using (Shift +) Arrow Keys, or the same in your browser.
 
-6. **Edit Overlay Appearance:**
+7. **Edit Overlay Appearance:**
    - To change the overlay's appearance, open [http://localhost:48000/](http://localhost:48000/) in your browser again.
    - Adjust the settings as desired.
 

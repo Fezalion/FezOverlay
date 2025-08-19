@@ -7,7 +7,6 @@ const http = require("http");
 const dotenv = require("dotenv");
 const fs = require("fs");
 const { WebSocketServer } = require("ws");
-dotenv.config();
 
 const repo = "Fezalion/FezOverlay";
 
@@ -15,6 +14,35 @@ const app = express();
 const server = http.createServer(app);
 
 const wss = new WebSocketServer({ server });
+
+const envPath = path.join(__dirname, ".env");
+
+// Load env initially
+dotenv.config({ path: envPath });
+
+function reloadEnv() {
+  dotenv.config({ path: envPath, override: true });
+  console.log("[API] Reloaded environment variables.");
+}
+
+function saveTokens({ access_token, refresh_token }) {
+  let envData = "";
+  if (fs.existsSync(envPath)) {
+    envData = fs.readFileSync(envPath, "utf8");
+  }
+
+  envData = envData.replace(/TWITCH_ACCESS_TOKEN=.*/g, "");
+  envData = envData.replace(/TWITCH_REFRESH_TOKEN=.*/g, "");
+
+  envData += `\nTWITCH_ACCESS_TOKEN=${access_token}`;
+  if (refresh_token) {
+    envData += `\nTWITCH_REFRESH_TOKEN=${refresh_token}`;
+  }
+
+  fs.writeFileSync(envPath, envData.trim() + "\n");
+
+  reloadEnv();
+}
 
 wss.on("connection", (ws) => {
   console.log("An Overlay is connected.");
@@ -28,7 +56,7 @@ function broadcast(msg) {
   });
 }
 
-const PORT = process.env.PORT || 48000;
+const PORT = 48000;
 
 // Fix for pkg: use process.execPath for base directory if packaged
 let baseDir = __dirname;
@@ -45,7 +73,31 @@ app.use(express.static(distRoot));
 
 const LASTFM_API_KEY = process.env.LASTFM_API_KEY;
 const TWITCH_ACCESS_TOKEN = process.env.TWITCH_ACCESS_TOKEN;
-const TWITCH_CLIENT = process.env.CLIENT_ID;
+
+function GenerateAccess() {
+  const clientId = "pro83yr2qxpqs1qwy85uqkp17w5wpl";
+  const redirectUri = "http://localhost:48000/auth/twitch/callback";
+  const scopes = ["chat:read", "chat:edit"];
+
+  if (!clientId) {
+    console.error("[Twitch API] CLIENT_ID is missing in .env");
+    return;
+  }
+
+  const authUrl =
+    `https://id.twitch.tv/oauth2/authorize` +
+    `?client_id=${clientId}` +
+    `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+    `&response_type=token` + // <-- token flow
+    `&scope=${encodeURIComponent(scopes.join(" "))}`;
+
+  console.log("\n[ Twitch OAuth Setup ]");
+  console.log("👉 Open this URL in your browser to authorize Twitch:");
+  console.log(authUrl);
+  console.log(
+    "\nAfter login, the token will be sent back and saved automatically.\n"
+  );
+}
 
 function getLatestRelease(cb) {
   const url = `https://api.github.com/repos/${repo}/releases/latest`;
@@ -121,7 +173,6 @@ if (fs.existsSync(updaterNewPath)) {
 }
 
 // --- .env validation and cleaning ---
-const envPath = path.join(baseDir, ".env");
 if (fs.existsSync(envPath)) {
   let envContent = fs.readFileSync(envPath, "utf8");
   let lines = envContent.split(/\r?\n/);
@@ -208,7 +259,7 @@ app.get("/api/currentversion", (req, res) => {
 });
 
 app.get("/api/twitch", (req, res) => {
-  if (!TWITCH_CLIENT || !TWITCH_ACCESS_TOKEN) {
+  if (!TWITCH_ACCESS_TOKEN) {
     console.error(
       "[Twitch API] TWITCH_ACCESS_TOKEN and/or CLIENT_ID is not set"
     );
@@ -216,7 +267,10 @@ app.get("/api/twitch", (req, res) => {
       .status(500)
       .json({ error: "TWITCH_ACCESS_TOKEN and/or CLIENT_ID is not set" });
   }
-  res.json({ auth: TWITCH_ACCESS_TOKEN, client: TWITCH_CLIENT });
+  res.json({
+    auth: TWITCH_ACCESS_TOKEN,
+    client: "pro83yr2qxpqs1qwy85uqkp17w5wpl",
+  });
 });
 
 // POST update one or more settings (partial update)
@@ -322,6 +376,32 @@ app.get("/api/lastfm/latest/:username", (req, res) => {
     });
 });
 
+// Backend: receives token from frontend and saves it
+app.post("/auth/twitch/callback", express.json(), (req, res) => {
+  const { access_token } = req.body;
+
+  if (!access_token) {
+    return res
+      .status(400)
+      .json({ error: "Missing access_token in request body" });
+  }
+
+  // Save token into .env
+  let envData = "";
+  if (fs.existsSync(envPath)) {
+    envData = fs.readFileSync(envPath, "utf8");
+  }
+
+  envData = envData.replace(/TWITCH_ACCESS_TOKEN=.*/g, "");
+  envData += `\nTWITCH_ACCESS_TOKEN=${access_token}`;
+
+  fs.writeFileSync(envPath, envData.trim() + "\n");
+
+  reloadEnv();
+
+  res.json({ success: true, message: "Token saved and loaded" });
+});
+
 // --- STATIC & SPA ROUTING ---
 app.get(/^\/(?!api).*/, (req, res) => {
   if (!fs.existsSync(distRoot)) {
@@ -353,13 +433,14 @@ if (!fs.existsSync(distRoot)) {
   }
 }
 
-if (!TWITCH_CLIENT || !TWITCH_ACCESS_TOKEN) {
-  console.error(
-    "[Twitch API] TWITCH_ACCESS_TOKEN and/or CLIENT_ID in .env file is not set, please generate them using https://twitchtokengenerator.com (safe to ignore if not using twitch emote features)"
-  );
-}
-
 server.listen(PORT, "0.0.0.0", () => {
   console.log(`Server + WS running on http://localhost:${PORT}`);
   broadcast("refresh");
+
+  if (!process.env.TWITCH_ACCESS_TOKEN) {
+    console.warn("[Twitch API] No TWITCH_ACCESS_TOKEN found in .env");
+    GenerateAccess();
+  } else {
+    console.log("[Twitch API] Access token loaded.");
+  }
 });

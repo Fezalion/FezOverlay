@@ -4,6 +4,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { NowPlaying } from "./components/NowPlaying";
 import Settings from "./components/Settings";
 import EmoteOverlay from "./components/EmoteOverlay";
+import AuthCallback from "./AuthCallback";
 import "./index.css";
 
 function hexToRgb(hex) {
@@ -69,6 +70,7 @@ createRoot(document.getElementById("root")).render(
         <Route path="/playing" element={<NowPlaying />} />
         <Route path="/emotes" element={<EmoteOverlay />} />
         <Route path="/" element={<Settings />} />
+        <Route path="/auth/twitch/callback" element={<AuthCallback />} />
       </Routes>
     </BrowserRouter>
   </StrictMode>
