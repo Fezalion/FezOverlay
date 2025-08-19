@@ -1051,7 +1051,9 @@ export function useBattleSystem(
       aliveParticipants.length <= 1 ||
       battleDuration >= battleSettings.battleEventDuration * 1000
     ) {
-      endBattle();
+      setTimeout(() => {
+        endBattle();
+      }, 500);
     }
   }, [
     updateHealthBar,

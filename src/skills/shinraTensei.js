@@ -7,6 +7,8 @@ export const shinraTensei = ({ engineRef, showText, radialKnockback }) => ({
     showText(participant, "🙏🏻 SHINRA TENSEI", "#ffee00ff");
 
     setTimeout(() => {
+      engine.timing.timeScale = 1;
+      if (!participant.isAlive) return; // Skip if dead
       radialKnockback(participant);
     }, 500);
   },

@@ -4,6 +4,7 @@ import { shield } from "./shield";
 import { kamehameha } from "./kamehameha";
 import { lightning } from "./lightning";
 import { shinraTensei } from "./shinraTensei";
+import { cyclone } from "./cyclone";
 
 export function createSkills(helpers) {
   return {
@@ -13,5 +14,6 @@ export function createSkills(helpers) {
     kamehameha: kamehameha(helpers),
     lightning: lightning(helpers),
     shinraTensei: shinraTensei(helpers),
+    cyclone: cyclone(helpers),
   };
 }

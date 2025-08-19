@@ -18,6 +18,7 @@ export const lightning = ({
       `from:${participant.subscriberName} to ${farEnemy.subscriberName} to ${chain.subscriberName} to ${chain2.subscriberName}`
     );
     if (farEnemy) {
+      if (!participant.isAlive) return; // Skip if dead
       const engine = engineRef.current;
       engine.timing.timeScale = 0;
 
@@ -33,6 +34,7 @@ export const lightning = ({
 
           // main strike on farEnemy
           setTimeout(() => {
+            if (!participant.isAlive) return; // Skip if dead
             drawJaggedLightning(participant, farEnemy);
             const damage = battleSettings.battleEventDamage * 0.3;
             dealDamage(farEnemy, damage, participant, false);
@@ -40,12 +42,14 @@ export const lightning = ({
           // can chain to another
           if (chain) {
             setTimeout(() => {
+              if (!participant.isAlive) return; // Skip if dead
               drawJaggedLightning(farEnemy, chain);
               const damage = battleSettings.battleEventDamage * 0.2;
               dealDamage(chain, damage, participant, false);
             }, baseTime + 100 + offset);
           }
           if (chain2) {
+            if (!participant.isAlive) return; // Skip if dead
             setTimeout(() => {
               drawJaggedLightning(chain, chain2);
               const damage = battleSettings.battleEventDamage * 0.1;

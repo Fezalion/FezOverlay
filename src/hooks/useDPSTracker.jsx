@@ -136,8 +136,8 @@ class BattleDPSTracker {
       });
     }
 
-    // Sort by DPS (highest first)
-    results.sort((a, b) => b.dps - a.dps);
+    // Sort by survival (highest first)
+    results.sort((a, b) => b.survivalTime - a.survivalTime);
     return results;
   }
 
@@ -348,7 +348,7 @@ class BattleDPSTracker {
       });
     }
 
-    results.sort((a, b) => b.dps - a.dps);
+    results.sort((a, b) => b.survivalTime - a.survivalTime);
     return results;
   }
 }

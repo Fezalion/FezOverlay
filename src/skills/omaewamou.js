@@ -16,6 +16,7 @@ export const omaewamou = ({
 
     setTimeout(() => {
       engine.timing.timeScale = 1;
+      if (!participant.isAlive) return; // Skip if dead
       dealDamage(randomEnemy, randomEnemy.maxHp, participant, false);
     }, 3000);
   },
