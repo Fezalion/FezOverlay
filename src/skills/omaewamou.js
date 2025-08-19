@@ -16,7 +16,7 @@ export const omaewamou = ({
 
     setTimeout(() => {
       engine.timing.timeScale = 1;
-      dealDamage(randomEnemy, 9999, participant, false);
+      dealDamage(randomEnemy, randomEnemy.maxHp, participant, false);
     }, 3000);
   },
 });

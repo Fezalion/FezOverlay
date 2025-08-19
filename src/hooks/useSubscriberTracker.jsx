@@ -1,6 +1,10 @@
 import { useRef, useEffect } from "react";
 
-export function useSubscriberTracker(client, enableMock = false) {
+export function useSubscriberTracker(
+  client,
+  enableNonSubs = false,
+  enableMock = false
+) {
   const recentSubscribersRef = useRef([]);
   const maxSubscribers = 50; // Keep track of last 50 subs
 
@@ -65,7 +69,7 @@ export function useSubscriberTracker(client, enableMock = false) {
     return () => {
       client.off("message", onMessage);
     };
-  }, [client, maxSubscribers]);
+  }, [client, maxSubscribers, enableNonSubs]);
 
   const getRandomSubscribers = (count) => {
     const available = [...recentSubscribersRef.current];

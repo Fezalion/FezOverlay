@@ -69,6 +69,8 @@ function EmoteOverlayCore({ version, ...settings }) {
     battleEventDamage: settings.battleEventDamage,
     battleEventDuration: settings.battleEventDuration,
     battleEventDPSTracker: settings.battleEventDPSTracker,
+    battleEventDPSTrackerFloatLeft: settings.battleEventDPSTrackerFloatLeft,
+    battleEventDPSTrackerLive: settings.battleEventDPSTrackerLive,
   };
 
   const globalEffects = useGlobalEffects(

@@ -11,7 +11,7 @@ export default function EmoteOverlaySettings({ settings, updateSetting }) {
       .then((data) => {
         allAvailableEffects.current = data;
       });
-  });
+  }, []);
 
   const toggleAllEffects = () => {
     updateSetting("subEffectTypes", [...allAvailableEffects.current]);
@@ -119,6 +119,8 @@ export default function EmoteOverlaySettings({ settings, updateSetting }) {
               battleEventDamage: 50,
               battleEventDuration: 60,
               battleEventDPSTracker: true,
+              battleEventAcceptPlebs: false,
+              battleEventDPSTrackerFloatLeft: false,
               subOnlyMode: false,
               subEffectTypes: [],
             };
@@ -318,32 +320,98 @@ export default function EmoteOverlaySettings({ settings, updateSetting }) {
           },
         ]}
       >
-        <div className="flex items-center justify-between bg-white/5 p-4 rounded-xl border border-white/10">
+        <div className="flex items-center space-x-3">
+          <label disabled className="font-semibold">
+            Include non-subs in battles. (not yet implemented)
+          </label>
+          <button
+            disabled
+            onClick={() =>
+              updateSetting(
+                "battleEventAcceptPlebs",
+                !settings.battleEventAcceptPlebs
+              )
+            }
+            className={`relative inline-flex items-center h-6 w-12 rounded-full transition-colors duration-300
+            ${settings.battleEventAcceptPlebs ? "bg-rose-500" : "bg-gray-700"}`}
+          >
+            <span
+              className={`inline-block w-5 h-5 transform bg-white rounded-full shadow-md transition-transform duration-300
+              ${
+                settings.battleEventAcceptPlebs
+                  ? "translate-x-6"
+                  : "translate-x-1"
+              }`}
+            />
+          </button>
+        </div>
+        <EffectCard
+          effectKey="battleEventDPSTracker"
+          label="DPS Tracker / Battle Results"
+          enabled={settings.battleEventDPSTracker}
+          toggleEnabled={() =>
+            updateSetting(
+              "battleEventDPSTracker",
+              !settings.battleEventDPSTracker
+            )
+          }
+          settings={settings}
+          onChange={updateSetting}
+          fields={[]}
+        >
           <div className="flex items-center space-x-3">
-            <label className="font-semibold">
-              DPS Tracker / Battle Results.
-            </label>
+            <label className="font-semibold">Display real-time dps.</label>
             <button
               onClick={() =>
                 updateSetting(
-                  "battleEventDPSTracker",
-                  !settings.battleEventDPSTracker
+                  "battleEventDPSTrackerLive",
+                  !settings.battleEventDPSTrackerLive
                 )
               }
               className={`relative inline-flex items-center h-6 w-12 rounded-full transition-colors duration-300
-            ${settings.battleEventDPSTracker ? "bg-rose-500" : "bg-gray-700"}`}
+            ${
+              settings.battleEventDPSTrackerLive ? "bg-rose-500" : "bg-gray-700"
+            }`}
             >
               <span
                 className={`inline-block w-5 h-5 transform bg-white rounded-full shadow-md transition-transform duration-300
               ${
-                settings.battleEventDPSTracker
+                settings.battleEventDPSTrackerLive
                   ? "translate-x-6"
                   : "translate-x-1"
               }`}
               />
             </button>
           </div>
-        </div>
+          <div className="flex items-center space-x-3">
+            <label className="font-semibold">
+              Display result screen at left side.
+            </label>
+            <button
+              onClick={() =>
+                updateSetting(
+                  "battleEventDPSTrackerFloatLeft",
+                  !settings.battleEventDPSTrackerFloatLeft
+                )
+              }
+              className={`relative inline-flex items-center h-6 w-12 rounded-full transition-colors duration-300
+            ${
+              settings.battleEventDPSTrackerFloatLeft
+                ? "bg-rose-500"
+                : "bg-gray-700"
+            }`}
+            >
+              <span
+                className={`inline-block w-5 h-5 transform bg-white rounded-full shadow-md transition-transform duration-300
+              ${
+                settings.battleEventDPSTrackerFloatLeft
+                  ? "translate-x-6"
+                  : "translate-x-1"
+              }`}
+              />
+            </button>
+          </div>
+        </EffectCard>
       </EffectCard>
     </div>
   );

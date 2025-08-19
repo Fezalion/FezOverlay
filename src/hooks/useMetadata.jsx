@@ -48,6 +48,9 @@ export function useMetadata() {
     battleEventDamage: 50,
     battleEventDuration: 60,
     battleEventDPSTracker: true,
+    battleEventDPSTrackerLive: true,
+    battleEventDPSTrackerFloatLeft: false,
+    battleEventAcceptPlebs: false,
   });
 
   const [availableSubEffects, setAvailableSubEffects] = useState([]);
@@ -177,6 +180,11 @@ export function useMetadata() {
         battleEventDamage: toNumber(data.battleEventDamage, 50),
         battleEventDuration: toNumber(data.battleEventDuration, 60),
         battleEventDPSTracker: Boolean(data.battleEventDPSTracker),
+        battleEventDPSTrackerLive: Boolean(data.battleEventDPSTrackerLive),
+        battleEventAcceptPlebs: Boolean(data.battleEventAcceptPlebs),
+        battleEventDPSTrackerFloatLeft: Boolean(
+          data.battleEventDPSTrackerFloatLeft
+        ),
       });
 
       setError(null);
