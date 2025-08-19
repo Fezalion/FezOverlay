@@ -120,7 +120,10 @@ export const kamehameha = ({
     }, chargeDuration);
     // --- Step 2: Fire beam ---
     setTimeout(() => {
-      if (!participant.isAlive) return; // Skip if dead
+      if (!participant.isAlive) {
+        engine.timing.timeScale = 1;
+        return;
+      } // Skip if dead
       const svg = document.getElementById("effects-layer");
       const beamWidth = 180;
       const beamLength = 4000;
@@ -178,7 +181,10 @@ export const kamehameha = ({
 
       // Update beam shape
       const updateBeam = () => {
-        if (!participant.isAlive) return; // Skip if dead
+        if (!participant.isAlive) {
+          engine.timing.timeScale = 1;
+          return;
+        } // Skip if dead // Skip if dead
         const start = participant.body.position;
         const dx = pointX - start.x;
         const dy = pointY - start.y;
@@ -214,7 +220,10 @@ export const kamehameha = ({
         (p) => p.isAlive && p.id != participant.id
       );
       const damageLoop = setInterval(() => {
-        if (!participant.isAlive) return; // Skip if dead
+        if (!participant.isAlive) {
+          engine.timing.timeScale = 1;
+          return;
+        } // Skip if dead
         const start = participant.body.position;
         const dx = pointX - start.x;
         const dy = pointY - start.y;

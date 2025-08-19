@@ -11,7 +11,8 @@ export function useBattleSystem(
   bodiesWithTimers,
   battleSettings,
   subscriberTracker,
-  sceneRef
+  sceneRef,
+  client
 ) {
   const dpsTracker = useBattleDPSTracker(battleSettings);
   const activeBattleRef = useRef(null);
@@ -104,12 +105,10 @@ export function useBattleSystem(
       (p) => p.isAlive && p.id != participant.id
     );
     let randomEnemy = null;
-    console.log(`found ${aliveParticipants.length} people`);
     if (aliveParticipants.length > 0) {
       const maxHP = Math.max(...aliveParticipants.map((p) => p.hp));
       const strongest = aliveParticipants.filter((p) => p.hp === maxHP);
       randomEnemy = strongest[Math.floor(Math.random() * strongest.length)];
-      console.log(`selected ${randomEnemy.subscriberName}`);
     }
     return randomEnemy;
   };
@@ -294,9 +293,6 @@ export function useBattleSystem(
     );
     textEl.style.left = `${left}px`;
     textEl.style.top = `${top}px`;
-
-    console.log(`showing ${text} at ${top}:${left}`);
-
     textEl.style.color = color;
     textEl.style.fontWeight = "bold";
     textEl.style.fontSize = "16px";
@@ -628,7 +624,6 @@ export function useBattleSystem(
         if (effect.name === "Shield") {
           participant.hasShield = false;
           participant.el.classList.remove("has-shield");
-          console.log(`Shield effect removed from ${participant.id}`);
         }
         return false;
       });
@@ -865,79 +860,93 @@ export function useBattleSystem(
     }
   }, []);
 
-  const displayWinner = useCallback((winner) => {
-    if (!winner) return;
+  const displayWinner = useCallback(
+    (winner) => {
+      if (!winner) return;
 
-    const winnerDisplay = document.createElement("div");
-    winnerDisplay.innerHTML = `🏆 ${winner.subscriberName} WINS! 🏆`;
-    winnerDisplay.style.position = "fixed";
-    winnerDisplay.style.top = "30px";
-    winnerDisplay.style.left = "50%";
-    winnerDisplay.style.transform = "translateX(-50%)";
-    winnerDisplay.style.fontSize = "36px";
-    winnerDisplay.style.fontWeight = "bold";
-    winnerDisplay.style.color = winner.userColor;
-    winnerDisplay.style.textShadow = "2px 2px 4px rgba(0,0,0,0.8)";
-    winnerDisplay.style.zIndex = "10001";
-    winnerDisplay.style.pointerEvents = "none";
-    winnerDisplay.style.textAlign = "center";
-    winnerDisplay.style.animation = "bounce 1s ease-in-out infinite";
+      client.current
+        .say(battleSettings.twitchName, `🏆 ${winner.subscriberName} WINS! 🏆`)
+        .catch((e) => {
+          const winnerDisplay = document.createElement("div");
+          winnerDisplay.innerHTML = `🏆 ${winner.subscriberName} WINS! 🏆`;
+          winnerDisplay.style.position = "fixed";
+          winnerDisplay.style.top = "30px";
+          winnerDisplay.style.left = "50%";
+          winnerDisplay.style.transform = "translateX(-50%)";
+          winnerDisplay.style.fontSize = "36px";
+          winnerDisplay.style.fontWeight = "bold";
+          winnerDisplay.style.color = winner.userColor;
+          winnerDisplay.style.textShadow = "2px 2px 4px rgba(0,0,0,0.8)";
+          winnerDisplay.style.zIndex = "10001";
+          winnerDisplay.style.pointerEvents = "none";
+          winnerDisplay.style.textAlign = "center";
+          winnerDisplay.style.animation = "bounce 1s ease-in-out infinite";
 
-    // Add bounce animation
-    const style = document.createElement("style");
-    style.textContent = `
+          // Add bounce animation
+          const style = document.createElement("style");
+          style.textContent = `
       @keyframes bounce {
         0%, 100% { transform: translate(-50%, -50%) scale(1); }
         50% { transform: translate(-50%, -50%) scale(1.05); }
       }
     `;
-    document.head.appendChild(style);
-    document.body.appendChild(winnerDisplay);
+          document.head.appendChild(style);
+          document.body.appendChild(winnerDisplay);
 
-    setTimeout(() => {
-      winnerDisplay.remove();
-      style.remove();
-    }, 5000);
-  }, []);
+          setTimeout(() => {
+            winnerDisplay.remove();
+            style.remove();
+          }, 5000);
+        });
+    },
+    [client, battleSettings]
+  );
 
-  const displayDraw = useCallback((draw) => {
-    if (!draw) return;
+  const displayDraw = useCallback(
+    (draw) => {
+      if (!draw) return;
 
-    const winnerDisplay = document.createElement("div");
-    winnerDisplay.innerHTML = `🏆 DRAW 🏆`;
-    winnerDisplay.style.position = "fixed";
-    winnerDisplay.style.top = "30px";
-    winnerDisplay.style.left = "50%";
-    winnerDisplay.style.transform = "translateX(-50%)";
-    winnerDisplay.style.fontSize = "36px";
-    winnerDisplay.style.fontWeight = "bold";
-    winnerDisplay.style.color = "#ff0000";
-    winnerDisplay.style.textShadow = "2px 2px 4px rgba(0,0,0,0.8)";
-    winnerDisplay.style.zIndex = "10001";
-    winnerDisplay.style.pointerEvents = "none";
-    winnerDisplay.style.textAlign = "center";
-    winnerDisplay.style.animation = "bounce 1s ease-in-out infinite";
+      client.current.say(battleSettings.twitchName, `🏆 DRAW 🏆`).catch((e) => {
+        const winnerDisplay = document.createElement("div");
+        winnerDisplay.innerHTML = `🏆 DRAW 🏆`;
+        winnerDisplay.style.position = "fixed";
+        winnerDisplay.style.top = "30px";
+        winnerDisplay.style.left = "50%";
+        winnerDisplay.style.transform = "translateX(-50%)";
+        winnerDisplay.style.fontSize = "36px";
+        winnerDisplay.style.fontWeight = "bold";
+        winnerDisplay.style.color = "#ff0000";
+        winnerDisplay.style.textShadow = "2px 2px 4px rgba(0,0,0,0.8)";
+        winnerDisplay.style.zIndex = "10001";
+        winnerDisplay.style.pointerEvents = "none";
+        winnerDisplay.style.textAlign = "center";
+        winnerDisplay.style.animation = "bounce 1s ease-in-out infinite";
 
-    // Add bounce animation
-    const style = document.createElement("style");
-    style.textContent = `
+        // Add bounce animation
+        const style = document.createElement("style");
+        style.textContent = `
       @keyframes bounce {
         0%, 100% { transform: translate(-50%, -50%) scale(1); }
         50% { transform: translate(-50%, -50%) scale(1.05); }
       }
     `;
-    document.head.appendChild(style);
-    document.body.appendChild(winnerDisplay);
+        document.head.appendChild(style);
+        document.body.appendChild(winnerDisplay);
 
-    setTimeout(() => {
-      winnerDisplay.remove();
-      style.remove();
-    }, 5000);
-  }, []);
+        setTimeout(() => {
+          winnerDisplay.remove();
+          style.remove();
+        }, 5000);
+      });
+    },
+    [client, battleSettings]
+  );
 
   const endBattle = useCallback(() => {
     const engine = engineRef.current;
     if (!activeBattleRef.current || !engine) return;
+
+    activeBattleRef.current.isAlive = false;
 
     if (battleSettings.battleEventDPSTracker) dpsTracker.current.endBattle();
 
@@ -1004,7 +1013,7 @@ export function useBattleSystem(
       activeBattleRef.current = null;
       console.log("Battle ended and all participants cleaned up");
     }, 3000);
-  }, [engineRef, displayWinner, bodiesWithTimers, displayDraw]);
+  }, [engineRef, client, battleSettings, battleParticipants]);
 
   const updateBattle = useCallback(() => {
     if (!activeBattleRef.current) return;
@@ -1048,9 +1057,11 @@ export function useBattleSystem(
     const battleDuration = Date.now() - activeBattleRef.current.startTime;
 
     if (
-      aliveParticipants.length <= 1 ||
-      battleDuration >= battleSettings.battleEventDuration * 1000
+      activeBattleRef.current.isAlive &&
+      (aliveParticipants.length <= 1 ||
+        battleDuration >= battleSettings.battleEventDuration * 1000)
     ) {
+      activeBattleRef.current.isAlive = false;
       setTimeout(() => {
         endBattle();
       }, 500);
@@ -1094,6 +1105,7 @@ export function useBattleSystem(
     activeBattleRef.current = {
       startTime: Date.now(),
       participants,
+      isAlive: true,
     };
 
     // Set up battle update loop

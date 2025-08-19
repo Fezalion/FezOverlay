@@ -56,10 +56,10 @@ function EmoteOverlayCore({ version, ...settings }) {
   const bodiesWithTimers = useRef([]);
 
   // Initialize all hooks
-  const client = useTwitchClient(settings.twitchName);
+  const clientRef = useTwitchClient(settings.twitchName);
   const emoteMap = useEmoteLoader(settings.emoteSetId);
   const physics = usePhysicsEngine();
-  const subscriberTracker = useSubscriberTracker(client);
+  const subscriberTracker = useSubscriberTracker(clientRef.current, true, true);
 
   // Extract battle settings
   const battleSettings = {
@@ -71,6 +71,7 @@ function EmoteOverlayCore({ version, ...settings }) {
     battleEventDPSTracker: settings.battleEventDPSTracker,
     battleEventDPSTrackerFloatLeft: settings.battleEventDPSTrackerFloatLeft,
     battleEventDPSTrackerLive: settings.battleEventDPSTrackerLive,
+    twitchName: settings.twitchName,
   };
 
   const globalEffects = useGlobalEffects(
@@ -79,7 +80,8 @@ function EmoteOverlayCore({ version, ...settings }) {
     emoteMap,
     battleSettings,
     subscriberTracker,
-    sceneRef
+    sceneRef,
+    clientRef
   );
   const { spawnEmote } = useEmoteSpawner(
     physics.engineRef.current,
@@ -116,7 +118,7 @@ function EmoteOverlayCore({ version, ...settings }) {
   ]);
   // Set up message handling
   useMessageHandler(
-    client,
+    clientRef.current,
     emoteMap,
     spawnEmote,
     globalEffects,
@@ -125,7 +127,12 @@ function EmoteOverlayCore({ version, ...settings }) {
   );
 
   // Set up raid handling
-  useRaidHandler(client, spawnEmote, settings.raidEffect, settings.emoteDelay);
+  useRaidHandler(
+    clientRef.current,
+    spawnEmote,
+    settings.raidEffect,
+    settings.emoteDelay
+  );
 
   return (
     <>

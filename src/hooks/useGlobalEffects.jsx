@@ -8,7 +8,8 @@ export function useGlobalEffects(
   emoteMap,
   battleSettings,
   subscriberTracker,
-  sceneRef
+  sceneRef,
+  client
 ) {
   const magneticEventRef = useRef(false);
   const reverseGravityEventRef = useRef(false);
@@ -19,7 +20,8 @@ export function useGlobalEffects(
     bodiesWithTimers,
     battleSettings,
     subscriberTracker,
-    sceneRef
+    sceneRef,
+    client
   );
 
   const startMagneticEvent = useCallback(

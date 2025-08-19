@@ -44,6 +44,8 @@ app.use(bodyParser.json());
 app.use(express.static(distRoot));
 
 const LASTFM_API_KEY = process.env.LASTFM_API_KEY;
+const TWITCH_ACCESS_TOKEN = process.env.TWITCH_ACCESS_TOKEN;
+const TWITCH_CLIENT = process.env.CLIENT_ID;
 
 function getLatestRelease(cb) {
   const url = `https://api.github.com/repos/${repo}/releases/latest`;
@@ -205,6 +207,18 @@ app.get("/api/currentversion", (req, res) => {
   res.json({ version: val });
 });
 
+app.get("/api/twitch", (req, res) => {
+  if (!TWITCH_CLIENT || !TWITCH_ACCESS_TOKEN) {
+    console.error(
+      "[Twitch API] TWITCH_ACCESS_TOKEN and/or CLIENT_ID is not set"
+    );
+    return res
+      .status(500)
+      .json({ error: "TWITCH_ACCESS_TOKEN and/or CLIENT_ID is not set" });
+  }
+  res.json({ auth: TWITCH_ACCESS_TOKEN, client: TWITCH_CLIENT });
+});
+
 // POST update one or more settings (partial update)
 app.post("/api/settings", (req, res) => {
   const current = loadSettings();
@@ -337,6 +351,12 @@ if (!fs.existsSync(distRoot)) {
     console.log("Dist folder not found in development mode.");
     console.log("Please run: npm run build");
   }
+}
+
+if (!TWITCH_CLIENT || !TWITCH_ACCESS_TOKEN) {
+  console.error(
+    "[Twitch API] TWITCH_ACCESS_TOKEN and/or CLIENT_ID in .env file is not set, please generate them using https://twitchtokengenerator.com (safe to ignore if not using twitch emote features)"
+  );
 }
 
 server.listen(PORT, "0.0.0.0", () => {

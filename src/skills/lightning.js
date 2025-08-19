@@ -14,9 +14,6 @@ export const lightning = ({
     const chain = findNearestEnemy(farEnemy, participant);
     const chain2 = findNearestEnemy(chain, participant, farEnemy);
 
-    console.log(
-      `from:${participant.subscriberName} to ${farEnemy.subscriberName} to ${chain.subscriberName} to ${chain2.subscriberName}`
-    );
     if (farEnemy) {
       if (!participant.isAlive) return; // Skip if dead
       const engine = engineRef.current;
