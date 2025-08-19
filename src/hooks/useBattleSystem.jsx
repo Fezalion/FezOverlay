@@ -326,7 +326,7 @@ class BattleDPSTracker {
           style.remove();
         }, 300);
       }
-    }, 100000);
+    }, 10 * 1000);
   }
 
   // Get current stats during battle
@@ -1219,10 +1219,10 @@ export function useBattleSystem(
     const winnerDisplay = document.createElement("div");
     winnerDisplay.innerHTML = `🏆 ${winner.subscriberName} WINS! 🏆`;
     winnerDisplay.style.position = "fixed";
-    winnerDisplay.style.top = "50%";
+    winnerDisplay.style.top = "30px";
     winnerDisplay.style.left = "50%";
-    winnerDisplay.style.transform = "translate(-50%, -50%)";
-    winnerDisplay.style.fontSize = "48px";
+    winnerDisplay.style.transform = "translateX(-50%)";
+    winnerDisplay.style.fontSize = "36px";
     winnerDisplay.style.fontWeight = "bold";
     winnerDisplay.style.color = winner.userColor;
     winnerDisplay.style.textShadow = "2px 2px 4px rgba(0,0,0,0.8)";
@@ -1236,7 +1236,7 @@ export function useBattleSystem(
     style.textContent = `
       @keyframes bounce {
         0%, 100% { transform: translate(-50%, -50%) scale(1); }
-        50% { transform: translate(-50%, -50%) scale(1.1); }
+        50% { transform: translate(-50%, -50%) scale(1.05); }
       }
     `;
     document.head.appendChild(style);
@@ -1254,10 +1254,10 @@ export function useBattleSystem(
     const winnerDisplay = document.createElement("div");
     winnerDisplay.innerHTML = `🏆 DRAW 🏆`;
     winnerDisplay.style.position = "fixed";
-    winnerDisplay.style.top = "50%";
+    winnerDisplay.style.top = "30px";
     winnerDisplay.style.left = "50%";
-    winnerDisplay.style.transform = "translate(-50%, -50%)";
-    winnerDisplay.style.fontSize = "48px";
+    winnerDisplay.style.transform = "translateX(-50%)";
+    winnerDisplay.style.fontSize = "36px";
     winnerDisplay.style.fontWeight = "bold";
     winnerDisplay.style.color = "#ff0000";
     winnerDisplay.style.textShadow = "2px 2px 4px rgba(0,0,0,0.8)";
@@ -1271,7 +1271,7 @@ export function useBattleSystem(
     style.textContent = `
       @keyframes bounce {
         0%, 100% { transform: translate(-50%, -50%) scale(1); }
-        50% { transform: translate(-50%, -50%) scale(1.1); }
+        50% { transform: translate(-50%, -50%) scale(1.05); }
       }
     `;
     document.head.appendChild(style);

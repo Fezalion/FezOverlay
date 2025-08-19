@@ -1,6 +1,6 @@
 export const shinraTensei = ({ engineRef, showText, radialKnockback }) => ({
   name: "Shinra Tensei",
-  disabled: true,
+  disabled: false,
   effect: (participant) => {
     const engine = engineRef.current;
     engine.timing.timeScale = 0;

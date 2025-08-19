@@ -1,6 +1,6 @@
 export const heal = ({ battleSettings, showText }) => ({
   name: "Heal",
-  disabled: true,
+  disabled: false,
   effect: (p) => {
     const healAmount = battleSettings.battleEventHp * 0.3;
     p.hp = Math.min(p.maxHp, p.hp + healAmount);

@@ -5,7 +5,7 @@ export const omaewamou = ({
   dealDamage,
 }) => ({
   name: "Omae wa mou shindeiru",
-  disabled: true,
+  disabled: false,
   effect: (participant) => {
     const engine = engineRef.current;
     engine.timing.timeScale = 0.01;

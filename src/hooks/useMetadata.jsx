@@ -46,7 +46,7 @@ export function useMetadata() {
     battleEventParticipants: 8,
     battleEventHp: 300,
     battleEventDamage: 50,
-    battleEventDuration: 15,
+    battleEventDuration: 60,
     battleEventDPSTracker: true,
   });
 
@@ -175,7 +175,7 @@ export function useMetadata() {
         battleEventParticipants: toNumber(data.battleEventParticipants, 8),
         battleEventHp: toNumber(data.battleEventHp, 300),
         battleEventDamage: toNumber(data.battleEventDamage, 50),
-        battleEventDuration: toNumber(data.battleEventDuration, 15),
+        battleEventDuration: toNumber(data.battleEventDuration, 60),
         battleEventDPSTracker: Boolean(data.battleEventDPSTracker),
       });
 
