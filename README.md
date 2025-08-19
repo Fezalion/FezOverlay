@@ -13,6 +13,55 @@ A React-based overlay application for streaming with Last.fm integration and cus
 
 https://www.youtube.com/watch?v=nzPYJCWTqC8
 
+### Usage
+
+### Overlay Usage
+
+1. **Environment Variables:**
+
+   - Create a `.env` file in the root directory:
+
+     ```
+     LASTFM_API_KEY=your_lastfm_api_key_here
+     TWITCH_ACCESS_TOKEN=access_token
+     CLIENT_ID=client_id
+     ```
+
+   - You can use https://twitchtokengenerator.com to generate the access token and client id.
+   - Only scopes needed are "chat:read" and "chat:edit".
+
+2. **Running:**
+
+   - Run `updater.exe` to update and install the files, after update is done launch `fezoverlay.exe`
+
+3. **Open the Settings Page:**
+
+   - Go to [http://localhost:48000/](http://localhost:48000/) in your browser.
+   - Here you can customize the overlay's color, font, padding, and more.
+
+4. **Add the Overlays to OBS:**
+
+   - In OBS, add a new **Browser Source**.
+   - Set the URL for widgets and make the resolution same as your screen:  
+      `http://localhost:48000/playing`
+     `http://localhost:48000/emotes`
+   - Set your LastFM user name in the settings page mentioned above.
+   - Set your twitch username and 7tv emoteset IDs in the settings page mentioned above.
+
+5. **Position the Overlay:**
+
+   - You should have both overlays be the same size of your Scene, you can move the NowPlaying widget by either pressing interact in obs then using (Shift +) Arrow Keys, or the same in your browser.
+
+6. **Edit Overlay Appearance:**
+   - To change the overlay's appearance, open [http://localhost:48000/](http://localhost:48000/) in your browser again.
+   - Adjust the settings as desired.
+
+## FAQ
+
+**I updated mid stream, do I need to do something?:**
+
+- Yes, to have no issues, please refresh your obs browser sources.
+
 ## Update System
 
 The application uses a separate updater tool for downloading and updating files:
@@ -55,72 +104,3 @@ If the auto-download fails:
 - The server will still start (if possible)
 - API endpoints will return a 503 status with helpful error messages
 - Users can manually download and extract the dist folder
-
-### Usage
-
-### Overlay Usage
-
-1. **Open the Settings Page:**
-
-   - Go to [http://localhost:48000/](http://localhost:48000/) in your browser.
-   - Here you can customize the overlay's color, font, padding, and more.
-
-2. **Add the Overlays to OBS:**
-
-   - In OBS, add a new **Browser Source**.
-   - Set the URL for widgets and make the resolution same as your screen:  
-      `http://localhost:48000/playing`
-     `http://localhost:48000/emotes`
-   - Set your LastFM user name in the settings page mentioned above.
-   - Set your twitch username and 7tv emoteset IDs in the settings page mentioned above.
-
-3. **Position the Overlay:**
-
-   - You should have both overlays be the same size of your Scene, you can move the NowPlaying widget by either pressing interact in obs then using (Shift +) Arrow Keys, or the same in your browser.
-
-4. **Edit Overlay Appearance:**
-   - To change the overlay's appearance, open [http://localhost:48000/](http://localhost:48000/) in your browser again.
-   - Adjust the settings as desired.
-   - After making changes, right-click the browser source in OBS and select **Refresh** to apply the new settings.
-
-## Development
-
-### Prerequisites
-
-- Node.js (v16 or higher)
-- npm or yarn
-
-### Setup
-
-1. Clone the repository
-2. Install dependencies: `npm install`
-3. Set up environment variables (see below)
-4. Run development server: `npm run dev`
-
-### Environment Variables
-
-Create a `.env` file in the root directory:
-
-```
-LASTFM_API_KEY=your_lastfm_api_key_here
-TWITCH_ACCESS_TOKEN=access_token
-CLIENT_ID=client_id
-```
-
-You can use https://twitchtokengenerator.com to generate the access token and client id.
-Only scopes needed are "chat:read" and "chat:edit".
-
-### Building
-
-- Development build: `npm run build`
-- Package as executable: `npm run package` (requires pkg to be installed globally: `npm install -g pkg`)
-
-## API Endpoints
-
-- `GET /api/settings` - Get current settings
-- `POST /api/settings` - Update settings
-- `GET /api/lastfm/latest/:username` - Get latest track for a Last.fm user
-
-## License
-
-[Add your license information here]
