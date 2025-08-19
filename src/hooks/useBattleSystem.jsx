@@ -1,6 +1,357 @@
-import { useRef, useCallback } from "react";
+/* eslint-disable react-hooks/exhaustive-deps */
+import { useRef, useCallback, useMemo } from "react";
 import Matter from "matter-js";
 import { createEmoteElement } from "../utils/emoteEffects";
+import { createSkills } from "../skills";
+
+// DPS Tracker class to integrate with your battle system
+class BattleDPSTracker {
+  constructor() {
+    this.battleStats = new Map(); // playerId -> stats
+    this.battleStartTime = null;
+    this.battleEndTime = null;
+    this.battleActive = false;
+    this.finalResults = null;
+  }
+
+  startBattle() {
+    this.battleStartTime = Date.now();
+    this.battleEndTime = null;
+    this.battleActive = true;
+    this.battleStats.clear();
+    this.finalResults = null;
+  }
+
+  endBattle() {
+    if (!this.battleActive) return;
+
+    this.battleEndTime = Date.now();
+    this.battleActive = false;
+    this.finalResults = this.calculateFinalStats();
+    this.displayBattleResults();
+  }
+
+  // Register a participant in the DPS tracker
+  registerParticipant(participant) {
+    if (!this.battleStats.has(participant.id)) {
+      this.battleStats.set(participant.id, {
+        id: participant.id,
+        name: participant.subscriberName,
+        color: participant.userColor,
+        totalDamageDealt: 0,
+        totalDamageTaken: 0,
+        kills: 0,
+        deaths: 0,
+        damageEvents: [],
+        killEvents: [],
+        deathTime: null,
+        survivalTime: 0,
+      });
+    }
+  }
+
+  // Record damage dealt
+  recordDamageDealt(attackerId, targetId, damage) {
+    if (!this.battleActive) return;
+
+    const attackerStats = this.battleStats.get(attackerId);
+    const targetStats = this.battleStats.get(targetId);
+
+    if (attackerStats) {
+      attackerStats.totalDamageDealt += damage;
+      attackerStats.damageEvents.push({
+        damage,
+        target: targetId,
+        timestamp: Date.now(),
+      });
+    }
+
+    if (targetStats) {
+      targetStats.totalDamageTaken += damage;
+    }
+  }
+
+  // Record a kill
+  recordKill(killerId, victimId) {
+    if (!this.battleActive) return;
+
+    const killerStats = this.battleStats.get(killerId);
+    const victimStats = this.battleStats.get(victimId);
+
+    if (killerStats) {
+      killerStats.kills++;
+      killerStats.killEvents.push({
+        victim: victimId,
+        timestamp: Date.now(),
+      });
+    }
+
+    if (victimStats) {
+      victimStats.deaths++;
+      victimStats.deathTime = Date.now();
+      victimStats.survivalTime = Date.now() - this.battleStartTime;
+    }
+  }
+
+  // Calculate DPS for a player
+  calculateDPS(playerId) {
+    const stats = this.battleStats.get(playerId);
+    if (!stats) return 0;
+
+    const battleDuration = this.getBattleDurationSeconds();
+    if (battleDuration <= 0) return 0;
+
+    // If player died, use their survival time instead of total battle time
+    const relevantDuration = stats.deathTime
+      ? (stats.deathTime - this.battleStartTime) / 1000
+      : battleDuration;
+
+    return relevantDuration > 0 ? stats.totalDamageDealt / relevantDuration : 0;
+  }
+
+  getBattleDurationSeconds() {
+    if (!this.battleStartTime) return 0;
+    const endTime = this.battleEndTime || Date.now();
+    return (endTime - this.battleStartTime) / 1000;
+  }
+
+  calculateFinalStats() {
+    const results = [];
+    const battleDuration = this.getBattleDurationSeconds();
+
+    for (const [playerId, stats] of this.battleStats) {
+      const dps = this.calculateDPS(playerId);
+      const kda = stats.deaths > 0 ? stats.kills / stats.deaths : stats.kills;
+
+      results.push({
+        ...stats,
+        dps: Math.round(dps * 100) / 100,
+        kda: Math.round(kda * 100) / 100,
+        damagePerKill:
+          stats.kills > 0
+            ? Math.round(stats.totalDamageDealt / stats.kills)
+            : 0,
+        survivalTime: stats.deathTime
+          ? stats.survivalTime / 1000
+          : battleDuration,
+        survivalPercent: stats.deathTime
+          ? Math.round((stats.survivalTime / (battleDuration * 1000)) * 100)
+          : 100,
+      });
+    }
+
+    // Sort by DPS (highest first)
+    results.sort((a, b) => b.dps - a.dps);
+    return results;
+  }
+
+  displayBattleResults() {
+    if (!this.finalResults) return;
+
+    // Create results overlay
+    const overlay = document.createElement("div");
+    overlay.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 10002;
+      animation: fadeIn 0.5s ease-out;
+    `;
+
+    const resultsPanel = document.createElement("div");
+    resultsPanel.style.cssText = `
+      background: rgba(0, 0, 0, 0.8);
+      border: 1px solid #4a9eff;
+      border-radius: 15px;
+      padding: 10px;
+      max-width: 400px;
+      max-height: 90vh;
+      overflow-y: auto;
+      animation: slideIn 0.5s ease-out;
+      position:absolute;
+      top:50%;
+      right:10px;
+      transform: translateY(-50%);
+    `;
+
+    // Add animations
+    const style = document.createElement("style");
+    style.textContent = `
+      @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+      @keyframes slideIn {
+        from { transform:translateY(-50%) translateX(-50px); opacity: 0; }
+        to { transform:translateY(-50%) translateX(0); opacity: 1; }
+      }      
+    `;
+    document.head.appendChild(style);
+
+    // Title
+    const title = document.createElement("h2");
+    title.textContent = "⚔️ BATTLE RESULTS ⚔️";
+    title.style.cssText = `
+      text-align: center;
+      color: #4a9eff;
+      margin: 0 0 10px 0;
+      font-size: 16px;
+      text-shadow: 0 0 10px rgba(74, 158, 255, 0.5);
+    `;
+
+    // Battle info
+    const battleInfo = document.createElement("div");
+    battleInfo.style.cssText = `
+      text-align: center;
+      color: #ffffff;
+      margin-bottom: 15px;
+      font-size: 12px;
+    `;
+    battleInfo.innerHTML = `
+      Duration: <span style="color: #4a9eff;">${this.getBattleDurationSeconds().toFixed(
+        1
+      )}s</span> | 
+      Participants: <span style="color: #4a9eff;">${
+        this.finalResults.length
+      }</span>
+    `;
+
+    // Results table
+    const table = document.createElement("div");
+    table.style.cssText = `
+      width: 100%;
+      border-radius: 8px;
+      overflow: hidden;
+    `;
+
+    // Header
+    const header = document.createElement("div");
+    header.style.cssText = `
+      display: grid;
+      grid-template-columns: 40px 2fr 1fr 1fr 1fr 1fr;
+      gap: 8px;
+      padding: 10px;
+      background: rgba(0, 0, 0, 0.2);
+      color: #ffffff;
+      font-weight: bold;
+      font-size: 10px;
+    `;
+    header.innerHTML = `
+      <div style="text-align: center;">#</div>
+      <div>Player</div>
+      <div style="text-align: center;">DPS</div>
+      <div style="text-align: center;">Damage</div>
+      <div style="text-align: center;">Kills</div>
+      <div style="text-align: center;">Survival</div>
+    `;
+
+    table.appendChild(header);
+
+    // Results rows
+    this.finalResults.forEach((player, index) => {
+      const row = document.createElement("div");
+      row.className = "battle-results-row";
+      row.style.cssText = `
+        display: grid;
+        grid-template-columns: 40px 2fr 1fr 1fr 1fr 1fr;
+        gap: 10px;
+        padding: 6px 7px;
+        background: ${
+          index % 2 === 0
+            ? "rgba(255, 255, 255, 0.05)"
+            : "rgba(255, 255, 255, 0.02)"
+        };
+        color: #ffffff;
+        transition: all 0.2s ease;
+        border-left: 3px solid ${player.color};
+      `;
+
+      // Rank with medal for top 3
+      const rankText =
+        index === 0
+          ? "🥇"
+          : index === 1
+          ? "🥈"
+          : index === 2
+          ? "🥉"
+          : (index + 1).toString();
+
+      row.innerHTML = `
+        <div style="text-align: center; font-weight: bold;">${rankText}</div>
+        <div style="color: ${player.color}; font-weight: bold;">${
+        player.name
+      }</div>
+        <div style="text-align: center; color: #ff6b6b; font-weight: bold;">${player.dps.toFixed(
+          1
+        )}</div>
+        <div style="text-align: center;">${player.totalDamageDealt.toFixed(
+          1
+        )}</div>
+        <div style="text-align: center; color: #51cf66;">${player.kills}</div>
+        <div style="text-align: center; color: #ffd43b;">${player.survivalTime.toFixed(
+          1
+        )}s</div>
+      `;
+
+      table.appendChild(row);
+    });
+
+    // Add fade out animation
+    style.textContent += `
+      @keyframes fadeOut {
+        from { opacity: 1; }
+        to { opacity: 0; }
+      }
+    `;
+
+    // Assemble the panel
+    resultsPanel.appendChild(title);
+    resultsPanel.appendChild(battleInfo);
+    resultsPanel.appendChild(table);
+    overlay.appendChild(resultsPanel);
+    document.body.appendChild(overlay);
+
+    // Auto-close after 30 seconds
+    setTimeout(() => {
+      if (document.body.contains(overlay)) {
+        overlay.style.animation = "fadeOut 0.3s ease-out forwards";
+        setTimeout(() => {
+          overlay.remove();
+          style.remove();
+        }, 300);
+      }
+    }, 100000);
+  }
+
+  // Get current stats during battle
+  getCurrentStats() {
+    const results = [];
+    const currentTime = Date.now();
+    const battleDuration = (currentTime - this.battleStartTime) / 1000;
+
+    for (const [playerId, stats] of this.battleStats) {
+      const dps =
+        battleDuration > 0 ? stats.totalDamageDealt / battleDuration : 0;
+      const kda = stats.deaths > 0 ? stats.kills / stats.deaths : stats.kills;
+
+      results.push({
+        ...stats,
+        dps: Math.round(dps * 100) / 100,
+        kda: Math.round(kda * 100) / 100,
+        currentSurvivalTime: battleDuration,
+      });
+    }
+
+    results.sort((a, b) => b.dps - a.dps);
+    return results;
+  }
+}
 
 export function useBattleSystem(
   engineRef,
@@ -10,401 +361,10 @@ export function useBattleSystem(
   subscriberTracker,
   sceneRef
 ) {
+  const dpsTracker = useRef(new BattleDPSTracker());
   const activeBattleRef = useRef(null);
   const battleParticipants = useRef([]);
   const battleUpdateListener = useRef(null);
-
-  const specialSkills = useCallback(
-    {
-      omaewamou: {
-        name: "Omae wa mou shindeiru",
-        disabled: false,
-        effect: (participant) => {
-          const engine = engineRef.current;
-          engine.timing.timeScale = 0.01;
-
-          showText(participant, "🫵 OMAE WA MOU SHINDEIRU");
-          const randomEnemy = findStrongestEnemy(participant);
-          showText(randomEnemy, "NANI");
-          setTimeout(() => {
-            engine.timing.timeScale = 1;
-            dealDamage(randomEnemy, 9999, participant, false);
-          }, 3000);
-        },
-      },
-      heal: {
-        name: "Heal",
-        disabled: false,
-        effect: (p) => {
-          const healAmount = battleSettings.battleEventHp * 0.3;
-          p.hp = Math.min(p.maxHp, p.hp + healAmount);
-          showText(p, "💚 HEAL", "#00ff00");
-          // Green glow effect on participant
-          p.el.style.boxShadow = `0 0 30px #00ff00, 0 0 20px ${p.userColor}`;
-          setTimeout(() => {
-            if (p.el) p.el.style.boxShadow = `0 0 20px ${p.userColor}`;
-          }, 1000);
-        },
-      },
-      shield: {
-        name: "Shield",
-        disabled: false,
-        duration: 2000,
-        effect: (p) => {
-          showText(p, "🛡️ SHIELD", "#00aaff");
-          p.el.classList.add("has-shield");
-          p.hasShield = true;
-          // Green glow effect on participant
-          p.el.style.boxShadow = `0 0 30px #00aaff, 0 0 20px ${p.userColor}`;
-          setTimeout(() => {
-            if (p.el) p.el.style.boxShadow = `0 0 20px ${p.userColor}`;
-          }, 2000);
-        },
-      },
-      kamehameha: {
-        name: "kamehameha",
-        disabled: false,
-        effect: (participant) => {
-          const engine = engineRef.current;
-          engine.timing.timeScale = 0.01; // dramatic slow-mo
-
-          const farEnemy = findFarthestEnemy(participant);
-          const { x: pointX, y: pointY } = findPopulatedPoint(participant);
-          teleport(
-            participant,
-            farEnemy.body.position.x,
-            farEnemy.body.position.y
-          );
-
-          // --- Step 1: Charge orb ---
-          showText(participant, "KA... ME...");
-          const chargeDuration = 1200;
-
-          const orb = document.createElement("div");
-          orb.style.position = "absolute";
-          orb.style.width = "90px";
-          orb.style.height = "90px";
-          orb.style.borderRadius = "50%";
-          orb.style.pointerEvents = "none";
-          orb.style.zIndex = 2000;
-          orb.style.background =
-            "radial-gradient(circle, rgba(0,160,255,1) 0%, rgba(0,160,255,0.7) 40%, transparent 70%)";
-          orb.style.boxShadow =
-            "0 0 40px rgba(0,200,255,0.9), 0 0 80px rgba(0,200,255,0.7)";
-          sceneRef.current.appendChild(orb);
-
-          // Orb pulse animation
-          const orbPulse = orb.animate(
-            [
-              { transform: "scale(0.8)", opacity: 0.8 },
-              { transform: "scale(1.2)", opacity: 1 },
-              { transform: "scale(0.8)", opacity: 0.8 },
-            ],
-            { duration: 800, iterations: Infinity }
-          );
-
-          const updateOrb = () => {
-            const pos = participant.body.position;
-            orb.style.left = `${pos.x - 45}px`;
-            orb.style.top = `${pos.y - 45}px`;
-          };
-          const orbInterval = setInterval(updateOrb, 16);
-
-          // --- Yellow → white → transparent particles ---
-          const spawnParticle = () => {
-            const pos = participant.body.position;
-            const particle = document.createElement("div");
-            const size = Math.random() * 6 + 4;
-            particle.style.position = "absolute";
-            particle.style.width = `${size}px`;
-            particle.style.height = `${size}px`;
-            particle.style.borderRadius = "50%";
-            particle.style.background = "yellow";
-            particle.style.boxShadow = "0 0 8px rgba(255,255,100,0.8)";
-            particle.style.left = `${pos.x + (Math.random() * 60 - 30)}px`;
-            particle.style.top = `${pos.y + (Math.random() * 60 - 30)}px`;
-            particle.style.pointerEvents = "none";
-            particle.style.zIndex = 1999;
-            sceneRef.current.appendChild(particle);
-
-            const rise = Math.random() * 40 + 40;
-            const duration = Math.random() * 600 + 400;
-
-            particle.animate(
-              [
-                {
-                  transform: "translateY(0px)",
-                  opacity: 1,
-                  background: "yellow",
-                  boxShadow: "0 0 8px rgba(255,255,100,0.8)",
-                },
-                {
-                  transform: `translateY(-${rise / 2}px)`,
-                  opacity: 0.8,
-                  background: "white",
-                  boxShadow: "0 0 12px rgba(255,255,255,1)",
-                },
-                {
-                  transform: `translateY(-${rise}px)`,
-                  opacity: 0,
-                  background: "rgba(255,255,255,0)",
-                  boxShadow: "0 0 4px rgba(255,255,255,0.2)",
-                },
-              ],
-              { duration, easing: "ease-out" }
-            ).onfinish = () => {
-              if (particle.parentNode)
-                particle.parentNode.removeChild(particle);
-            };
-          };
-
-          // --- Sync particle bursts with orb pulse ---
-          orbPulse.onfinish = () => {
-            orbPulse.play(); // restart pulse
-            for (let i = 0; i < 6; i++) {
-              setTimeout(spawnParticle, i * 60);
-            }
-          };
-
-          // Stop particles + orb when beam fires
-          setTimeout(() => {
-            clearInterval(orbInterval);
-            orbPulse.cancel();
-            sceneRef.current.removeChild(orb);
-          }, chargeDuration);
-
-          setTimeout(() => {
-            showText(participant, "HAAA!!!");
-          }, chargeDuration);
-          // --- Step 2: Fire beam ---
-          setTimeout(() => {
-            const svg = document.getElementById("effects-layer");
-            const beamWidth = 180;
-            const beamLength = 4000;
-
-            // Ensure defs only once
-            if (!document.getElementById("beamGlow")) {
-              const defs = document.createElementNS(
-                "http://www.w3.org/2000/svg",
-                "defs"
-              );
-
-              const grad = document.createElementNS(
-                "http://www.w3.org/2000/svg",
-                "linearGradient"
-              );
-              grad.setAttribute("id", "kameGradient");
-              grad.setAttribute("x1", "0%");
-              grad.setAttribute("x2", "100%");
-              grad.innerHTML = `
-              <stop offset="0%" stop-color="rgba(0,160,255,0.6)"/>
-              <stop offset="50%" stop-color="rgba(200,250,255,1)"/>
-              <stop offset="100%" stop-color="rgba(0,160,255,0.6)"/>
-            `;
-              defs.appendChild(grad);
-
-              const filter = document.createElementNS(
-                "http://www.w3.org/2000/svg",
-                "filter"
-              );
-              filter.setAttribute("id", "beamGlow");
-              filter.innerHTML = `<feGaussianBlur stdDeviation="6" result="blur"/>`;
-              defs.appendChild(filter);
-
-              svg.appendChild(defs);
-            }
-
-            // Beam polygon
-            const beam = document.createElementNS(
-              "http://www.w3.org/2000/svg",
-              "polygon"
-            );
-            beam.setAttribute("fill", "url(#kameGradient)");
-            beam.setAttribute("filter", "url(#beamGlow)");
-            svg.appendChild(beam);
-
-            // Round start (circle overlay)
-            const startCircle = document.createElementNS(
-              "http://www.w3.org/2000/svg",
-              "circle"
-            );
-            startCircle.setAttribute("r", beamWidth / 2);
-            startCircle.setAttribute("fill", "url(#kameGradient)");
-            startCircle.setAttribute("filter", "url(#beamGlow)");
-            svg.appendChild(startCircle);
-
-            // Update beam shape
-            const updateBeam = () => {
-              const start = participant.body.position;
-              const dx = pointX - start.x;
-              const dy = pointY - start.y;
-              const angleRad = Math.atan2(dy, dx);
-              const angleDeg = angleRad * (180 / Math.PI);
-
-              const p1x = start.x;
-              const p1y = start.y - beamWidth / 2;
-              const p2x = start.x;
-              const p2y = start.y + beamWidth / 2;
-              const p3x = start.x + beamLength;
-              const p3y = start.y + beamWidth / 2;
-              const p4x = start.x + beamLength;
-              const p4y = start.y - beamWidth / 2;
-
-              beam.setAttribute(
-                "points",
-                `${p1x},${p1y} ${p2x},${p2y} ${p3x},${p3y} ${p4x},${p4y}`
-              );
-              beam.setAttribute(
-                "transform",
-                `rotate(${angleDeg}, ${start.x}, ${start.y})`
-              );
-
-              startCircle.setAttribute("cx", start.x);
-              startCircle.setAttribute("cy", start.y);
-            };
-            updateBeam();
-            const beamInterval = setInterval(updateBeam, 16);
-
-            // Damage loop
-            const enemies = bodiesWithTimers.current.filter(
-              (p) => p.isAlive && p.id != participant.id
-            );
-            const damageLoop = setInterval(() => {
-              const start = participant.body.position;
-              const dx = pointX - start.x;
-              const dy = pointY - start.y;
-              const angleRad = Math.atan2(dy, dx);
-              const cos = Math.cos(angleRad);
-              const sin = Math.sin(angleRad);
-
-              enemies.forEach((enemy) => {
-                const ex = enemy.body.position.x - start.x;
-                const ey = enemy.body.position.y - start.y;
-                const proj = ex * cos + ey * sin;
-                const perp = -ex * sin + ey * cos;
-
-                if (proj >= 0 && Math.abs(perp) < beamWidth / 2) {
-                  dealDamage(
-                    enemy,
-                    battleSettings.battleEventDamage * 0.4,
-                    participant,
-                    false
-                  );
-                }
-              });
-            }, 120);
-
-            // Fade + shrink cleanup
-            setTimeout(() => {
-              const startTime = Date.now();
-              const fadeDuration = 800;
-
-              const fadeInterval = setInterval(() => {
-                const elapsed = Date.now() - startTime;
-                const t = Math.min(1, elapsed / fadeDuration);
-                const currentWidth = beamWidth * (1 - t);
-
-                const startPos = participant.body.position;
-                const dx = pointX - startPos.x;
-                const dy = pointY - startPos.y;
-                const angleRad = Math.atan2(dy, dx);
-                const angleDeg = angleRad * (180 / Math.PI);
-
-                const p1x = startPos.x;
-                const p1y = startPos.y - currentWidth / 2;
-                const p2x = startPos.x;
-                const p2y = startPos.y + currentWidth / 2;
-                const p3x = startPos.x + beamLength;
-                const p3y = startPos.y + currentWidth / 2;
-                const p4x = startPos.x + beamLength;
-                const p4y = startPos.y - currentWidth / 2;
-
-                beam.setAttribute(
-                  "points",
-                  `${p1x},${p1y} ${p2x},${p2y} ${p3x},${p3y} ${p4x},${p4y}`
-                );
-                beam.setAttribute(
-                  "transform",
-                  `rotate(${angleDeg}, ${startPos.x}, ${startPos.y})`
-                );
-                beam.setAttribute("opacity", 1 - t);
-                startCircle.setAttribute("r", currentWidth / 2);
-                startCircle.setAttribute("opacity", 1 - t);
-
-                if (t >= 1) {
-                  clearInterval(fadeInterval);
-                  clearInterval(beamInterval);
-                  clearInterval(damageLoop);
-                  svg.removeChild(beam);
-                  svg.removeChild(startCircle);
-                  engine.timing.timeScale = 1;
-                }
-              }, 16);
-            }, 1200);
-          }, chargeDuration);
-        },
-      },
-      lightning: {
-        name: "Lightning",
-        disabled: false,
-        effect: (participant) => {
-          // Find nearest enemy and deal AOE damage
-          const farEnemy = findNearestEnemy(participant);
-          const chain = findNearestEnemy(farEnemy, participant);
-          if (farEnemy) {
-            const engine = engineRef.current;
-            engine.timing.timeScale = 0;
-
-            const lightningStrikes = 8; // number of farEnemy strikes
-            const interval = 100;
-            const offset = 50;
-            let totalTimeTook = 0;
-            showText(participant, "⚡ LIGHTNING STRIKE!", "#0025cc");
-
-            setTimeout(() => {
-              for (let i = 0; i < lightningStrikes; i++) {
-                const baseTime = i * interval;
-
-                // main strike on farEnemy
-                setTimeout(() => {
-                  drawJaggedLightning(participant, farEnemy);
-                  const damage = battleSettings.battleEventDamage * 0.25;
-                  dealDamage(farEnemy, damage, participant, false);
-                }, baseTime + offset);
-                // can chain to another
-                if (chain) {
-                  setTimeout(() => {
-                    drawJaggedLightning(farEnemy, chain);
-                    const damage = battleSettings.battleEventDamage * 0.1;
-                    dealDamage(chain, damage, participant, false);
-                  }, baseTime + 100 + offset);
-                }
-                totalTimeTook = baseTime + 100 + offset;
-              }
-
-              setTimeout(() => {
-                engine.timing.timeScale = 1;
-              }, totalTimeTook + offset);
-            }, 150);
-          }
-        },
-      },
-      shinraTensei: {
-        name: "Shinra Tensei",
-        disabled: false,
-        effect: (participant) => {
-          const engine = engineRef.current;
-          engine.timing.timeScale = 0;
-          showText(participant, "🙏🏻 SHINRA TENSEI", "#ffee00ff");
-
-          setTimeout(() => {
-            radialKnockback(participant);
-          }, 500);
-        },
-      },
-    },
-    []
-  );
 
   const teleport = (caster, targetX, targetY) => {
     const offset = 100;
@@ -434,28 +394,32 @@ export function useBattleSystem(
   };
 
   const findNearestEnemy = (participant, ...exceptions) => {
-    const exceptionIds = exceptions.map((e) => e.id);
-    const aliveParticipants = battleParticipants.current.filter(
-      (p) =>
-        p.isAlive && p.id !== participant.id && !exceptionIds.includes(p.id)
-    );
-    if (aliveParticipants.length === 0) return null;
+    try {
+      const exceptionIds = exceptions.map((e) => e.id);
+      const aliveParticipants = battleParticipants.current.filter(
+        (p) =>
+          p.isAlive && p.id !== participant.id && !exceptionIds.includes(p.id)
+      );
+      if (aliveParticipants.length === 0) return null;
 
-    let nearest = null;
-    let minDistance = Infinity;
+      let nearest = null;
+      let minDistance = Infinity;
 
-    aliveParticipants.forEach((enemy) => {
-      const dx = enemy.body.position.x - participant.body.position.x;
-      const dy = enemy.body.position.y - participant.body.position.y;
-      const distance = Math.sqrt(dx * dx + dy * dy);
+      aliveParticipants.forEach((enemy) => {
+        const dx = enemy.body.position.x - participant.body.position.x;
+        const dy = enemy.body.position.y - participant.body.position.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
 
-      if (distance < minDistance) {
-        minDistance = distance;
-        nearest = enemy;
-      }
-    });
+        if (distance < minDistance) {
+          minDistance = distance;
+          nearest = enemy;
+        }
+      });
 
-    return nearest;
+      return nearest;
+    } catch (e) {
+      console.error("error at findNearestEnemy");
+    }
   };
 
   const findFarthestEnemy = (participant, ...exceptions) => {
@@ -599,7 +563,141 @@ export function useBattleSystem(
     ).onfinish = () => polyline.remove();
   };
 
-  const createHealthBar = useCallback((participant) => {
+  const dealDamage = useCallback(
+    (target, damage, attacker, canGainMana = true) => {
+      if (!target.isAlive) return;
+
+      dpsTracker.current.registerParticipant(target);
+      if (attacker) {
+        dpsTracker.current.registerParticipant(attacker);
+        dpsTracker.current.recordDamageDealt(
+          attacker.id,
+          target.id,
+          target.hasShield ? damage * 0.5 : damage
+        );
+      }
+
+      //shield check
+      if (target.hasShield) {
+        damage *= 0.5;
+        showDamageFlyup(
+          target.body.position.x,
+          target.body.position.y - 40,
+          damage,
+          "#00aaff"
+        );
+      } else {
+        showDamageFlyup(
+          target.body.position.x,
+          target.body.position.y - 40,
+          damage,
+          target.userColor
+        );
+      }
+
+      target.hp -= damage;
+      target.lastDamageTime = Date.now();
+      if (target.hp <= 0) {
+        if (attacker) {
+          dpsTracker.current.recordKill(attacker.id, target.id);
+        }
+        kill(target);
+      }
+
+      if (attacker && canGainMana) {
+        const manaGain = 15 + damage * 0.25;
+        attacker.mana = Math.min(attacker.maxMana, attacker.mana + manaGain);
+        showManaGain(attacker, manaGain);
+      }
+
+      target.el.querySelector(".avatar").style.filter =
+        "brightness(2) hue-rotate(180deg)";
+      setTimeout(() => {
+        if (target.el.querySelector(".avatar"))
+          target.el.querySelector(".avatar").style.filter = "";
+      }, 200);
+    },
+    []
+  );
+
+  const showText = (x, text, color = "#ff0000") => {
+    if (!x?.body) {
+      console.warn("Cannot show text, no body:", text, x);
+      return;
+    }
+
+    const textEl = document.createElement("div");
+    textEl.id = "text-" + Date.now() + "-" + Math.floor(Math.random() * 1000);
+    textEl.textContent = text;
+    textEl.style.position = "fixed";
+
+    // Clamp to screen so it is always visible
+    const left = Math.max(
+      0,
+      Math.min(window.innerWidth - 50, x.body.position.x - 20)
+    );
+    const top = Math.max(
+      0,
+      Math.min(window.innerHeight - 30, x.body.position.y - 50)
+    );
+    textEl.style.left = `${left}px`;
+    textEl.style.top = `${top}px`;
+
+    console.log(`showing ${text} at ${top}:${left}`);
+
+    textEl.style.color = color;
+    textEl.style.fontWeight = "bold";
+    textEl.style.fontSize = "16px";
+    textEl.style.pointerEvents = "none";
+    textEl.style.textShadow = "1px 1px 2px rgba(0,0,0,0.7)";
+    textEl.style.transition = "transform 2s ease-out, opacity 2s ease-out";
+    textEl.style.transitionDelay = "1s, 1s";
+    textEl.style.zIndex = "9999999";
+    document.body.appendChild(textEl);
+
+    requestAnimationFrame(() => {
+      textEl.style.transform = "translateY(-40px) scale(1.5)";
+      textEl.style.opacity = "0";
+    });
+
+    setTimeout(() => textEl.remove(), 3000);
+  };
+
+  const specialSkills = useMemo(() => {
+    const helpers = {
+      engineRef,
+      sceneRef,
+      showText,
+      findStrongestEnemy,
+      findFarthestEnemy,
+      findNearestEnemy,
+      findPopulatedPoint,
+      teleport,
+      dealDamage,
+      radialKnockback,
+      drawJaggedLightning,
+      battleSettings,
+      bodiesWithTimers,
+    };
+
+    return createSkills(helpers);
+  }, [
+    engineRef,
+    sceneRef,
+    showText,
+    findStrongestEnemy,
+    findFarthestEnemy,
+    findNearestEnemy,
+    findPopulatedPoint,
+    teleport,
+    dealDamage,
+    radialKnockback,
+    drawJaggedLightning,
+    battleSettings,
+    bodiesWithTimers,
+  ]);
+
+  const createHealthBar = useCallback(() => {
     const healthBar = document.createElement("div");
     healthBar.style.position = "fixed";
     healthBar.style.width = "60px";
@@ -624,7 +722,7 @@ export function useBattleSystem(
     return { healthBar, healthFill };
   }, []);
 
-  const createManaBar = useCallback((participant) => {
+  const createManaBar = useCallback(() => {
     const manaBar = document.createElement("div");
     manaBar.style.position = "fixed";
     manaBar.style.width = "60px";
@@ -813,50 +911,6 @@ export function useBattleSystem(
     ]
   );
 
-  const dealDamage = useCallback(
-    (target, damage, attacker, canGainMana = true) => {
-      if (!target.isAlive) return;
-
-      //shield check
-      if (target.hasShield) {
-        damage *= 0.5;
-        showDamageFlyup(
-          target.body.position.x,
-          target.body.position.y - 40,
-          damage,
-          "#00aaff"
-        );
-      } else {
-        showDamageFlyup(
-          target.body.position.x,
-          target.body.position.y - 40,
-          damage,
-          target.userColor
-        );
-      }
-
-      target.hp -= damage;
-      target.lastDamageTime = Date.now();
-      if (target.hp <= 0) {
-        kill(target);
-      }
-
-      if (attacker && canGainMana) {
-        const manaGain = 15 + damage * 0.25;
-        attacker.mana = Math.min(attacker.maxMana, attacker.mana + manaGain);
-        showManaGain(attacker, manaGain);
-      }
-
-      target.el.querySelector(".avatar").style.filter =
-        "brightness(2) hue-rotate(180deg)";
-      setTimeout(() => {
-        if (target.el.querySelector(".avatar"))
-          target.el.querySelector(".avatar").style.filter = "";
-      }, 200);
-    },
-    []
-  );
-
   const showManaGain = (participant, manaGain) => {
     const manaEl = document.createElement("div");
     manaEl.textContent = `+${Math.floor(manaGain)} MP`;
@@ -879,71 +933,32 @@ export function useBattleSystem(
     setTimeout(() => manaEl.remove(), 800);
   };
 
-  const showText = (x, text, color = "#ff0000") => {
-    if (!x?.body) {
-      console.warn("Cannot show text, no body:", text, x);
-      return;
-    }
-
-    const textEl = document.createElement("div");
-    textEl.id = "text-" + Date.now() + "-" + Math.floor(Math.random() * 1000);
-    textEl.textContent = text;
-    textEl.style.position = "fixed";
-
-    // Clamp to screen so it is always visible
-    const left = Math.max(
-      0,
-      Math.min(window.innerWidth - 50, x.body.position.x - 20)
-    );
-    const top = Math.max(
-      0,
-      Math.min(window.innerHeight - 30, x.body.position.y - 50)
-    );
-    textEl.style.left = `${left}px`;
-    textEl.style.top = `${top}px`;
-
-    console.log(`showing ${text} at ${top}:${left}`);
-
-    textEl.style.color = color;
-    textEl.style.fontWeight = "bold";
-    textEl.style.fontSize = "16px";
-    textEl.style.pointerEvents = "none";
-    textEl.style.textShadow = "1px 1px 2px rgba(0,0,0,0.7)";
-    textEl.style.transition = "transform 2s ease-out, opacity 2s ease-out";
-    textEl.style.transitionDelay = "1s, 1s";
-    textEl.style.zIndex = "9999999";
-    document.body.appendChild(textEl);
-
-    requestAnimationFrame(() => {
-      textEl.style.transform = "translateY(-40px) scale(1.5)";
-      textEl.style.opacity = "0";
-    });
-
-    setTimeout(() => textEl.remove(), 3000);
-  };
-
   const procSpecialSkill = useCallback(
     (participant) => {
-      // Trigger skill effect
-      if (participant.mana < participant.maxMana) return;
+      try {
+        // Trigger skill effect
+        if (participant.mana < participant.maxMana) return;
 
-      const skills = Object.keys(specialSkills).filter(
-        (key) => !specialSkills[key].disabled
-      );
-      const randomSkill = skills[Math.floor(Math.random() * skills.length)];
-      const skill = specialSkills[randomSkill];
+        const skills = Object.keys(specialSkills).filter(
+          (key) => !specialSkills[key].disabled
+        );
+        const randomSkill = skills[Math.floor(Math.random() * skills.length)];
+        const skill = specialSkills[randomSkill];
 
-      //apply the skill
-      skill.effect(participant);
-      participant.mana = 0;
+        //apply the skill
+        skill.effect(participant);
+        participant.mana = 0;
 
-      // Add skill effect to participant
-      if (skill.duration) {
-        participant.effects.push({
-          name: skill.name,
-          duration: skill.duration || 0,
-          startTime: Date.now(),
-        });
+        // Add skill effect to participant
+        if (skill.duration) {
+          participant.effects.push({
+            name: skill.name,
+            duration: skill.duration || 0,
+            startTime: Date.now(),
+          });
+        }
+      } catch (e) {
+        console.error("Error at procSpecialSkill");
       }
     },
     [specialSkills]
@@ -1272,6 +1287,8 @@ export function useBattleSystem(
     const engine = engineRef.current;
     if (!activeBattleRef.current || !engine) return;
 
+    if (battleSettings.battleEventDPSTracker) dpsTracker.current.endBattle();
+
     // Find winner from remaining alive participants
     const aliveParticipants = battleParticipants.current.filter(
       (p) => p.isAlive
@@ -1399,6 +1416,7 @@ export function useBattleSystem(
       console.log("Not enough subscribers for battle (minimum 3 required)");
       return false;
     }
+    if (battleSettings.battleEventDPSTracker) dpsTracker.current.startBattle();
 
     const participants = spawnBattleArena();
     if (participants.length === 0) return false;
@@ -1406,6 +1424,7 @@ export function useBattleSystem(
     // Add battle participants to the main bodiesWithTimers array so they get rendered
     participants.forEach((participant) => {
       bodiesWithTimers.current.push(participant);
+      dpsTracker.current.registerParticipant(participant);
     });
 
     battleParticipants.current = participants;
@@ -1500,6 +1519,7 @@ export function useBattleSystem(
   return {
     startBattle,
     endBattle,
+    getDpsTracker: () => dpsTracker.current,
     isActive: !!activeBattleRef.current,
     participants: battleParticipants.current,
   };

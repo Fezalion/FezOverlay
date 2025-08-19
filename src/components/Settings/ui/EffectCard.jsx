@@ -8,6 +8,7 @@ export function EffectCard({
   settings,
   onChange,
   fields,
+  children,
 }) {
   const handleFieldChange = (key, parser) => (e) => {
     const value = parser ? parser(e.target.value) : e.target.value;
@@ -49,6 +50,7 @@ export function EffectCard({
               />
             </div>
           ))}
+          {children}
         </div>
       )}
     </div>

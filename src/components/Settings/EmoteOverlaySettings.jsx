@@ -118,6 +118,7 @@ export default function EmoteOverlaySettings({ settings, updateSetting }) {
               battleEventHp: 300,
               battleEventDamage: 50,
               battleEventDuration: 15,
+              battleEventDPSTracker: true,
               subOnlyMode: false,
               subEffectTypes: [],
             };
@@ -316,7 +317,34 @@ export default function EmoteOverlaySettings({ settings, updateSetting }) {
             parser: parseInt,
           },
         ]}
-      />
+      >
+        <div className="flex items-center justify-between bg-white/5 p-4 rounded-xl border border-white/10">
+          <div className="flex items-center space-x-3">
+            <label className="font-semibold">
+              DPS Tracker / Battle Results.
+            </label>
+            <button
+              onClick={() =>
+                updateSetting(
+                  "battleEventDPSTracker",
+                  !settings.battleEventDPSTracker
+                )
+              }
+              className={`relative inline-flex items-center h-6 w-12 rounded-full transition-colors duration-300
+            ${settings.battleEventDPSTracker ? "bg-rose-500" : "bg-gray-700"}`}
+            >
+              <span
+                className={`inline-block w-5 h-5 transform bg-white rounded-full shadow-md transition-transform duration-300
+              ${
+                settings.battleEventDPSTracker
+                  ? "translate-x-6"
+                  : "translate-x-1"
+              }`}
+              />
+            </button>
+          </div>
+        </div>
+      </EffectCard>
     </div>
   );
 }

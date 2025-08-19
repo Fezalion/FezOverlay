@@ -59,7 +59,7 @@ function EmoteOverlayCore({ version, ...settings }) {
   const client = useTwitchClient(settings.twitchName);
   const emoteMap = useEmoteLoader(settings.emoteSetId);
   const physics = usePhysicsEngine();
-  const subscriberTracker = useSubscriberTracker(client);
+  const subscriberTracker = useSubscriberTracker(client, true);
 
   // Extract battle settings
   const battleSettings = {
@@ -68,6 +68,7 @@ function EmoteOverlayCore({ version, ...settings }) {
     battleEventHp: settings.battleEventHp,
     battleEventDamage: settings.battleEventDamage,
     battleEventDuration: settings.battleEventDuration,
+    battleEventDPSTracker: settings.battleEventDPSTracker,
   };
 
   const globalEffects = useGlobalEffects(
