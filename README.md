@@ -108,6 +108,7 @@ CLIENT_ID=client_id
 ```
 
 You can use https://twitchtokengenerator.com to generate the access token and client id.
+Only scopes needed are "chat:read" and "chat:edit".
 
 ### Building
 
