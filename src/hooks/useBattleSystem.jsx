@@ -863,41 +863,45 @@ export function useBattleSystem(
   const displayWinner = useCallback(
     (winner) => {
       if (!winner) return;
+      setTimeout(() => {
+        client.current
+          .say(
+            battleSettings.twitchName,
+            `🏆 ${winner.subscriberName} WINS! 🏆`
+          )
+          .catch((e) => {
+            const winnerDisplay = document.createElement("div");
+            winnerDisplay.innerHTML = `🏆 ${winner.subscriberName} WINS! 🏆`;
+            winnerDisplay.style.position = "fixed";
+            winnerDisplay.style.top = "30px";
+            winnerDisplay.style.left = "50%";
+            winnerDisplay.style.transform = "translateX(-50%)";
+            winnerDisplay.style.fontSize = "36px";
+            winnerDisplay.style.fontWeight = "bold";
+            winnerDisplay.style.color = winner.userColor;
+            winnerDisplay.style.textShadow = "2px 2px 4px rgba(0,0,0,0.8)";
+            winnerDisplay.style.zIndex = "10001";
+            winnerDisplay.style.pointerEvents = "none";
+            winnerDisplay.style.textAlign = "center";
+            winnerDisplay.style.animation = "bounce 1s ease-in-out infinite";
 
-      client.current
-        .say(battleSettings.twitchName, `🏆 ${winner.subscriberName} WINS! 🏆`)
-        .catch((e) => {
-          const winnerDisplay = document.createElement("div");
-          winnerDisplay.innerHTML = `🏆 ${winner.subscriberName} WINS! 🏆`;
-          winnerDisplay.style.position = "fixed";
-          winnerDisplay.style.top = "30px";
-          winnerDisplay.style.left = "50%";
-          winnerDisplay.style.transform = "translateX(-50%)";
-          winnerDisplay.style.fontSize = "36px";
-          winnerDisplay.style.fontWeight = "bold";
-          winnerDisplay.style.color = winner.userColor;
-          winnerDisplay.style.textShadow = "2px 2px 4px rgba(0,0,0,0.8)";
-          winnerDisplay.style.zIndex = "10001";
-          winnerDisplay.style.pointerEvents = "none";
-          winnerDisplay.style.textAlign = "center";
-          winnerDisplay.style.animation = "bounce 1s ease-in-out infinite";
-
-          // Add bounce animation
-          const style = document.createElement("style");
-          style.textContent = `
+            // Add bounce animation
+            const style = document.createElement("style");
+            style.textContent = `
       @keyframes bounce {
         0%, 100% { transform: translate(-50%, -50%) scale(1); }
         50% { transform: translate(-50%, -50%) scale(1.05); }
       }
     `;
-          document.head.appendChild(style);
-          document.body.appendChild(winnerDisplay);
+            document.head.appendChild(style);
+            document.body.appendChild(winnerDisplay);
 
-          setTimeout(() => {
-            winnerDisplay.remove();
-            style.remove();
-          }, 5000);
-        });
+            setTimeout(() => {
+              winnerDisplay.remove();
+              style.remove();
+            }, 5000);
+          });
+      }, 5000);
     },
     [client, battleSettings]
   );
@@ -905,39 +909,42 @@ export function useBattleSystem(
   const displayDraw = useCallback(
     (draw) => {
       if (!draw) return;
+      setTimeout(() => {
+        client.current
+          .say(battleSettings.twitchName, `🏆 DRAW 🏆`)
+          .catch((e) => {
+            const winnerDisplay = document.createElement("div");
+            winnerDisplay.innerHTML = `🏆 DRAW 🏆`;
+            winnerDisplay.style.position = "fixed";
+            winnerDisplay.style.top = "30px";
+            winnerDisplay.style.left = "50%";
+            winnerDisplay.style.transform = "translateX(-50%)";
+            winnerDisplay.style.fontSize = "36px";
+            winnerDisplay.style.fontWeight = "bold";
+            winnerDisplay.style.color = "#ff0000";
+            winnerDisplay.style.textShadow = "2px 2px 4px rgba(0,0,0,0.8)";
+            winnerDisplay.style.zIndex = "10001";
+            winnerDisplay.style.pointerEvents = "none";
+            winnerDisplay.style.textAlign = "center";
+            winnerDisplay.style.animation = "bounce 1s ease-in-out infinite";
 
-      client.current.say(battleSettings.twitchName, `🏆 DRAW 🏆`).catch((e) => {
-        const winnerDisplay = document.createElement("div");
-        winnerDisplay.innerHTML = `🏆 DRAW 🏆`;
-        winnerDisplay.style.position = "fixed";
-        winnerDisplay.style.top = "30px";
-        winnerDisplay.style.left = "50%";
-        winnerDisplay.style.transform = "translateX(-50%)";
-        winnerDisplay.style.fontSize = "36px";
-        winnerDisplay.style.fontWeight = "bold";
-        winnerDisplay.style.color = "#ff0000";
-        winnerDisplay.style.textShadow = "2px 2px 4px rgba(0,0,0,0.8)";
-        winnerDisplay.style.zIndex = "10001";
-        winnerDisplay.style.pointerEvents = "none";
-        winnerDisplay.style.textAlign = "center";
-        winnerDisplay.style.animation = "bounce 1s ease-in-out infinite";
-
-        // Add bounce animation
-        const style = document.createElement("style");
-        style.textContent = `
+            // Add bounce animation
+            const style = document.createElement("style");
+            style.textContent = `
       @keyframes bounce {
         0%, 100% { transform: translate(-50%, -50%) scale(1); }
         50% { transform: translate(-50%, -50%) scale(1.05); }
       }
     `;
-        document.head.appendChild(style);
-        document.body.appendChild(winnerDisplay);
+            document.head.appendChild(style);
+            document.body.appendChild(winnerDisplay);
 
-        setTimeout(() => {
-          winnerDisplay.remove();
-          style.remove();
-        }, 5000);
-      });
+            setTimeout(() => {
+              winnerDisplay.remove();
+              style.remove();
+            }, 5000);
+          });
+      }, 5000);
     },
     [client, battleSettings]
   );
