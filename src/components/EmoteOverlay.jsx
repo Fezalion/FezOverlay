@@ -59,7 +59,8 @@ function EmoteOverlayCore({ version, ...settings }) {
   const clientRef = useTwitchClient(settings.twitchName);
   const emoteMap = useEmoteLoader(settings.emoteSetId);
   const physics = usePhysicsEngine();
-  const subscriberTracker = useSubscriberTracker(clientRef.current);
+  const subscriberTracker = useSubscriberTracker(clientRef.current, false);
+  const viewerTracker = useSubscriberTracker(clientRef.current, true);
 
   // Extract battle settings
   const battleSettings = {
@@ -71,6 +72,7 @@ function EmoteOverlayCore({ version, ...settings }) {
     battleEventDPSTracker: settings.battleEventDPSTracker,
     battleEventDPSTrackerFloatLeft: settings.battleEventDPSTrackerFloatLeft,
     battleEventDPSTrackerLive: settings.battleEventDPSTrackerLive,
+    battleEventAcceptPlebs: settings.battleEventAcceptPlebs,
     twitchName: settings.twitchName,
   };
 
@@ -80,6 +82,7 @@ function EmoteOverlayCore({ version, ...settings }) {
     emoteMap,
     battleSettings,
     subscriberTracker,
+    viewerTracker,
     sceneRef,
     clientRef
   );

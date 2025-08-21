@@ -19,8 +19,11 @@ export function useSubscriberTracker(
         badges: { subscriber: "1" },
         isMod: false,
         isVip: false,
+        isSub: Math.random() < 0.5 ? true : false,
         isBroadcaster: i === 0, // make first mock broadcaster
       }));
+
+      console.log(recentSubscribersRef.current);
     }
   }, [enableMock]);
 
@@ -34,7 +37,7 @@ export function useSubscriberTracker(
         userstate.badges?.vip ||
         userstate.badges?.broadcaster;
 
-      if (isSub && userstate["display-name"]) {
+      if ((isSub || enableNonSubs) && userstate["display-name"]) {
         const subscriber = {
           name: userstate["display-name"],
           color: userstate.color || "#ff6600",
@@ -44,6 +47,7 @@ export function useSubscriberTracker(
           isMod: userstate.mod,
           isVip: userstate.badges?.vip,
           isBroadcaster: userstate.badges?.broadcaster,
+          isSub: userstate.subscriber,
         };
 
         // Add/update subscriber in list

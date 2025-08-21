@@ -11,6 +11,7 @@ export function useBattleSystem(
   bodiesWithTimers,
   battleSettings,
   subscriberTracker,
+  viewerTracker,
   sceneRef,
   client
 ) {
@@ -543,7 +544,7 @@ export function useBattleSystem(
         hasShield: false,
         born: Date.now(),
         animated: emote.animated || false,
-        isSub: true,
+        isSub: subscriber.isSub,
         particleColor: subscriber.color,
         effects: [],
         cleanupEffects: [],
@@ -633,14 +634,18 @@ export function useBattleSystem(
   const spawnBattleArena = useCallback(() => {
     const engine = engineRef.current;
     if (!engine || !subscriberTracker) return [];
+    let availableSubscribers = null;
 
     // Get all available subscribers
-    const availableSubscribers = subscriberTracker.getSubscriberCount();
+    if (battleSettings.battleEventAcceptPlebs) {
+      availableSubscribers = viewerTracker.getSubscriberCount();
+      console.log("pleb time");
+    } else {
+      availableSubscribers = subscriberTracker.getSubscriberCount();
+    }
 
     if (availableSubscribers < 3) {
-      console.log(
-        "Not enough subscribers to start a battle (minimum 3 required)"
-      );
+      console.log("Not enough people to start a battle (minimum 3 required)");
       return [];
     }
 
@@ -649,10 +654,13 @@ export function useBattleSystem(
       battleSettings.battleEventParticipants,
       availableSubscribers
     );
-
-    // Randomly select subscribers for the battle
-    const selectedSubscribers =
-      subscriberTracker.getRandomSubscribers(maxParticipants);
+    let selectedSubscribers = null;
+    if (battleSettings.battleEventAcceptPlebs) {
+      selectedSubscribers = viewerTracker.getRandomSubscribers(maxParticipants);
+    } else {
+      selectedSubscribers =
+        subscriberTracker.getRandomSubscribers(maxParticipants);
+    }
 
     if (selectedSubscribers.length === 0) {
       console.log("No subscribers available for battle");
@@ -730,6 +738,7 @@ export function useBattleSystem(
   }, [
     engineRef,
     battleSettings.battleEventParticipants,
+    battleSettings.battleEventAcceptPlebs,
     createBattleParticipant,
     subscriberTracker,
     emoteMap,
@@ -1092,9 +1101,19 @@ export function useBattleSystem(
       return false;
     }
 
+    let availableSubscribers = null;
+
+    // Get all available subscribers
+    if (battleSettings.battleEventAcceptPlebs) {
+      availableSubscribers = viewerTracker.getSubscriberCount();
+      console.log("pleb time");
+    } else {
+      availableSubscribers = subscriberTracker.getSubscriberCount();
+    }
+
     // Check if we have at least 3 subscribers
-    if (!subscriberTracker || subscriberTracker.getSubscriberCount() < 3) {
-      console.log("Not enough subscribers for battle (minimum 3 required)");
+    if (!subscriberTracker || !viewerTracker || availableSubscribers < 3) {
+      console.log("Not enough people for battle (minimum 3 required)");
       return false;
     }
     if (battleSettings.battleEventDPSTracker) dpsTracker.current.startBattle();
@@ -1147,6 +1166,7 @@ export function useBattleSystem(
     updateBattle,
     bodiesWithTimers,
     subscriberTracker,
+    viewerTracker,
   ]);
 
   function kill(participant) {

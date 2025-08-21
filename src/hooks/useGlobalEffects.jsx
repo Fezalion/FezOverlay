@@ -8,6 +8,7 @@ export function useGlobalEffects(
   emoteMap,
   battleSettings,
   subscriberTracker,
+  viewerTracker,
   sceneRef,
   client
 ) {
@@ -20,6 +21,7 @@ export function useGlobalEffects(
     bodiesWithTimers,
     battleSettings,
     subscriberTracker,
+    viewerTracker,
     sceneRef,
     client
   );

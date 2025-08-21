@@ -321,11 +321,8 @@ export default function EmoteOverlaySettings({ settings, updateSetting }) {
         ]}
       >
         <div className="flex items-center space-x-3">
-          <label disabled className="font-semibold">
-            Include non-subs in battles. (not yet implemented)
-          </label>
+          <label className="font-semibold">Include non-subs in battles.</label>
           <button
-            disabled
             onClick={() =>
               updateSetting(
                 "battleEventAcceptPlebs",

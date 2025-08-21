@@ -34,6 +34,7 @@ class BattleDPSTracker {
         id: participant.id,
         name: participant.subscriberName,
         color: participant.userColor,
+        isSub: participant.isSub,
         totalDamageDealt: 0,
         totalDamageTaken: 0,
         kills: 0,
@@ -268,8 +269,8 @@ class BattleDPSTracker {
             : "rgba(255, 255, 255, 0.02)"
         };
         color: #ffffff;
-        transition: all 0.2s ease;
         border-left: 3px solid ${player.color};
+        transition: all 0.2s ease;
       `;
 
       // Rank with medal for top 3
