@@ -126,6 +126,7 @@ export function useEmoteSpawner(
       subEffects,
       subEffectTypes,
       subOnlyMode,
+      bodiesWithTimers,
       effectsRegistry,
     ]
   );

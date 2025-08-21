@@ -1,5 +1,5 @@
 export const createEffectsRegistry = (effectSettings) => ({
-  colorFlash: (el) => {
+  hueShift: (el) => {
     if (Math.random() * 100 > effectSettings.subEffectHueShiftChance) return;
 
     let hue = 0;

@@ -109,7 +109,7 @@ export default function EmoteOverlaySettings({ settings, updateSetting }) {
               subEffectHueShiftChance: 5,
               subEffectBlackHoleChance: 5,
               subEffectBlackHoleDuration: 5,
-              subEffectBlackHoleStrength: 2,
+              subEffectBlackHoleStrength: 5,
               subEffectReverseGravityChance: 5,
               subEffectReverseGravityDuration: 5,
               subEffectReverseGravityStrength: 2,
