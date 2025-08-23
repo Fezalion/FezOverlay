@@ -75,6 +75,7 @@ if (process.pkg) {
 
 const distRoot = path.join(baseDir, "dist");
 const SETTINGS_FILE = path.join(baseDir, "settings.json");
+const BOTS_FILE = path.join(baseDir, "excludedBots.json");
 const versionFile = path.join(baseDir, "version.txt");
 
 app.use(bodyParser.json());
@@ -207,6 +208,25 @@ if (fs.existsSync(envPath)) {
   }
 }
 
+function loadExcludedBots() {
+  try {
+    return JSON.parse(fs.readFileSync(BOTS_FILE, "utf8"));
+  } catch {
+    return [
+      "streamelements",
+      "nightbot",
+      "moobot",
+      "fossabot",
+      "wizebot",
+      "soundalerts",
+      "stay_hydrated_bot",
+    ];
+  }
+}
+
+function saveExcludedBots(bots) {
+  fs.writeFileSync(BOTS_FILE, JSON.stringify(bots, null, 2));
+}
 // --- SETTINGS API ---
 function loadSettings() {
   try {
@@ -281,6 +301,37 @@ app.get("/api/twitch", (req, res) => {
     auth: val,
     client: "pro83yr2qxpqs1qwy85uqkp17w5wpl",
   });
+});
+
+app.post("/api/bots", (req, res) => {
+  const current = loadExcludedBots();
+  const { action, username } = req.body;
+
+  if (!username || !action) {
+    return res
+      .status(400)
+      .json({ success: false, error: "Missing action or username" });
+  }
+
+  let updated = current;
+
+  if (action === "add") {
+    updated = Array.from(new Set([...current, username.toLowerCase()]));
+  } else if (action === "remove") {
+    updated = current.filter(
+      (bot) => bot.toLowerCase() !== username.toLowerCase()
+    );
+  } else {
+    return res.status(400).json({ success: false, error: "Invalid action" });
+  }
+
+  saveExcludedBots(updated);
+  res.json({ success: true, bots: updated });
+});
+
+app.get("/api/bots", (req, res) => {
+  const bots = loadExcludedBots();
+  res.json(bots);
 });
 
 // POST update one or more settings (partial update)

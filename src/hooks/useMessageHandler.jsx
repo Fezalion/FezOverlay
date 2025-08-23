@@ -5,8 +5,7 @@ export function useMessageHandler(
   emoteMap,
   spawnEmote,
   globalEffects,
-  settings,
-  version
+  settings
 ) {
   const {
     emoteDelay,
@@ -84,6 +83,7 @@ export function useMessageHandler(
       }
       if (!b) {
         emotes.forEach((emoteName, i) => {
+          console.log("the fuck");
           setTimeout(() => {
             const userColor = userstate.color || "orange";
             spawnEmote(emoteName, isSub, userColor);
@@ -105,42 +105,7 @@ export function useMessageHandler(
           default:
             break;
         }
-      } else if (words[0] == "!version" && isMod) {
-        showOverlayVersion();
       }
-    }
-
-    function showOverlayVersion() {
-      // Create version element
-      const versionEl = document.createElement("div");
-      versionEl.textContent = version;
-      versionEl.style.position = "fixed";
-      versionEl.style.top = "20px";
-      versionEl.style.left = "20px";
-      versionEl.style.padding = "8px 12px";
-      versionEl.style.background = "rgba(0,0,0,0.6)";
-      versionEl.style.color = "white";
-      versionEl.style.fontSize = "16px";
-      versionEl.style.fontFamily = "Arial, sans-serif";
-      versionEl.style.borderRadius = "6px";
-      versionEl.style.zIndex = 9999;
-      versionEl.style.pointerEvents = "none";
-      versionEl.style.opacity = "0";
-      versionEl.style.transition = "opacity 0.3s ease";
-
-      // Add to overlay
-      document.body.appendChild(versionEl);
-
-      // Fade in
-      requestAnimationFrame(() => (versionEl.style.opacity = "1"));
-
-      // Auto remove after 5 seconds
-      setTimeout(() => {
-        versionEl.style.opacity = "0";
-        versionEl.addEventListener("transitionend", () => versionEl.remove(), {
-          once: true,
-        });
-      }, 5000);
     }
 
     client.on("message", onMessage);
@@ -161,6 +126,5 @@ export function useMessageHandler(
     subEffectReverseGravityDuration,
     subEffectReverseGravityStrength,
     battleEventChance,
-    version,
   ]);
 }

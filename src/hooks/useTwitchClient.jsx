@@ -35,10 +35,7 @@ export function useTwitchClient(twitchName) {
       channels: [twitchName],
     });
 
-    client
-      .connect()
-      .then((data) => client.say(twitchName, "Ready to battle!"))
-      .catch(console.error);
+    client.connect().catch(console.error);
     clientRef.current = client;
 
     return () => {

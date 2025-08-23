@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useMetadata } from "../hooks/useMetadata";
 import { useTwitchClient } from "../hooks/useTwitchClient";
 import { useEmoteLoader } from "../hooks/useEmoteLoader";
@@ -9,17 +9,16 @@ import { useMessageHandler } from "../hooks/useMessageHandler";
 import { useEmoteLifecycle } from "../hooks/useEmoteLifecycle";
 import { useRaidHandler } from "../hooks/useRaidHandler";
 import { useSubscriberTracker } from "../hooks/useSubscriberTracker";
+import { useCommandsSystem } from "../hooks/useCommandsSystem";
 
 export default function EmoteOverlay() {
-  const { settings, refreshSettings, version } = useMetadata();
+  const { settings, refreshSettings } = useMetadata();
   const [refreshToken, setRefreshToken] = useState(0);
   const wsRef = useRef(null);
-  const versionref = useRef(null);
 
   useEffect(() => {
     refreshSettings();
-    versionref.current = version;
-  }, [refreshToken, refreshSettings, version]);
+  }, [refreshToken, refreshSettings]);
 
   useEffect(() => {
     const wsUrl = "ws://localhost:48000";
@@ -48,19 +47,33 @@ export default function EmoteOverlay() {
     };
   }, []);
 
-  return <EmoteOverlayCore {...settings} version={versionref} />;
+  //stable key - let the battle system handle its own state preservation, that stupid mf
+  const stableKey = useMemo(() => {
+    return `overlay-${settings.twitchName}-${settings.emoteSetId}`;
+  }, [settings.twitchName, settings.emoteSetId]);
+
+  return (
+    <EmoteOverlayCore
+      key={stableKey}
+      settings={settings}
+      isRefresh={refreshToken > 0}
+    />
+  );
 }
 
-function EmoteOverlayCore({ version, ...settings }) {
+function EmoteOverlayCore({ settings, isRefresh }) {
   const sceneRef = useRef(null);
   const bodiesWithTimers = useRef([]);
 
-  // Initialize all hooks
   const clientRef = useTwitchClient(settings.twitchName);
   const emoteMap = useEmoteLoader(settings.emoteSetId);
   const physics = usePhysicsEngine();
-  const subscriberTracker = useSubscriberTracker(clientRef.current, false);
-  const viewerTracker = useSubscriberTracker(clientRef.current, true);
+  const subscriberTracker = useSubscriberTracker(
+    clientRef.current,
+    false,
+    true
+  );
+  const viewerTracker = useSubscriberTracker(clientRef.current, true, true);
 
   // Extract battle settings
   const battleSettings = {
@@ -86,22 +99,26 @@ function EmoteOverlayCore({ version, ...settings }) {
     sceneRef,
     clientRef
   );
+
   const { spawnEmote } = useEmoteSpawner(
     physics.engineRef.current,
     emoteMap,
     bodiesWithTimers,
     settings
   );
+
   const { clearAllEmotes } = useEmoteLifecycle(
     physics.engineRef.current,
     bodiesWithTimers,
     settings.emoteLifetime
   );
 
-  if (globalEffects.battleSystem.isActive) {
-    globalEffects.battleSystem.endBattle();
-    console.log("end battle called");
-  }
+  const { commands } = useCommandsSystem(clientRef.current);
+
+  console.log(
+    "Loaded commands:",
+    commands.map((c) => c.name)
+  );
 
   // Start DOM updates when physics engine is ready
   useEffect(() => {
@@ -119,14 +136,14 @@ function EmoteOverlayCore({ version, ...settings }) {
     physics.stopDOMUpdates,
     clearAllEmotes,
   ]);
+
   // Set up message handling
   useMessageHandler(
     clientRef.current,
     emoteMap,
     spawnEmote,
     globalEffects,
-    settings,
-    version.current
+    settings
   );
 
   // Set up raid handling

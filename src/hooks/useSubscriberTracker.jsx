@@ -1,12 +1,36 @@
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useMemo, useState } from "react";
 
 export function useSubscriberTracker(
   client,
   enableNonSubs = false,
-  enableMock = false
+  enableMock = false,
+  initialExcludedBots = [],
+  customBotList = null // optional external override
 ) {
   const recentSubscribersRef = useRef([]);
   const maxSubscribers = 50; // Keep track of last 50 subs
+  const [fetchedBots, setFetchedBots] = useState([]);
+
+  // Fetch bot list dynamically from API
+  useEffect(() => {
+    fetch("/api/bots")
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data)) {
+          setFetchedBots(data);
+        }
+      })
+      .catch((err) => console.error("Failed to fetch bot list:", err));
+  }, []);
+
+  // Decide which bot list to use
+  const excluded = useMemo(() => {
+    const baseList = customBotList
+      ? customBotList
+      : [...initialExcludedBots, ...fetchedBots];
+
+    return new Set(baseList.map((b) => b.toLowerCase()));
+  }, [customBotList, initialExcludedBots, fetchedBots]);
 
   // Optional: Add mock data for testing
   useEffect(() => {
@@ -19,8 +43,8 @@ export function useSubscriberTracker(
         badges: { subscriber: "1" },
         isMod: false,
         isVip: false,
-        isSub: Math.random() < 0.5 ? true : false,
-        isBroadcaster: i === 0, // make first mock broadcaster
+        isSub: Math.random() < 0.5,
+        isBroadcaster: i === 0,
       }));
 
       console.log(recentSubscribersRef.current);
@@ -31,6 +55,9 @@ export function useSubscriberTracker(
     if (!client) return;
 
     function onMessage(channel, userstate, message) {
+      const username = userstate.username?.toLowerCase();
+      if (!username || excluded.has(username)) return; // 🚫 skip bots
+
       const isSub =
         userstate.subscriber ||
         userstate.mod ||
@@ -41,13 +68,13 @@ export function useSubscriberTracker(
         const subscriber = {
           name: userstate["display-name"],
           color: userstate.color || "#ff6600",
-          username: userstate.username,
+          username,
           timestamp: Date.now(),
           badges: userstate.badges || {},
           isMod: userstate.mod,
-          isVip: userstate.badges?.vip,
-          isBroadcaster: userstate.badges?.broadcaster,
-          isSub: userstate.subscriber,
+          isVip: Boolean(userstate.badges?.vip),
+          isBroadcaster: Boolean(userstate.badges?.broadcaster),
+          isSub: Boolean(userstate.subscriber),
         };
 
         // Add/update subscriber in list
@@ -73,7 +100,7 @@ export function useSubscriberTracker(
     return () => {
       client.off("message", onMessage);
     };
-  }, [client, maxSubscribers, enableNonSubs]);
+  }, [client, maxSubscribers, enableNonSubs, excluded]);
 
   const getRandomSubscribers = (count) => {
     const available = [...recentSubscribersRef.current];

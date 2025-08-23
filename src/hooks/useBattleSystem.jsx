@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/exhaustive-deps */
-import { useRef, useCallback, useMemo } from "react";
+import { useRef, useCallback, useMemo, useEffect } from "react";
 import Matter from "matter-js";
 import { createEmoteElement } from "../utils/emoteEffects";
 import { createSkills } from "../skills";
@@ -19,6 +19,71 @@ export function useBattleSystem(
   const activeBattleRef = useRef(null);
   const battleParticipants = useRef([]);
   const battleUpdateListener = useRef(null);
+  const isInitialized = useRef(false);
+
+  // Comprehensive cleanup on unmount or critical changes
+  useEffect(() => {
+    return () => {
+      const engine = engineRef.current;
+
+      // Force end any active battle
+      if (activeBattleRef.current) {
+        console.log("Force ending battle due to cleanup");
+
+        // Remove event listener
+        if (battleUpdateListener.current && engine) {
+          Matter.Events.off(
+            engine,
+            "beforeUpdate",
+            battleUpdateListener.current
+          );
+        }
+
+        // Clean up all participants immediately
+        battleParticipants.current.forEach((participant) => {
+          if (participant.el) participant.el.remove();
+          if (participant.healthBar) participant.healthBar.remove();
+          if (participant.manaBar) participant.manaBar.remove();
+          if (participant.nameLabel) participant.nameLabel.remove();
+
+          if (participant.body && engine) {
+            try {
+              Matter.World.remove(engine.world, participant.body);
+            } catch (e) {
+              console.error("Error removing body during cleanup:", e);
+            }
+          }
+
+          // Remove from main bodies array
+          const mainIndex = bodiesWithTimers.current.findIndex(
+            (bt) => bt.id === participant.id
+          );
+          if (mainIndex !== -1) {
+            bodiesWithTimers.current.splice(mainIndex, 1);
+          }
+        });
+
+        // Clean up UI elements
+        const liveDisplay = document.getElementById("live-dps-display");
+        if (liveDisplay) liveDisplay.remove();
+
+        // Reset refs
+        activeBattleRef.current = null;
+        battleParticipants.current = [];
+        battleUpdateListener.current = null;
+      }
+
+      isInitialized.current = false;
+    };
+  }, []);
+
+  // Initialize the system once
+  useEffect(() => {
+    if (engineRef.current && !isInitialized.current) {
+      isInitialized.current = true;
+      console.log("Battle system initialized");
+    }
+  }, [engineRef]);
 
   const teleport = (caster, targetX, targetY) => {
     const offset = 100;
@@ -33,7 +98,7 @@ export function useBattleSystem(
       (p) => p.isAlive && p.id !== participant.id
     );
     if (aliveParticipants.length === 0) {
-      // fallback: just return participant’s current position
+      // fallback: just return participant's current position
       return { x: participant.body.position.x, y: participant.body.position.y };
     }
 
@@ -995,8 +1060,8 @@ export function useBattleSystem(
       displayDraw(draw);
     }
 
-    // 🔹 Stop physics: remove update listener
-    if (battleUpdateListener.current) {
+    // 🔹 Stop physics: remove update listener using the stored reference
+    if (battleUpdateListener.current && engine) {
       Matter.Events.off(engine, "beforeUpdate", battleUpdateListener.current);
       battleUpdateListener.current = null;
     }
@@ -1031,6 +1096,7 @@ export function useBattleSystem(
     }, 3000);
   }, [engineRef, client, battleSettings, battleParticipants]);
 
+  // Create a stable updateBattle function that doesn't change on every render
   const updateBattle = useCallback(() => {
     if (!activeBattleRef.current) return;
 
@@ -1088,16 +1154,22 @@ export function useBattleSystem(
     procSpecialSkill,
     handleCollisions,
     battleSettings.battleEventDuration,
+    battleSettings.battleEventDPSTrackerLive,
     endBattle,
-    engineRef,
     sceneRef,
-    bodiesWithTimers,
   ]);
 
   const startBattle = useCallback(() => {
     const engine = engineRef.current;
-    if (activeBattleRef.current || !engine) {
-      console.log("Battle already active or no engine");
+
+    // More thorough checks
+    if (!engine || !isInitialized.current) {
+      console.log("Engine not ready or system not initialized");
+      return false;
+    }
+
+    if (activeBattleRef.current) {
+      console.log("Battle already active");
       return false;
     }
 
@@ -1116,6 +1188,14 @@ export function useBattleSystem(
       console.log("Not enough people for battle (minimum 3 required)");
       return false;
     }
+
+    // Force clean up any stale state first
+    if (battleUpdateListener.current) {
+      console.log("Cleaning up stale battle listener");
+      Matter.Events.off(engine, "beforeUpdate", battleUpdateListener.current);
+      battleUpdateListener.current = null;
+    }
+
     if (battleSettings.battleEventDPSTracker) dpsTracker.current.startBattle();
 
     const participants = spawnBattleArena();
@@ -1134,9 +1214,11 @@ export function useBattleSystem(
       isAlive: true,
     };
 
-    // Set up battle update loop
+    // Set up battle update loop with the stable function reference
     battleUpdateListener.current = updateBattle;
     Matter.Events.on(engine, "beforeUpdate", battleUpdateListener.current);
+
+    console.log(`Battle started with ${participants.length} participants`);
 
     // Battle announcement with participant names
     const participantNames = participants
@@ -1162,11 +1244,14 @@ export function useBattleSystem(
     return true;
   }, [
     engineRef,
+    isInitialized,
     spawnBattleArena,
     updateBattle,
     bodiesWithTimers,
     subscriberTracker,
     viewerTracker,
+    battleSettings,
+    dpsTracker,
   ]);
 
   function kill(participant) {
