@@ -18,6 +18,11 @@ export function useMetadata() {
     scrollSpeed: 25,
     hideOnNothing: false,
 
+    //YapMeter Settings
+    yapMeterThreshold: 1.0,
+    yapMeterSilenceThreshold: 3,
+    yapMeterMaxYap: 60,
+
     // Service Settings
     twitchName: "",
     lastfmName: "",
@@ -129,7 +134,10 @@ export function useMetadata() {
         playerAlignment: data.playerAlignment || "right",
         scrollSpeed: data.scrollSpeed || 25,
         hideOnNothing: data.hideOnNothing || false,
-
+        //YapMeter Settings
+        yapMeterThreshold: toNumber(data.yapMeterThreshold, 1.0),
+        yapMeterSilenceThreshold: toNumber(data.yapMeterSilenceThreshold, 3),
+        yapMeterMaxYap: toNumber(data.yapMeterMaxYap, 60),
         // Service Settings
         twitchName: data.twitchName || "",
         lastfmName: data.lastfmName || "",

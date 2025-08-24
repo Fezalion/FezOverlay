@@ -1,6 +1,7 @@
 import { useMetadata } from "../../hooks/useMetadata";
 import SongOverlaySettings from "./SongOverlaySettings";
 import EmoteOverlaySettings from "./EmoteOverlaySettings";
+import YapMeterSettings from "./YapMeterSettings";
 
 function Settings() {
   const {
@@ -26,10 +27,16 @@ function Settings() {
       </h1>
 
       <div className="grid gap-8 md:grid-cols-2">
-        <SongOverlaySettings
-          settings={settings}
-          updateSetting={updateSetting}
-        />
+        <div className="flex flex-col gap-8">
+          <SongOverlaySettings
+            settings={settings}
+            updateSetting={updateSetting}
+          />
+          <YapMeterSettings
+            settings={settings}
+            updateSetting={updateSetting}
+          ></YapMeterSettings>
+        </div>
         <EmoteOverlaySettings
           settings={settings}
           updateSetting={updateSetting}

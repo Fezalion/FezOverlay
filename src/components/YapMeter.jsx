@@ -1,27 +1,79 @@
-import { useEffect, useState, useRef } from "react";
+// YapMeter.jsx
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useMetadata } from "../hooks/useMetadata";
 import OBSWebSocket, { EventSubscription } from "obs-websocket-js";
 
-// thresholds
-const SPEAK_THRESHOLD = 0.2; // normalized 0..1
-const SILENCE_RESET_MS = 3000;
-const MAX_YAP = 40;
+export default function YapMeter() {
+  const { settings, refreshSettings } = useMetadata();
+  const [refreshToken, setRefreshToken] = useState(0);
+  const wsRef = useRef(null);
+
+  useEffect(() => {
+    refreshSettings();
+  }, [refreshToken, refreshSettings]);
+
+  useEffect(() => {
+    const wsUrl = "ws://localhost:48000";
+    const ws = new WebSocket(wsUrl);
+    wsRef.current = ws;
+
+    ws.onmessage = (event) => {
+      if (event.data === "refresh") {
+        setRefreshToken((c) => c + 1);
+        console.log("🔄 YapMeter refreshing");
+      }
+    };
+
+    ws.onerror = (err) => console.error("WebSocket error:", err);
+    ws.onclose = () => console.log("WebSocket closed");
+
+    return () => ws.close();
+  }, []);
+
+  const stableKey = useMemo(() => {
+    return `yapmeter-${settings.twitchName}-${settings.maxYap}-${settings.threshold}`;
+  }, [settings.twitchName, settings.maxYap, settings.threshold]);
+
+  return (
+    <YapMeterCore
+      key={stableKey}
+      settings={settings}
+      isRefresh={refreshToken > 0}
+    />
+  );
+}
 
 function useYapEvents(percent, events = []) {
   const triggeredRef = useRef({});
+  const firstRenderRef = useRef(true);
+
   useEffect(() => {
-    events.forEach((event) => {
-      const { threshold, onEnter, onExit } = event;
+    if (firstRenderRef.current) {
+      // initialize triggered states but don't fire events
+      events.forEach(({ threshold }) => {
+        triggeredRef.current[threshold] = {
+          up: percent >= threshold,
+          down: percent <= threshold,
+        };
+      });
+      firstRenderRef.current = false;
+      return;
+    }
+
+    events.forEach(({ threshold, onEnter, onExit }) => {
       const triggered = triggeredRef.current[threshold] || {
         up: false,
         down: false,
       };
 
+      // enter
       if (percent >= threshold && !triggered.up) {
         onEnter?.();
         triggered.up = true;
       }
       if (percent < threshold) triggered.up = false;
 
+      // exit
       if (percent <= threshold && !triggered.down) {
         onExit?.();
         triggered.down = true;
@@ -35,17 +87,15 @@ function useYapEvents(percent, events = []) {
 
 function FloatingPercent({ percent, getColor }) {
   const labelRef = useRef(null);
-
   useEffect(() => {
     let animFrame;
     const animate = () => {
       if (labelRef.current) {
         const baseScale = 0.8 + 0.7 * percent;
-        let rotation = 0;
-        let wiggleScale = 1;
-        let shakeX = 0;
-        let shakeY = 0;
-
+        let rotation = 0,
+          wiggleScale = 1,
+          shakeX = 0,
+          shakeY = 0;
         if (percent > 0.25) {
           const wiggleFactor = (percent - 0.25) * 2;
           rotation = Math.sin(Date.now() / 80) * 10 * wiggleFactor;
@@ -71,15 +121,11 @@ function FloatingPercent({ percent, getColor }) {
         bottom: `calc(${percent * 100}% - 285px)`,
         fontSize: "16px",
         fontWeight: "bold",
-        whiteSpace: "nowrap",
-        textAlign: "left",
         color: getColor(percent),
         textShadow: `0 0 ${percent > 0.25 ? 4 : 0}px #fff, 
                      0 0 ${percent > 0.5 ? 6 : 0}px #fff, 
                      0 0 ${percent > 0.75 ? 8 : 0}px #fff`,
-        transition: "bottom 0.05s linear, color 0.1s, text-shadow 0.1s",
         transformOrigin: "center left",
-        display: "inline-block",
       }}
     >
       {(percent * 100).toFixed(0)}%
@@ -87,45 +133,21 @@ function FloatingPercent({ percent, getColor }) {
   );
 }
 
-export default function YapMeter() {
+function YapMeterCore({ settings }) {
   const [score, setScore] = useState(0);
   const [displayScore, setDisplayScore] = useState(0);
   const [trailScore, setTrailScore] = useState(0);
 
   const obsRef = useRef(null);
-  const debugRef = useRef(null);
   const speakingRef = useRef(false);
   const lastSpeakingTimeRef = useRef(Date.now());
   const continuousStartTimeRef = useRef(0);
   const micSourceNameRef = useRef(null);
 
-  const [settingsOpen, setSettingsOpen] = useState(false);
-
-  const [settings, setSettings] = useState({
-    maxYap: 60,
-    threshold: 1,
-  });
-
-  const updateSetting = (key, value) =>
-    setSettings((prev) => ({ ...prev, [key]: value }));
-
-  // toggle menu with space
-  useEffect(() => {
-    const handleKey = (e) => {
-      if (e.code === "Space") {
-        e.preventDefault();
-        setSettingsOpen((prev) => !prev);
-      }
-    };
-    window.addEventListener("keydown", handleKey);
-    return () => window.removeEventListener("keydown", handleKey);
-  }, []);
-
-  // Connect to OBS
+  // connect to OBS
   useEffect(() => {
     const obs = new OBSWebSocket();
     obsRef.current = obs;
-
     async function connect() {
       try {
         await obs.connect("ws://127.0.0.1:4455", undefined, {
@@ -133,8 +155,8 @@ export default function YapMeter() {
             EventSubscription.All | EventSubscription.InputVolumeMeters,
           rpcVersion: 1,
         });
-        console.log("✅ Connected to OBS");
-        // detect mic input
+        console.log("✅ YapMeter connected to OBS");
+
         const sources = await obs.call("GetInputList");
         const micInput = sources.inputs.find((i) =>
           [
@@ -145,33 +167,25 @@ export default function YapMeter() {
             "alsa_input_capture",
           ].includes(i.inputKind)
         );
-        console.log(micInput);
-        if (!micInput) {
-          console.error("❌ No mic input found!");
-          return;
-        }
+        if (!micInput) return console.error("❌ No mic input found");
         micSourceNameRef.current = micInput.inputName;
-        console.log("🎤 Using mic:", micSourceNameRef.current);
 
         obs.on("InputVolumeMeters", (data) => {
           const mic = data.inputs.find(
             (i) => i.inputName === micSourceNameRef.current
           );
           if (!mic) return;
-
           const levels =
             mic.inputLevelsMul || mic.inputLevels || mic.levels || mic.meters;
           if (!levels?.length) return;
-
-          const normalized = levels[0][0] * 100; // 0..1
+          const normalized = levels[0][0] * 100;
           const now = Date.now();
-
           let speaking = speakingRef.current;
           let lastSpeaking = lastSpeakingTimeRef.current;
           let continuousStart = continuousStartTimeRef.current;
           let yapScore = 0;
-          debugRef.current = normalized;
-          if (normalized > settings.threshold) {
+
+          if (normalized > settings.yapMeterThreshold) {
             if (!speaking) {
               speaking = true;
               continuousStart = now;
@@ -179,7 +193,10 @@ export default function YapMeter() {
             lastSpeaking = now;
             yapScore = (now - continuousStart) / 1000;
           } else {
-            if (speaking && now - lastSpeaking > SILENCE_RESET_MS) {
+            if (
+              speaking &&
+              now - lastSpeaking > settings.yapMeterSilenceThreshold * 1000
+            ) {
               speaking = false;
               continuousStart = 0;
               yapScore = 0;
@@ -187,24 +204,18 @@ export default function YapMeter() {
               yapScore = (lastSpeaking - continuousStart) / 1000;
             }
           }
-
-          // update refs
           speakingRef.current = speaking;
           lastSpeakingTimeRef.current = lastSpeaking;
           continuousStartTimeRef.current = continuousStart;
-
           setScore(yapScore);
         });
       } catch (err) {
         console.error("OBS connection failed:", err);
       }
     }
-
     connect();
-    return () => {
-      obs.disconnect();
-    };
-  }, [settings.threshold]);
+    return () => obs.disconnect();
+  }, [settings.yapMeterThreshold, settings.yapMeterSilenceThreshold]);
 
   // smoothing
   useEffect(() => {
@@ -215,39 +226,23 @@ export default function YapMeter() {
     return () => clearInterval(interval);
   }, [score, displayScore]);
 
-  const percent = Math.min(displayScore / settings.maxYap, 1);
-  const trailPercent = Math.min(trailScore / settings.maxYap, 1);
+  const percent = Math.min(displayScore / settings.yapMeterMaxYap, 1);
+  const trailPercent = Math.min(trailScore / settings.yapMeterMaxYap, 1);
 
   const thresholds = [0.25, 0.5, 0.75, 1.0];
-  /*useYapEvents(
+  useYapEvents(
     percent,
     thresholds.map((t) => ({
       threshold: t,
       onEnter: () => console.log(`${(t * 100).toFixed(0)}% ↑`),
       onExit: () => console.log(`${(t * 100).toFixed(0)}% ↓`),
     }))
-  );*/
+  );
 
   const getColor = (p) => (p < 0.5 ? "#0f0" : p < 0.8 ? "#ff0" : "#f00");
 
   return (
-    <div
-      style={{
-        height: "100%",
-        width: "100%",
-        background: "black",
-        position: "fixed",
-        top: "0",
-        bottom: "0",
-      }}
-    >
-      {/* Settings Menu */}
-      <SettingsMenu
-        open={settingsOpen}
-        onClose={() => setSettingsOpen(false)}
-        settings={settings}
-        updateSetting={updateSetting}
-      />
+    <div style={{ position: "fixed", inset: 0, background: "transparent" }}>
       <div
         style={{
           height: "300px",
@@ -269,30 +264,14 @@ export default function YapMeter() {
             color: "#fff",
             transform: "rotate(-90deg) translateX(25%)",
             transformOrigin: "left bottom",
-            whiteSpace: "nowrap",
-            userSelect: "none",
           }}
         >
           Y A P M E T E R
         </div>
 
-        <div
-          style={{
-            position: "absolute",
-            top: "-10px",
-            left: "50px",
-            fontSize: "36px",
-            color: "red",
-          }}
-        >
-          {" "}
-          {debugRef.current?.toFixed(5)}
-        </div>
-
-        {/* floating percent */}
+        {/* Floating percent */}
         <FloatingPercent percent={percent} getColor={getColor} />
-
-        {/* bar */}
+        {/* Bar */}
         <div
           style={{
             height: "100%",
@@ -312,7 +291,6 @@ export default function YapMeter() {
                 width: "100%",
                 height: "2px",
                 background: percent >= t ? "#fff" : "#666",
-                transition: "background 0.2s",
               }}
             />
           ))}
@@ -337,78 +315,6 @@ export default function YapMeter() {
             }}
           />
         </div>
-      </div>
-    </div>
-  );
-}
-
-function SettingsMenu({ open, onClose, settings, updateSetting }) {
-  if (!open) return null;
-
-  return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0,0,0,0.6)",
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        zIndex: 9999,
-      }}
-      onClick={onClose}
-    >
-      <div
-        style={{
-          background: "#222",
-          color: "#fff",
-          padding: "20px",
-          borderRadius: "12px",
-          minWidth: "300px",
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h2 style={{ marginBottom: "15px" }}>⚙️ YapMeter Settings</h2>
-
-        <label style={{ display: "block", marginBottom: "10px" }}>
-          Max Yap (seconds):
-          <input
-            type="number"
-            value={settings.maxYap}
-            onChange={(e) =>
-              updateSetting("maxYap", parseFloat(e.target.value) || 1)
-            }
-            style={{ marginLeft: "10px" }}
-          />
-        </label>
-
-        <label style={{ display: "block", marginBottom: "10px" }}>
-          Speak Threshold:
-          <input
-            type="number"
-            step="0.01"
-            value={settings.threshold}
-            onChange={(e) =>
-              updateSetting("threshold", parseFloat(e.target.value) || 0.1)
-            }
-            style={{ marginLeft: "10px" }}
-          />
-        </label>
-
-        <button
-          onClick={onClose}
-          style={{
-            marginTop: "15px",
-            padding: "8px 16px",
-            background: "#444",
-            border: "none",
-            borderRadius: "6px",
-            cursor: "pointer",
-            color: "#fff",
-          }}
-        >
-          Close
-        </button>
       </div>
     </div>
   );
