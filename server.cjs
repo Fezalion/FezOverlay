@@ -6,27 +6,8 @@ const http = require("http");
 const dotenv = require("dotenv");
 const fs = require("fs");
 const { WebSocketServer } = require("ws");
-const bindings = require("bindings");
-
-let naudiodon;
-
-if (process.pkg) {
-  // Running inside pkg: point to extracted folder
-  const nativePath = path.join(
-    path.dirname(process.execPath),
-    "node_modules",
-    "naudiodon",
-    "build",
-    "Release",
-    "naudiodon.node"
-  );
-  naudiodon = require(nativePath);
-  console.log("Naudiodon loaded from:", nativePath);
-} else {
-  // Dev mode
-  naudiodon = require("naudiodon");
-}
-
+const OBSWebSocket = require("obs-websocket-js").default;
+const { EventSubscription } = require("obs-websocket-js");
 const repo = "Fezalion/FezOverlay";
 
 const app = express();
@@ -53,73 +34,255 @@ function reloadEnv() {
   console.log("[API] Reloaded environment variables.");
 }
 
+const obs = new OBSWebSocket();
+const SPEAK_THRESHOLD = 0.01; // normalized 0..1
+const SILENCE_RESET_MS = 5000;
+let micSourceName = null;
+let obsReady = false;
+let connectedClients = new Set();
+
+// Initialize OBS connection
+(async () => {
+  try {
+    try {
+      // Use the correct subscription syntax for obs-websocket-js
+      await obs.connect("ws://localhost:4455", undefined, {
+        eventSubscriptions:
+          EventSubscription.All | EventSubscription.InputVolumeMeters,
+        rpcVersion: 1,
+      });
+      console.log("✅ Connected to OBS WebSocket!");
+      console.log("✅ Subscribed to all events including high-volume!");
+    } catch (connectionError) {
+      console.log(
+        "❌ Connection or subscription failed:",
+        connectionError.message
+      );
+    }
+
+    // Auto-detect first available microphone input
+    const sources = await obs.call("GetInputList");
+    console.log(
+      "📋 Available inputs:",
+      sources.inputs.map((i) => `${i.inputName} (${i.inputKind})`)
+    );
+
+    const micInput = sources.inputs.find(
+      (i) =>
+        i.inputKind === "wasapi_input_capture" ||
+        i.inputKind === "dshow_input" ||
+        i.inputKind === "coreaudio_input_capture" || // macOS
+        i.inputKind === "pulse_input_capture" || // Linux
+        i.inputKind === "alsa_input_capture" // Linux
+    );
+
+    if (!micInput) {
+      console.error("❌ No microphone input found in OBS!");
+      console.error(
+        "Available input kinds:",
+        sources.inputs.map((i) => i.inputKind)
+      );
+      return;
+    }
+
+    micSourceName = micInput.inputName;
+    obsReady = true;
+    console.log(
+      `🎤 Using mic source: "${micSourceName}" (${micInput.inputKind})`
+    );
+    console.log("🚀 YapMeter ready for WebSocket connections on port 8080");
+  } catch (err) {
+    console.error("❌ OBS connection or source detection failed:", err);
+    process.exit(1);
+  }
+})();
+
+// Handle WebSocket connections
 wss.on("connection", (ws) => {
-  console.log("YapMeter Ready.");
+  console.log("🔗 YapMeter WebSocket client connected");
 
-  // === SETTINGS ===
-  const SILENCE_RESET_MS = 5000; // reset if silent this long
-  const SHORT_PAUSE_MS = 200; // short pauses allowed
-  const SPEAK_THRESHOLD = 500; // minimal amplitude to detect speaking
-  const SAMPLE_RATE = 44100;
-  const CHANNELS = 1;
-  // === STATE ===
-  let yapScore = 0;
-  let lastSpeakingTime = Date.now();
-  let speaking = false;
-  let continuousStartTime = 0;
+  // Check if OBS is ready
+  if (!obsReady || !micSourceName) {
+    ws.send(JSON.stringify({ error: "OBS not ready" }));
+    ws.close(1013, "OBS not ready");
+    return;
+  }
 
-  // === AUDIO STREAM ===
-  const ai = new naudiodon.AudioIO({
-    inOptions: {
-      channelCount: CHANNELS,
-      sampleFormat: naudiodon.SampleFormat16Bit,
-      sampleRate: SAMPLE_RATE,
-      deviceId: -1, // default mic
-      closeOnError: false,
-    },
+  // Add client to active connections
+  connectedClients.add(ws);
+
+  // Initialize client state on the WebSocket object
+  ws.yapScore = 0;
+  ws.speaking = false;
+  ws.lastSpeakingTime = Date.now();
+  ws.continuousStartTime = 0;
+
+  // Send initial state
+  ws.send(JSON.stringify({ yapScore: "0.00", speaking: false }));
+
+  // Handle client disconnect
+  ws.on("close", () => {
+    console.log("📴 YapMeter WebSocket client disconnected");
+    connectedClients.delete(ws);
   });
 
-  ai.on("data", (chunk) => {
-    const buffer = new Int16Array(chunk.buffer);
-    const avgAmplitude =
-      buffer.reduce((sum, val) => sum + Math.abs(val), 0) / buffer.length;
-    const now = Date.now();
+  ws.on("error", (error) => {
+    console.error("WebSocket error:", error);
+    connectedClients.delete(ws);
+  });
+});
 
-    if (avgAmplitude > SPEAK_THRESHOLD) {
-      // Speaking detected
-      if (!speaking) {
+// Function to process audio level data
+function processAudioLevel(normalized) {
+  if (connectedClients.size === 0) return;
+
+  const now = Date.now();
+
+  // Broadcast to all connected clients
+  connectedClients.forEach((ws) => {
+    if (ws.readyState !== WebSocket.OPEN) {
+      connectedClients.delete(ws);
+      return;
+    }
+
+    let yapScore = 0;
+    let speaking = false;
+    let lastSpeakingTime = ws.lastSpeakingTime || now;
+    let continuousStartTime = ws.continuousStartTime || 0;
+
+    // Check if currently speaking
+    if (normalized > SPEAK_THRESHOLD) {
+      if (!ws.speaking) {
         speaking = true;
-        continuousStartTime = now; // start counting continuous speech
+        continuousStartTime = now;
+        console.log(`🗣️ Started speaking (level: ${normalized.toFixed(3)})`);
+      } else {
+        speaking = true;
+        continuousStartTime = ws.continuousStartTime;
       }
       lastSpeakingTime = now;
-
-      // Update YapScore based on continuous speech duration
-      yapScore = (now - continuousStartTime) / 1000; // seconds
+      yapScore = (now - continuousStartTime) / 1000;
     } else {
-      // Silence detected
-      if (speaking) {
-        const silenceDuration = now - lastSpeakingTime;
-        if (silenceDuration > SILENCE_RESET_MS) {
-          speaking = false;
-          yapScore = 0;
-        } else if (silenceDuration <= SHORT_PAUSE_MS) {
-          // Short pause tolerated: keep YapScore unchanged
-        } else {
-          // Mid-length pause: optionally you could slowly decay, or keep score as-is
-          // For now, we just keep counting until SILENCE_RESET_MS is reached
-        }
+      // Check if we should reset due to silence
+      if (ws.speaking && now - lastSpeakingTime > SILENCE_RESET_MS) {
+        speaking = false;
+        yapScore = 0;
+        continuousStartTime = 0;
+        console.log(`🤐 Stopped speaking after ${SILENCE_RESET_MS}ms silence`);
+      } else if (ws.speaking) {
+        // Still in grace period
+        speaking = true;
+        continuousStartTime = ws.continuousStartTime;
+        yapScore = (lastSpeakingTime - continuousStartTime) / 1000;
       }
     }
 
-    ws.send(JSON.stringify({ yapScore: yapScore.toFixed(2) }));
+    // Store state on WebSocket object
+    ws.speaking = speaking;
+    ws.lastSpeakingTime = lastSpeakingTime;
+    ws.continuousStartTime = continuousStartTime;
+
+    // Send update to client
+    try {
+      ws.send(
+        JSON.stringify({
+          yapScore: yapScore.toFixed(2),
+          speaking: speaking,
+          audioLevel: normalized.toFixed(3),
+          threshold: SPEAK_THRESHOLD,
+        })
+      );
+    } catch (error) {
+      console.error("Error sending to client:", error);
+      connectedClients.delete(ws);
+    }
+  });
+}
+
+// Handle specific OBS events using the correct syntax
+obs.on("InputVolumeMeters", (data) => {
+  // Find the microphone input in the data
+  const inputs = data.inputs || [];
+  const mic = inputs.find((i) => i.inputName === micSourceName);
+
+  if (!mic) {
+    console.log(
+      "❌ Mic not found in inputs. Available:",
+      inputs.map((i) => i.inputName)
+    );
+    return;
+  }
+
+  // Check for different possible property names
+  const levels =
+    mic.inputLevelsMul || mic.inputLevels || mic.levels || mic.meters;
+  if (!levels || levels.length === 0) {
+    console.log("❌ No level data found. Mic object:", mic);
+    return;
+  }
+
+  // Use the first channel's level (mono or left channel)
+  const normalized = levels[0][0];
+  processAudioLevel(normalized);
+});
+
+// Listen for connection events
+obs.on("ConnectionOpened", () => {
+  console.log("🔗 OBS WebSocket connection opened");
+});
+
+obs.on("ConnectionClosed", () => {
+  console.log("❌ OBS WebSocket connection closed");
+  obsReady = false;
+});
+
+obs.on("ConnectionError", (error) => {
+  console.error("❌ OBS WebSocket connection error:", error);
+});
+
+// Handle OBS disconnection
+obs.on("ConnectionClosed", () => {
+  console.log("❌ OBS WebSocket connection closed");
+  obsReady = false;
+
+  // Notify all clients
+  connectedClients.forEach((ws) => {
+    if (ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ error: "OBS connection lost" }));
+      ws.close(1011, "OBS connection lost");
+    }
+  });
+  connectedClients.clear();
+});
+
+// Handle OBS connection errors
+obs.on("ConnectionError", (error) => {
+  console.error("❌ OBS WebSocket connection error:", error);
+});
+
+// Graceful shutdown
+process.on("SIGINT", async () => {
+  console.log("\n🛑 Shutting down YapMeter...");
+
+  // Close all WebSocket connections
+  connectedClients.forEach((ws) => {
+    if (ws.readyState === WebSocket.OPEN) {
+      ws.close(1001, "Server shutting down");
+    }
   });
 
-  ai.start();
+  // Close WebSocket server
+  wss.close();
 
-  ws.on("close", () => {
-    console.log("quit");
-    ai.quit();
-  });
+  // Disconnect from OBS
+  try {
+    await obs.disconnect();
+    console.log("✅ Disconnected from OBS");
+  } catch (error) {
+    console.error("Error disconnecting from OBS:", error);
+  }
+
+  process.exit(0);
 });
 
 function broadcast(msg) {
