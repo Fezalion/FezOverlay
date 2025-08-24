@@ -257,13 +257,14 @@ function YapMeterCore({ settings }) {
         <div
           style={{
             position: "absolute",
-            bottom: "0",
-            left: "12px",
+            bottom: "50%", // center vertically relative to the bar
+            right: "-25px", // adjust horizontal position
             fontSize: "24px",
             fontWeight: "bold",
             color: "#fff",
-            transform: "rotate(-90deg) translateX(25%)",
-            transformOrigin: "left bottom",
+            transform: "rotate(-90deg) translateX(-50%)", // translate along rotated axis
+            transformOrigin: "center center",
+            whiteSpace: "nowrap", // prevent wrapping
           }}
         >
           Y A P M E T E R
@@ -277,7 +278,7 @@ function YapMeterCore({ settings }) {
             height: "100%",
             width: "100%",
             border: "2px solid #333",
-            borderRadius: "10px",
+            borderRadius: "5px",
             overflow: "hidden",
             position: "relative",
           }}
