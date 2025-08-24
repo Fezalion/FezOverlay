@@ -37,7 +37,10 @@
   "pkg": {
     "assets": [
       "dist/**/*",
-      "settings.json"
+      "settings.json",
+      "node_modules/naudiodon/build/**/*",
+      "node_modules/naudiodon/lib/binding/**/*",
+      "node_modules/naudiodon/compiled/**/*"
     ]
   },
   "main": "server.cjs"

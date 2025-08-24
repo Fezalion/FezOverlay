@@ -1,4 +1,3 @@
-const { execFileSync } = require("child_process");
 const path = require("path");
 const express = require("express");
 const bodyParser = require("body-parser");
@@ -6,8 +5,22 @@ const https = require("https");
 const http = require("http");
 const dotenv = require("dotenv");
 const fs = require("fs");
-const portAudio = require("naudiodon");
 const { WebSocketServer } = require("ws");
+const bindings = require("bindings");
+
+let naudiodon;
+if (process.pkg) {
+  // Inside pkg
+  const nativePath = path.join(
+    path.dirname(process.execPath),
+    "node_modules",
+    "naudiodon"
+  );
+  naudiodon = bindings({ module_root: nativePath });
+} else {
+  // Dev mode
+  naudiodon = require("naudiodon");
+}
 
 const repo = "Fezalion/FezOverlay";
 
@@ -51,10 +64,10 @@ wss.on("connection", (ws) => {
   let continuousStartTime = 0;
 
   // === AUDIO STREAM ===
-  const ai = new portAudio.AudioIO({
+  const ai = new naudiodon.AudioIO({
     inOptions: {
       channelCount: CHANNELS,
-      sampleFormat: portAudio.SampleFormat16Bit,
+      sampleFormat: naudiodon.SampleFormat16Bit,
       sampleRate: SAMPLE_RATE,
       deviceId: -1, // default mic
       closeOnError: false,
