@@ -6,6 +6,7 @@ const https = require("https");
 const http = require("http");
 const dotenv = require("dotenv");
 const fs = require("fs");
+const portAudio = require("naudiodon");
 const { WebSocketServer } = require("ws");
 
 const repo = "Fezalion/FezOverlay";
@@ -34,27 +35,73 @@ function reloadEnv() {
   console.log("[API] Reloaded environment variables.");
 }
 
-function saveTokens({ access_token, refresh_token }) {
-  let envData = "";
-  if (fs.existsSync(envPath)) {
-    envData = fs.readFileSync(envPath, "utf8");
-  }
-
-  envData = envData.replace(/TWITCH_ACCESS_TOKEN=.*/g, "");
-  envData = envData.replace(/TWITCH_REFRESH_TOKEN=.*/g, "");
-
-  envData += `\nTWITCH_ACCESS_TOKEN=${access_token}`;
-  if (refresh_token) {
-    envData += `\nTWITCH_REFRESH_TOKEN=${refresh_token}`;
-  }
-
-  fs.writeFileSync(envPath, envData.trim() + "\n");
-
-  reloadEnv();
-}
-
 wss.on("connection", (ws) => {
-  console.log("An Overlay is connected.");
+  console.log("YapMeter Ready.");
+
+  // === SETTINGS ===
+  const SILENCE_RESET_MS = 5000; // reset if silent this long
+  const SHORT_PAUSE_MS = 200; // short pauses allowed
+  const SPEAK_THRESHOLD = 500; // minimal amplitude to detect speaking
+  const SAMPLE_RATE = 44100;
+  const CHANNELS = 1;
+  // === STATE ===
+  let yapScore = 0;
+  let lastSpeakingTime = Date.now();
+  let speaking = false;
+  let continuousStartTime = 0;
+
+  // === AUDIO STREAM ===
+  const ai = new portAudio.AudioIO({
+    inOptions: {
+      channelCount: CHANNELS,
+      sampleFormat: portAudio.SampleFormat16Bit,
+      sampleRate: SAMPLE_RATE,
+      deviceId: -1, // default mic
+      closeOnError: false,
+    },
+  });
+
+  ai.on("data", (chunk) => {
+    const buffer = new Int16Array(chunk.buffer);
+    const avgAmplitude =
+      buffer.reduce((sum, val) => sum + Math.abs(val), 0) / buffer.length;
+    const now = Date.now();
+
+    if (avgAmplitude > SPEAK_THRESHOLD) {
+      // Speaking detected
+      if (!speaking) {
+        speaking = true;
+        continuousStartTime = now; // start counting continuous speech
+      }
+      lastSpeakingTime = now;
+
+      // Update YapScore based on continuous speech duration
+      yapScore = (now - continuousStartTime) / 1000; // seconds
+    } else {
+      // Silence detected
+      if (speaking) {
+        const silenceDuration = now - lastSpeakingTime;
+        if (silenceDuration > SILENCE_RESET_MS) {
+          speaking = false;
+          yapScore = 0;
+        } else if (silenceDuration <= SHORT_PAUSE_MS) {
+          // Short pause tolerated: keep YapScore unchanged
+        } else {
+          // Mid-length pause: optionally you could slowly decay, or keep score as-is
+          // For now, we just keep counting until SILENCE_RESET_MS is reached
+        }
+      }
+    }
+
+    ws.send(JSON.stringify({ yapScore: yapScore.toFixed(2) }));
+  });
+
+  ai.start();
+
+  ws.on("close", () => {
+    console.log("quit");
+    ai.quit();
+  });
 });
 
 function broadcast(msg) {

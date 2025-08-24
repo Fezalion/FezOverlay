@@ -5,6 +5,7 @@ import { NowPlaying } from "./components/NowPlaying";
 import Settings from "./components/Settings";
 import EmoteOverlay from "./components/EmoteOverlay";
 import AuthCallback from "./AuthCallback";
+import YapMeter from "./components/YapMeter";
 import "./index.css";
 
 function hexToRgb(hex) {
@@ -70,6 +71,8 @@ createRoot(document.getElementById("root")).render(
         <Route path="/playing" element={<NowPlaying />} />
         <Route path="/emotes" element={<EmoteOverlay />} />
         <Route path="/" element={<Settings />} />
+        <Route path="/yapmeter" element={<YapMeter />} />
+        <Route path="/test" element={<YapMeter />} />
         <Route path="/auth/twitch/callback" element={<AuthCallback />} />
       </Routes>
     </BrowserRouter>
