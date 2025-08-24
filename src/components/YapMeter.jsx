@@ -93,21 +93,37 @@ export default function YapMeter() {
   const [trailScore, setTrailScore] = useState(0);
 
   const obsRef = useRef(null);
+  const debugRef = useRef(null);
   const speakingRef = useRef(false);
   const lastSpeakingTimeRef = useRef(Date.now());
   const continuousStartTimeRef = useRef(0);
   const micSourceNameRef = useRef(null);
 
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
+  const [settings, setSettings] = useState({
+    maxYap: 60,
+    threshold: 1,
+  });
+
+  const updateSetting = (key, value) =>
+    setSettings((prev) => ({ ...prev, [key]: value }));
+
+  // toggle menu with space
+  useEffect(() => {
+    const handleKey = (e) => {
+      if (e.code === "Space") {
+        e.preventDefault();
+        setSettingsOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, []);
+
   // Connect to OBS
   useEffect(() => {
     const obs = new OBSWebSocket();
-
-    const debug = async (text) => {
-      await obs.call("SetInputSettings", {
-        inputName: "DebugText",
-        inputSettings: { text: text },
-      });
-    };
     obsRef.current = obs;
 
     async function connect() {
@@ -118,7 +134,6 @@ export default function YapMeter() {
           rpcVersion: 1,
         });
         console.log("✅ Connected to OBS");
-        debug("✅ Connected to OBS");
         // detect mic input
         const sources = await obs.call("GetInputList");
         const micInput = sources.inputs.find((i) =>
@@ -130,14 +145,13 @@ export default function YapMeter() {
             "alsa_input_capture",
           ].includes(i.inputKind)
         );
+        console.log(micInput);
         if (!micInput) {
           console.error("❌ No mic input found!");
-          debug("❌ No mic input found!");
           return;
         }
         micSourceNameRef.current = micInput.inputName;
         console.log("🎤 Using mic:", micSourceNameRef.current);
-        debug("🎤 Using mic:" + micSourceNameRef.current);
 
         obs.on("InputVolumeMeters", (data) => {
           const mic = data.inputs.find(
@@ -149,14 +163,15 @@ export default function YapMeter() {
             mic.inputLevelsMul || mic.inputLevels || mic.levels || mic.meters;
           if (!levels?.length) return;
 
-          const normalized = levels[0][0] * 1000; // 0..1
+          const normalized = levels[0][0] * 100; // 0..1
           const now = Date.now();
 
           let speaking = speakingRef.current;
           let lastSpeaking = lastSpeakingTimeRef.current;
           let continuousStart = continuousStartTimeRef.current;
           let yapScore = 0;
-          if (normalized > SPEAK_THRESHOLD) {
+          debugRef.current = normalized;
+          if (normalized > settings.threshold) {
             if (!speaking) {
               speaking = true;
               continuousStart = now;
@@ -179,11 +194,9 @@ export default function YapMeter() {
           continuousStartTimeRef.current = continuousStart;
 
           setScore(yapScore);
-          debug("score" + yapScore);
         });
       } catch (err) {
         console.error("OBS connection failed:", err);
-        debug("OBS connection failed:");
       }
     }
 
@@ -191,7 +204,7 @@ export default function YapMeter() {
     return () => {
       obs.disconnect();
     };
-  }, []);
+  }, [settings.threshold]);
 
   // smoothing
   useEffect(() => {
@@ -202,97 +215,200 @@ export default function YapMeter() {
     return () => clearInterval(interval);
   }, [score, displayScore]);
 
-  const percent = Math.min(displayScore / MAX_YAP, 1);
-  const trailPercent = Math.min(trailScore / MAX_YAP, 1);
+  const percent = Math.min(displayScore / settings.maxYap, 1);
+  const trailPercent = Math.min(trailScore / settings.maxYap, 1);
 
   const thresholds = [0.25, 0.5, 0.75, 1.0];
-  useYapEvents(
+  /*useYapEvents(
     percent,
     thresholds.map((t) => ({
       threshold: t,
       onEnter: () => console.log(`${(t * 100).toFixed(0)}% ↑`),
       onExit: () => console.log(`${(t * 100).toFixed(0)}% ↓`),
     }))
-  );
+  );*/
 
   const getColor = (p) => (p < 0.5 ? "#0f0" : p < 0.8 ? "#ff0" : "#f00");
 
   return (
     <div
       style={{
-        height: "300px",
-        width: "50px",
-        padding: "10px",
-        position: "absolute",
-        bottom: "50px",
-        left: "50px",
+        height: "100%",
+        width: "100%",
+        background: "black",
+        position: "fixed",
+        top: "0",
+        bottom: "0",
       }}
     >
-      {/* Label */}
+      {/* Settings Menu */}
+      <SettingsMenu
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        settings={settings}
+        updateSetting={updateSetting}
+      />
       <div
         style={{
+          height: "300px",
+          width: "50px",
+          padding: "10px",
           position: "absolute",
-          bottom: "0",
-          left: "12px",
-          fontSize: "24px",
-          fontWeight: "bold",
-          color: "#fff",
-          transform: "rotate(-90deg) translateX(25%)",
-          transformOrigin: "left bottom",
-          whiteSpace: "nowrap",
-          userSelect: "none",
+          bottom: "50px",
+          left: "50px",
         }}
       >
-        Y A P M E T E R
-      </div>
+        {/* Label */}
+        <div
+          style={{
+            position: "absolute",
+            bottom: "0",
+            left: "12px",
+            fontSize: "24px",
+            fontWeight: "bold",
+            color: "#fff",
+            transform: "rotate(-90deg) translateX(25%)",
+            transformOrigin: "left bottom",
+            whiteSpace: "nowrap",
+            userSelect: "none",
+          }}
+        >
+          Y A P M E T E R
+        </div>
 
-      {/* floating percent */}
-      <FloatingPercent percent={percent} getColor={getColor} />
+        <div
+          style={{
+            position: "absolute",
+            top: "-10px",
+            left: "50px",
+            fontSize: "36px",
+            color: "red",
+          }}
+        >
+          {" "}
+          {debugRef.current?.toFixed(5)}
+        </div>
 
-      {/* bar */}
-      <div
-        style={{
-          height: "100%",
-          width: "100%",
-          border: "2px solid #333",
-          borderRadius: "10px",
-          overflow: "hidden",
-          position: "relative",
-        }}
-      >
-        {thresholds.map((t) => (
+        {/* floating percent */}
+        <FloatingPercent percent={percent} getColor={getColor} />
+
+        {/* bar */}
+        <div
+          style={{
+            height: "100%",
+            width: "100%",
+            border: "2px solid #333",
+            borderRadius: "10px",
+            overflow: "hidden",
+            position: "relative",
+          }}
+        >
+          {thresholds.map((t) => (
+            <div
+              key={t}
+              style={{
+                position: "absolute",
+                bottom: `${t * 100}%`,
+                width: "100%",
+                height: "2px",
+                background: percent >= t ? "#fff" : "#666",
+                transition: "background 0.2s",
+              }}
+            />
+          ))}
           <div
-            key={t}
             style={{
               position: "absolute",
-              bottom: `${t * 100}%`,
+              bottom: 0,
+              height: `${trailPercent * 100}%`,
               width: "100%",
-              height: "2px",
-              background: percent >= t ? "#fff" : "#666",
-              transition: "background 0.2s",
+              background: getColor(trailPercent),
+              opacity: 0.4,
+              filter: "blur(4px)",
             }}
           />
-        ))}
-        <div
+          <div
+            style={{
+              position: "absolute",
+              bottom: 0,
+              height: `${percent * 100}%`,
+              width: "100%",
+              background: getColor(percent),
+            }}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SettingsMenu({ open, onClose, settings, updateSetting }) {
+  if (!open) return null;
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(0,0,0,0.6)",
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        zIndex: 9999,
+      }}
+      onClick={onClose}
+    >
+      <div
+        style={{
+          background: "#222",
+          color: "#fff",
+          padding: "20px",
+          borderRadius: "12px",
+          minWidth: "300px",
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 style={{ marginBottom: "15px" }}>⚙️ YapMeter Settings</h2>
+
+        <label style={{ display: "block", marginBottom: "10px" }}>
+          Max Yap (seconds):
+          <input
+            type="number"
+            value={settings.maxYap}
+            onChange={(e) =>
+              updateSetting("maxYap", parseFloat(e.target.value) || 1)
+            }
+            style={{ marginLeft: "10px" }}
+          />
+        </label>
+
+        <label style={{ display: "block", marginBottom: "10px" }}>
+          Speak Threshold:
+          <input
+            type="number"
+            step="0.01"
+            value={settings.threshold}
+            onChange={(e) =>
+              updateSetting("threshold", parseFloat(e.target.value) || 0.1)
+            }
+            style={{ marginLeft: "10px" }}
+          />
+        </label>
+
+        <button
+          onClick={onClose}
           style={{
-            position: "absolute",
-            bottom: 0,
-            height: `${trailPercent * 100}%`,
-            width: "100%",
-            background: getColor(trailPercent),
-            opacity: 0.4,
-            filter: "blur(4px)",
+            marginTop: "15px",
+            padding: "8px 16px",
+            background: "#444",
+            border: "none",
+            borderRadius: "6px",
+            cursor: "pointer",
+            color: "#fff",
           }}
-        />
-        <div
-          style={{
-            position: "absolute",
-            bottom: 0,
-            height: `${percent * 100}%`,
-            width: "100%",
-            background: getColor(percent),
-          }}
-        />
+        >
+          Close
+        </button>
       </div>
     </div>
   );
