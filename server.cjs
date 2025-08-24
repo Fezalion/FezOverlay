@@ -9,14 +9,19 @@ const { WebSocketServer } = require("ws");
 const bindings = require("bindings");
 
 let naudiodon;
+
 if (process.pkg) {
-  // Inside pkg
+  // Running inside pkg: point to extracted folder
   const nativePath = path.join(
     path.dirname(process.execPath),
     "node_modules",
-    "naudiodon"
+    "naudiodon",
+    "build",
+    "Release",
+    "naudiodon.node"
   );
-  naudiodon = bindings({ module_root: nativePath });
+  naudiodon = require(nativePath);
+  console.log("Naudiodon loaded from:", nativePath);
 } else {
   // Dev mode
   naudiodon = require("naudiodon");
