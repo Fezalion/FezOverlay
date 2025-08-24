@@ -43,6 +43,7 @@ let connectedClients = new Set();
 
 // Initialize OBS connection
 (async () => {
+  if (!process.env.SKIP) return;
   try {
     try {
       // Use the correct subscription syntax for obs-websocket-js
@@ -220,7 +221,7 @@ obs.on("InputVolumeMeters", (data) => {
     console.log("❌ No level data found. Mic object:", mic);
     return;
   }
-
+  console.log(levels);
   // Use the first channel's level (mono or left channel)
   const normalized = levels[0][0];
   processAudioLevel(normalized);
