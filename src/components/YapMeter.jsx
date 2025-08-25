@@ -84,6 +84,58 @@ function useYapEvents(percent, events = []) {
     });
   }, [percent, events]);
 }
+function YapTimer({ timer, visible }) {
+  const labelRef = useRef(null);
+
+  useEffect(() => {
+    let animFrame;
+    const animate = () => {
+      if (labelRef.current) {
+        // Intensity grows infinitely: +1 every 10s
+        const intensity = Math.floor(timer / 10) + 1;
+
+        // Base scale grows slightly with intensity
+        const baseScale = 1 + 0.05 * intensity;
+
+        // Wiggle + shake grows stronger with intensity
+        const wiggleFactor = intensity * 0.4;
+        const rotation = Math.sin(Date.now() / 100) * 5 * wiggleFactor;
+        const wiggleScale = 1 + 0.1 * wiggleFactor * Math.sin(Date.now() / 150);
+        const shakeX = Math.sin(Date.now() / 40) * 2 * wiggleFactor;
+        const shakeY = -1 * Math.sin(Date.now() / 45) * 2 * wiggleFactor;
+
+        const finalScale = baseScale * wiggleScale;
+
+        labelRef.current.style.transform = `translateX(${shakeX}px) translateY(${shakeY}px) scale(${finalScale}) rotate(${rotation}deg)`;
+      }
+      animFrame = requestAnimationFrame(animate);
+    };
+    animFrame = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(animFrame);
+  }, [timer]);
+
+  return (
+    <div
+      ref={labelRef}
+      style={{
+        position: "absolute",
+        bottom: "calc(100% - 15px)",
+        left: "20%",
+        transform: "translateX(-50%)",
+        fontSize: "20px",
+        fontWeight: "bold",
+        color: "#f00",
+        textShadow: "0 0 5px #000",
+        opacity: visible ? 1 : 0,
+        transition: "opacity 1s ease", // fade in/out
+        pointerEvents: "none",
+        textAlign: "center",
+      }}
+    >
+      {timer.toFixed(1)}s
+    </div>
+  );
+}
 
 function FloatingPercent({ percent, getColor }) {
   const labelRef = useRef(null);
@@ -138,11 +190,18 @@ function YapMeterCore({ settings }) {
   const [displayScore, setDisplayScore] = useState(0);
   const [trailScore, setTrailScore] = useState(0);
 
+  const [timer, setTimer] = useState(0);
+  const [running, setRunning] = useState(false);
+  const [visible, setVisible] = useState(false);
+  const hideTimeoutRef = useRef(null);
+
   const obsRef = useRef(null);
   const speakingRef = useRef(false);
   const lastSpeakingTimeRef = useRef(Date.now());
   const continuousStartTimeRef = useRef(0);
   const micSourceNameRef = useRef(null);
+  const barShakeRef = useRef(null);
+  const labelRef = useRef(null);
 
   // connect to OBS
   useEffect(() => {
@@ -229,6 +288,31 @@ function YapMeterCore({ settings }) {
   const percent = Math.min(displayScore / settings.yapMeterMaxYap, 1);
   const trailPercent = Math.min(trailScore / settings.yapMeterMaxYap, 1);
 
+  useEffect(() => {
+    if (percent === 1 && !running) {
+      setRunning(true);
+      setTimer(0);
+      setVisible(true);
+      if (hideTimeoutRef.current) {
+        clearTimeout(hideTimeoutRef.current);
+        hideTimeoutRef.current = null;
+      }
+    } else if (percent < 1 && running) {
+      setRunning(false);
+      hideTimeoutRef.current = setTimeout(() => {
+        setVisible(false);
+      }, 5000);
+    }
+  }, [percent, running]);
+
+  useEffect(() => {
+    if (!running) return;
+    const interval = setInterval(() => {
+      setTimer((t) => t + 0.1);
+    }, 100);
+    return () => clearInterval(interval);
+  }, [running]);
+
   const thresholds = [0.25, 0.5, 0.75, 1.0];
   useYapEvents(
     percent,
@@ -238,6 +322,32 @@ function YapMeterCore({ settings }) {
       onExit: () => console.log(`${(t * 100).toFixed(0)}% ↓`),
     }))
   );
+
+  useEffect(() => {
+    const el = barShakeRef.current; // ✅ capture once
+    if (!el) return;
+    let animFrame;
+
+    const animate = () => {
+      if (running && timer >= 20) {
+        const intensity = (timer - 20) * 0.5; // grows stronger over time
+        const shakeX = Math.sin(Date.now() / 40) * intensity;
+        const shakeY = Math.cos(Date.now() / 50) * intensity;
+
+        el.style.transform = `translate(${shakeX}px, ${shakeY}px)`;
+        animFrame = requestAnimationFrame(animate);
+      } else {
+        el.style.transform = "none"; // reset instantly
+      }
+    };
+
+    animFrame = requestAnimationFrame(animate);
+
+    return () => {
+      cancelAnimationFrame(animFrame);
+      el.style.transform = "none"; // ✅ clean up the same element
+    };
+  }, [running, timer]);
 
   const getColor = (p) => (p < 0.5 ? "#0f0" : p < 0.8 ? "#ff0" : "#f00");
 
@@ -255,6 +365,7 @@ function YapMeterCore({ settings }) {
       >
         {/* Label */}
         <div
+          ref={labelRef}
           style={{
             position: "absolute",
             bottom: "50%", // center vertically relative to the bar
@@ -272,8 +383,12 @@ function YapMeterCore({ settings }) {
 
         {/* Floating percent */}
         <FloatingPercent percent={percent} getColor={getColor} />
+        {/* Timer Component */}
+        <YapTimer timer={timer} visible={visible} />
+
         {/* Bar */}
         <div
+          ref={barShakeRef}
           style={{
             height: "100%",
             width: "100%",
