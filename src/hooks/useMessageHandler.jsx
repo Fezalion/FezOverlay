@@ -3,7 +3,7 @@ import { useEffect } from "react";
 export function useMessageHandler(
   client,
   emoteMap,
-  spawnEmote,
+  spawnEmoteRef,
   globalEffects,
   settings
 ) {
@@ -20,7 +20,7 @@ export function useMessageHandler(
   } = settings;
 
   useEffect(() => {
-    if (!client || !spawnEmote) return;
+    if (!client || !spawnEmoteRef) return;
 
     function onMessage(channel, userstate, message) {
       console.log(message);
@@ -86,7 +86,7 @@ export function useMessageHandler(
           console.log("the fuck");
           setTimeout(() => {
             const userColor = userstate.color || "orange";
-            spawnEmote(emoteName, isSub, userColor);
+            spawnEmoteRef.current?.(emoteName, isSub, userColor);
           }, i * emoteDelay);
         });
       }
@@ -115,7 +115,7 @@ export function useMessageHandler(
   }, [
     client,
     emoteMap,
-    spawnEmote,
+    spawnEmoteRef,
     globalEffects,
     emoteDelay,
     subEffectTypes,

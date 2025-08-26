@@ -2,10 +2,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMetadata } from "../hooks/useMetadata";
 import OBSWebSocket, { EventSubscription } from "obs-websocket-js";
+import { useTwitchClient } from "../hooks/useTwitchClient";
 
 export default function YapMeter() {
   const { settings, refreshSettings } = useMetadata();
   const [refreshToken, setRefreshToken] = useState(0);
+  const clientRef = useTwitchClient(settings.twitchName);
   const wsRef = useRef(null);
 
   useEffect(() => {
@@ -39,51 +41,41 @@ export default function YapMeter() {
       key={stableKey}
       settings={settings}
       isRefresh={refreshToken > 0}
+      wsRef={wsRef}
+      clientRef={clientRef}
     />
   );
 }
 
-function useYapEvents(percent, events = []) {
-  const triggeredRef = useRef({});
-  const firstRenderRef = useRef(true);
+function useYapEvents(percent, thresholds) {
+  // Keep track of last active threshold
+  const lastActiveRef = useRef(null);
 
   useEffect(() => {
-    if (firstRenderRef.current) {
-      // initialize triggered states but don't fire events
-      events.forEach(({ threshold }) => {
-        triggeredRef.current[threshold] = {
-          up: percent >= threshold,
-          down: percent <= threshold,
-        };
-      });
-      firstRenderRef.current = false;
-      return;
+    // sort lowest → highest
+    const sorted = [...thresholds].sort((a, b) => a.threshold - b.threshold);
+
+    // find highest threshold currently crossed
+    const active =
+      sorted.filter((t) => percent >= t.threshold).slice(-1)[0] || null;
+
+    const lastActive = lastActiveRef.current;
+
+    // Fire enter only if we moved to a new higher threshold
+    if (active && (!lastActive || active.threshold !== lastActive.threshold)) {
+      active.onEnter?.();
     }
 
-    events.forEach(({ threshold, onEnter, onExit }) => {
-      const triggered = triggeredRef.current[threshold] || {
-        up: false,
-        down: false,
-      };
+    // Fire exit only if we dropped below the previous highest threshold
+    if (lastActive && (!active || active.threshold < lastActive.threshold)) {
+      lastActive.onExit?.();
+    }
 
-      // enter
-      if (percent >= threshold && !triggered.up) {
-        onEnter?.();
-        triggered.up = true;
-      }
-      if (percent < threshold) triggered.up = false;
-
-      // exit
-      if (percent <= threshold && !triggered.down) {
-        onExit?.();
-        triggered.down = true;
-      }
-      if (percent > threshold) triggered.down = false;
-
-      triggeredRef.current[threshold] = triggered;
-    });
-  }, [percent, events]);
+    // Only update the ref AFTER firing exit/enter
+    lastActiveRef.current = active;
+  }, [percent, thresholds]);
 }
+
 function YapTimer({ timer, visible }) {
   const labelRef = useRef(null);
 
@@ -185,7 +177,7 @@ function FloatingPercent({ percent, getColor }) {
   );
 }
 
-function YapMeterCore({ settings }) {
+function YapMeterCore({ settings, wsRef, clientRef }) {
   const [score, setScore] = useState(0);
   const [displayScore, setDisplayScore] = useState(0);
   const [trailScore, setTrailScore] = useState(0);
@@ -313,15 +305,60 @@ function YapMeterCore({ settings }) {
     return () => clearInterval(interval);
   }, [running]);
 
-  const thresholds = [0.25, 0.5, 0.75, 1.0];
-  useYapEvents(
-    percent,
-    thresholds.map((t) => ({
+  const thresholds = [0.25, 0.5, 0.75, 1.0].map((t) => {
+    if (t === 1.0) {
+      return {
+        threshold: t,
+        onEnter: () => console.log("🔥 100% reached!"),
+        onExit: () => {
+          console.log("⬇ Dropped below 100%, sending spawnEmote");
+
+          if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+            const payloadEmote = {
+              type: "spawnEmote",
+              emote: "yapping",
+              count: 2 + Math.max(0, timer || 0),
+              triggeredAt: Date.now(),
+            };
+            wsRef.current.send(JSON.stringify(payloadEmote));
+            clientRef.current?.say(
+              settings.twitchName,
+              ` OVERYAPPED for ${timer.toFixed(1)} seconds straight!`
+            );
+            console.log("🚀 Sent spawnEmote:", payloadEmote);
+          }
+        },
+      };
+    } else if (t === 0.5) {
+      return {
+        threshold: t,
+        onEnter: () => console.log("⚠ 50% reached"),
+        onExit: () => {
+          console.log("⬇ Dropped below 50%, sending spawnEmote");
+
+          if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+            const payload = {
+              type: "spawnEmote",
+              emote: "BLABBERING",
+              count: 5,
+              triggeredAt: Date.now(),
+            };
+            wsRef.current.send(JSON.stringify(payload));
+            console.log("🚀 Sent spawnEmote:", payload);
+          }
+        },
+      };
+    }
+
+    // for other thresholds, keep your default logging
+    return {
       threshold: t,
       onEnter: () => console.log(`${(t * 100).toFixed(0)}% ↑`),
       onExit: () => console.log(`${(t * 100).toFixed(0)}% ↓`),
-    }))
-  );
+    };
+  });
+
+  useYapEvents(percent, thresholds);
 
   useEffect(() => {
     const el = barShakeRef.current; // ✅ capture once
@@ -400,13 +437,13 @@ function YapMeterCore({ settings }) {
         >
           {thresholds.map((t) => (
             <div
-              key={t}
+              key={t.threshold}
               style={{
                 position: "absolute",
-                bottom: `${t * 100}%`,
+                bottom: `${t.threshold * 100}%`,
                 width: "100%",
                 height: "2px",
-                background: percent >= t ? "#fff" : "#666",
+                background: percent >= t.threshold ? "#fff" : "#666",
               }}
             />
           ))}

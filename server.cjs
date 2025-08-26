@@ -337,7 +337,11 @@ app.post("/api/settings", (req, res) => {
 
 //POST refresh overlays from websocket
 app.post("/api/refresh", (req, res) => {
-  broadcast("refresh");
+  broadcast(
+    JSON.stringify({
+      type: "refresh",
+    })
+  );
   res.send("Refresh triggered");
 });
 
@@ -468,6 +472,40 @@ if (!fs.existsSync(distRoot)) {
     console.log("Please run: npm run build");
   }
 }
+
+wss.on("connection", (ws) => {
+  console.log("WebSocket client connected");
+
+  ws.on("message", (message) => {
+    try {
+      const data = JSON.parse(message.toString());
+      if (data.type === "spawnEmote") {
+        broadcast(
+          JSON.stringify({
+            type: "spawnEmote",
+            emote: data.emote,
+            count: data.count || 1,
+          })
+        );
+      } else if (data.type === "chatMessage") {
+        broadcast(
+          JSON.stringify({
+            type: "chatMessage",
+            message: data.message,
+          })
+        );
+      } else {
+        console.log("Unknown message type:", data);
+      }
+    } catch (err) {
+      console.error("Failed to parse WebSocket message:", err);
+    }
+  });
+
+  ws.on("close", () => {
+    console.log("WebSocket client disconnected");
+  });
+});
 
 server.listen(PORT, "0.0.0.0", () => {
   console.log(`Server + WS running on http://localhost:${PORT}`);

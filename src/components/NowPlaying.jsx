@@ -10,38 +10,7 @@ const WS_URL = "ws://localhost:48000";
 const MOVEMENT_DEBOUNCE_MS = 1000;
 const OPACITY_TRANSITION_MS = 300; // Increased for smoother song transitions
 
-// Custom hooks
-const useWebSocket = (onRefresh) => {
-  const wsRef = useRef(null);
-
-  useEffect(() => {
-    const ws = new WebSocket(WS_URL);
-    wsRef.current = ws;
-
-    ws.onmessage = (event) => {
-      if (event.data === "refresh") {
-        onRefresh();
-        console.log("refreshing");
-      }
-    };
-
-    ws.onerror = (err) => {
-      console.error("WebSocket error:", err);
-    };
-
-    ws.onclose = () => {
-      console.log("WebSocket closed");
-    };
-
-    return () => {
-      ws.current?.close();
-    };
-  }, [onRefresh]);
-
-  return wsRef;
-};
-
-const useTrackPolling = (lastfmName) => {
+const useTrackPolling = (lastfmName, refreshToken) => {
   const [track, setTrack] = useState(null);
 
   useEffect(() => {
@@ -71,7 +40,7 @@ const useTrackPolling = (lastfmName) => {
     const interval = setInterval(fetchTrack, POLL_RATE);
 
     return () => clearInterval(interval);
-  }, [lastfmName]);
+  }, [lastfmName, refreshToken]);
 
   return track;
 };
@@ -322,16 +291,35 @@ export function NowPlaying() {
 
   // Custom hooks
   const handleRefresh = useCallback(() => {
+    console.log("🔄 NowPlaying refreshing");
     setRefreshToken((prev) => prev + 1);
   }, []);
 
-  useWebSocket(handleRefresh);
+  const wsRef = useRef(null);
+
+  useEffect(() => {
+    const wsUrl = "ws://localhost:48000";
+    const ws = new WebSocket(wsUrl);
+    wsRef.current = ws;
+
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      if (data.type === "refresh") {
+        handleRefresh();
+      }
+    };
+
+    ws.onerror = (err) => console.error("WebSocket error:", err);
+    ws.onclose = () => console.log("WebSocket closed");
+
+    return () => ws.close();
+  }, [handleRefresh]);
 
   useEffect(() => {
     refreshSettings();
   }, [refreshToken, refreshSettings]);
 
-  const latestTrack = useTrackPolling(lastfmName);
+  const latestTrack = useTrackPolling(lastfmName, refreshToken);
 
   const displayText = latestTrack
     ? `${latestTrack.artist} - ${latestTrack.name}`

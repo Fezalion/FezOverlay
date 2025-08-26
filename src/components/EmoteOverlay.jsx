@@ -16,52 +16,59 @@ export default function EmoteOverlay() {
   const [refreshToken, setRefreshToken] = useState(0);
   const wsRef = useRef(null);
 
+  // Refresh logic
   useEffect(() => {
     refreshSettings();
   }, [refreshToken, refreshSettings]);
 
+  // Single WS setup
   useEffect(() => {
-    const wsUrl = "ws://localhost:48000";
-    const ws = new WebSocket(wsUrl);
+    const ws = new WebSocket("ws://localhost:48000");
     wsRef.current = ws;
 
-    ws.onmessage = (event) => {
-      if (event.data === "refresh") {
-        setRefreshToken((c) => c + 1);
-        console.log("refreshing");
+    const handleMessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === "refresh") {
+          setRefreshToken((c) => c + 1);
+        } else {
+          wsRef.current?.onCoreMessage?.(data);
+        }
+      } catch (err) {
+        console.error("Invalid WS message:", err);
       }
     };
 
-    ws.onerror = (err) => {
-      console.error("WebSocket error:", err);
-    };
+    ws.addEventListener("message", handleMessage);
+    ws.addEventListener("error", (err) =>
+      console.error("WebSocket error:", err)
+    );
+    ws.addEventListener("close", () => console.log("WebSocket closed"));
 
-    ws.onclose = () => {
-      console.log("WebSocket closed");
-    };
-
+    // capture the ws instance for cleanup
+    const wsInstance = ws;
     return () => {
-      if (wsRef.current) {
-        wsRef.current.close();
-      }
+      wsInstance.removeEventListener("message", handleMessage);
+      wsInstance.close();
     };
   }, []);
 
-  //stable key - let the battle system handle its own state preservation, that stupid mf
-  const stableKey = useMemo(() => {
-    return `overlay-${settings.twitchName}-${settings.emoteSetId}`;
-  }, [settings.twitchName, settings.emoteSetId]);
+  const stableKey = useMemo(
+    () => `overlay-${settings.twitchName}-${settings.emoteSetId}`,
+    [settings.twitchName, settings.emoteSetId]
+  );
 
   return (
     <EmoteOverlayCore
       key={stableKey}
       settings={settings}
       isRefresh={refreshToken > 0}
+      wsRef={wsRef}
     />
   );
 }
 
-function EmoteOverlayCore({ settings, isRefresh }) {
+function EmoteOverlayCore({ settings, isRefresh, wsRef }) {
   const sceneRef = useRef(null);
   const bodiesWithTimers = useRef([]);
 
@@ -71,7 +78,6 @@ function EmoteOverlayCore({ settings, isRefresh }) {
   const subscriberTracker = useSubscriberTracker(clientRef.current, false);
   const viewerTracker = useSubscriberTracker(clientRef.current, true);
 
-  // Extract battle settings
   const battleSettings = {
     battleEventChance: settings.battleEventChance,
     battleEventParticipants: settings.battleEventParticipants,
@@ -103,6 +109,33 @@ function EmoteOverlayCore({ settings, isRefresh }) {
     settings
   );
 
+  // spawnEmote ref for WS messages
+  const spawnEmoteRef = useRef(spawnEmote);
+  useEffect(() => {
+    spawnEmoteRef.current = spawnEmote;
+  }, [spawnEmote]);
+
+  // Attach a message handler for WS
+  useEffect(() => {
+    const ws = wsRef.current;
+    if (!ws) return;
+
+    ws.onCoreMessage = (data) => {
+      if (data.type === "spawnEmote" && data.emote) {
+        const count = data.count || 1;
+        for (let i = 0; i < count; i++) {
+          setTimeout(() => {
+            spawnEmoteRef.current?.(data.emote);
+          }, i * settings.emoteDelay);
+        }
+      }
+    };
+
+    return () => {
+      if (ws) ws.onCoreMessage = null;
+    };
+  }, [settings.emoteDelay, wsRef]);
+
   const { clearAllEmotes } = useEmoteLifecycle(
     physics.engineRef.current,
     bodiesWithTimers,
@@ -110,7 +143,6 @@ function EmoteOverlayCore({ settings, isRefresh }) {
   );
 
   const { commands } = useCommandsSystem(clientRef.current);
-
   console.log(
     "Loaded commands:",
     commands.map((c) => c.name)
@@ -133,19 +165,17 @@ function EmoteOverlayCore({ settings, isRefresh }) {
     clearAllEmotes,
   ]);
 
-  // Set up message handling
   useMessageHandler(
     clientRef.current,
     emoteMap,
-    spawnEmote,
+    spawnEmoteRef,
     globalEffects,
     settings
   );
 
-  // Set up raid handling
   useRaidHandler(
     clientRef.current,
-    spawnEmote,
+    spawnEmoteRef,
     settings.raidEffect,
     settings.emoteDelay
   );
@@ -175,7 +205,7 @@ function EmoteOverlayCore({ settings, isRefresh }) {
           pointerEvents: "none",
           zIndex: 9999,
         }}
-      ></svg>
+      />
     </>
   );
 }

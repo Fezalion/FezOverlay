@@ -1,13 +1,13 @@
 import { useEffect } from "react";
 
-export function useRaidHandler(client, spawnEmote, raidEffect, emoteDelay) {
+export function useRaidHandler(client, spawnEmoteRef, raidEffect, emoteDelay) {
   useEffect(() => {
-    if (!client || !raidEffect || !spawnEmote) return;
+    if (!client || !raidEffect || !spawnEmoteRef) return;
 
     function onRaid(channel, username, viewers) {
       for (let i = 0; i < viewers; i++) {
         setTimeout(() => {
-          spawnEmote("AYAYA", false, "red");
+          spawnEmoteRef.current?.spawnEmote("AYAYA", false, "red");
         }, i * emoteDelay);
       }
     }
@@ -17,5 +17,5 @@ export function useRaidHandler(client, spawnEmote, raidEffect, emoteDelay) {
     return () => {
       client.off("raided", onRaid);
     };
-  }, [client, spawnEmote, raidEffect, emoteDelay]);
+  }, [client, spawnEmoteRef, raidEffect, emoteDelay]);
 }
