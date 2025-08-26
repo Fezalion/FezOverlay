@@ -87,14 +87,14 @@ function YapTimer({ timer, visible }) {
         const intensity = Math.floor(timer / 10) + 1;
 
         // Base scale grows slightly with intensity
-        const baseScale = 1 + 0.05 * intensity;
+        const baseScale = 1 + 0.02 * intensity;
 
         // Wiggle + shake grows stronger with intensity
-        const wiggleFactor = intensity * 0.4;
-        const rotation = Math.sin(Date.now() / 100) * 5 * wiggleFactor;
+        const wiggleFactor = intensity * 0.2;
+        const rotation = Math.sin(Date.now() / 100) * 4 * wiggleFactor;
         const wiggleScale = 1 + 0.1 * wiggleFactor * Math.sin(Date.now() / 150);
-        const shakeX = Math.sin(Date.now() / 40) * 2 * wiggleFactor;
-        const shakeY = -1 * Math.sin(Date.now() / 45) * 2 * wiggleFactor;
+        const shakeX = Math.sin(Date.now() / 40) * 1.2 * wiggleFactor;
+        const shakeY = -1 * Math.sin(Date.now() / 45) * 1.2 * wiggleFactor;
 
         const finalScale = baseScale * wiggleScale;
 
@@ -142,10 +142,10 @@ function FloatingPercent({ percent, getColor }) {
           shakeY = 0;
         if (percent > 0.25) {
           const wiggleFactor = (percent - 0.25) * 2;
-          rotation = Math.sin(Date.now() / 80) * 10 * wiggleFactor;
+          rotation = Math.sin(Date.now() / 80) * 5 * wiggleFactor;
           wiggleScale = 1 + 0.3 * wiggleFactor;
-          shakeX = Math.sin(Date.now() / 30) * 4 * wiggleFactor;
-          shakeY = -1 * Math.sin(Date.now() / 30) * 4 * wiggleFactor;
+          shakeX = Math.sin(Date.now() / 30) * 3 * wiggleFactor;
+          shakeY = -1 * Math.sin(Date.now() / 30) * 3 * wiggleFactor;
         }
         const finalScale = baseScale * wiggleScale;
         labelRef.current.style.transform = `translateX(${shakeX}px) translateY(${shakeY}px) scale(${finalScale}) rotate(${rotation}deg)`;
@@ -367,7 +367,7 @@ function YapMeterCore({ settings, wsRef, clientRef }) {
 
     const animate = () => {
       if (running && timer >= 20) {
-        const intensity = (timer - 20) * 0.5; // grows stronger over time
+        const intensity = (timer - 20) * 0.3; // grows stronger over time
         const shakeX = Math.sin(Date.now() / 40) * intensity;
         const shakeY = Math.cos(Date.now() / 50) * intensity;
 
