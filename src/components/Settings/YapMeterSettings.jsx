@@ -17,6 +17,7 @@ export default function YapMeterSettings({ settings, updateSetting }) {
                 yapMeterThreshold: 1.0,
                 yapMeterSilenceThreshold: 3,
                 yapMeterMaxYap: 60,
+                yapMeterLength: 300,
               };
               Object.entries(defaultYapMeter).forEach(([key, val]) =>
                 updateSetting(key, val)
@@ -63,6 +64,18 @@ export default function YapMeterSettings({ settings, updateSetting }) {
             value={settings.yapMeterMaxYap}
             onChange={(e) =>
               updateSetting("yapMeterMaxYap", parseInt(e.target.value))
+            }
+          />
+
+          <InputField
+            type="range"
+            label="Yap Meter Length (px)"
+            min={250}
+            max={1000}
+            step={5}
+            value={settings.yapMeterLength}
+            onChange={(e) =>
+              updateSetting("yapMeterLength", parseInt(e.target.value))
             }
           />
         </div>

@@ -22,6 +22,7 @@ export function useMetadata() {
     yapMeterThreshold: 1.0,
     yapMeterSilenceThreshold: 3,
     yapMeterMaxYap: 60,
+    yapMeterLength: 300,
 
     // Service Settings
     twitchName: "",
@@ -138,6 +139,7 @@ export function useMetadata() {
         yapMeterThreshold: toNumber(data.yapMeterThreshold, 1.0),
         yapMeterSilenceThreshold: toNumber(data.yapMeterSilenceThreshold, 3),
         yapMeterMaxYap: toNumber(data.yapMeterMaxYap, 60),
+        yapMeterLength: toNumber(data.yapMeterLength, 300),
         // Service Settings
         twitchName: data.twitchName || "",
         lastfmName: data.lastfmName || "",

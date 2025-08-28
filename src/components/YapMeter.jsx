@@ -20,7 +20,8 @@ export default function YapMeter() {
     wsRef.current = ws;
 
     ws.onmessage = (event) => {
-      if (event.data === "refresh") {
+      const eventData = JSON.parse(event.data);
+      if (eventData.type === "refresh") {
         setRefreshToken((c) => c + 1);
         console.log("🔄 YapMeter refreshing");
       }
@@ -129,7 +130,7 @@ function YapTimer({ timer, visible }) {
   );
 }
 
-function FloatingPercent({ percent, getColor }) {
+function FloatingPercent({ percent, getColor, settings }) {
   const labelRef = useRef(null);
   useEffect(() => {
     let animFrame;
@@ -162,7 +163,7 @@ function FloatingPercent({ percent, getColor }) {
       style={{
         position: "relative",
         right: "-35px",
-        bottom: `calc(${percent * 100}% - 285px)`,
+        bottom: `calc(${percent * 100}% - ${settings.yapMeterLength - 15}px)`,
         fontSize: "16px",
         fontWeight: "bold",
         color: getColor(percent),
@@ -177,7 +178,7 @@ function FloatingPercent({ percent, getColor }) {
   );
 }
 
-function YapMeterCore({ settings, wsRef, clientRef }) {
+function YapMeterCore({ settings, wsRef, clientRef, isRefresh }) {
   const [score, setScore] = useState(0);
   const [displayScore, setDisplayScore] = useState(0);
   const [trailScore, setTrailScore] = useState(0);
@@ -386,13 +387,40 @@ function YapMeterCore({ settings, wsRef, clientRef }) {
     };
   }, [running, timer]);
 
-  const getColor = (p) => (p < 0.5 ? "#0f0" : p < 0.8 ? "#ff0" : "#f00");
+  const getColor = (p) => {
+    if (p <= 0.25) {
+      // 0–25% = solid green
+      return "rgb(0, 255, 0)";
+    }
+    if (p >= 0.75) {
+      // 75–100% = solid red
+      return "rgb(255, 0, 0)";
+    }
+
+    // Normalize 25%–75% → 0–1
+    const t = (p - 0.25) / 0.5;
+
+    if (t <= 0.5) {
+      // 25–50% → green → yellow
+      const ratio = t / 0.5; // 0 → 1
+      const r = Math.round(255 * ratio); // 0 → 255
+      return `rgb(${r}, 255, 0)`; // (0,255,0) → (255,255,0)
+    } else {
+      // 50–75% → yellow → red
+      const ratio = (t - 0.5) / 0.5; // 0 → 1
+      const g = Math.round(255 * (1 - ratio)); // 255 → 0
+      return `rgb(255, ${g}, 0)`; // (255,255,0) → (255,0,0)
+    }
+  };
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "transparent" }}>
+    <div
+      style={{ position: "fixed", inset: 0, background: "transparent" }}
+      key={isRefresh ? Date.now() : "static"}
+    >
       <div
         style={{
-          height: "300px",
+          height: `${settings.yapMeterLength}px`,
           width: "50px",
           padding: "10px",
           position: "absolute",
@@ -405,21 +433,28 @@ function YapMeterCore({ settings, wsRef, clientRef }) {
           ref={labelRef}
           style={{
             position: "absolute",
-            bottom: "50%", // center vertically relative to the bar
-            right: "-25px", // adjust horizontal position
+            width: settings.yapMeterLength,
+            height: "25px",
+            bottom: "-10px", // center vertically relative to the bar
+            left: "-10px", // adjust horizontal position
             fontSize: "24px",
             fontWeight: "bold",
             color: "#fff",
-            transform: "rotate(-90deg) translateX(-50%)", // translate along rotated axis
-            transformOrigin: "center center",
+            transform: "rotate(-90deg)", // translate along rotated axis
+            transformOrigin: "center left",
             whiteSpace: "nowrap", // prevent wrapping
+            textAlign: "left",
           }}
         >
           Y A P M E T E R
         </div>
 
         {/* Floating percent */}
-        <FloatingPercent percent={percent} getColor={getColor} />
+        <FloatingPercent
+          percent={percent}
+          getColor={getColor}
+          settings={settings}
+        />
         {/* Timer Component */}
         <YapTimer timer={timer} visible={visible} />
 
@@ -429,10 +464,10 @@ function YapMeterCore({ settings, wsRef, clientRef }) {
           style={{
             height: "100%",
             width: "100%",
-            border: "2px solid #333",
-            borderRadius: "5px",
             overflow: "hidden",
             position: "relative",
+            border: "4px solid #fff0",
+            outline: "0.5px solid rgba(255,255,255,0.8)",
           }}
         >
           {thresholds.map((t) => (
