@@ -94,10 +94,13 @@ function YapTimer({ timer, visible }) {
         const wiggleFactor = intensity * 0.2;
         const rotation = Math.sin(Date.now() / 100) * 4 * wiggleFactor;
         const wiggleScale = 1 + 0.1 * wiggleFactor * Math.sin(Date.now() / 150);
-        const shakeX = Math.sin(Date.now() / 40) * 1.2 * wiggleFactor;
-        const shakeY = -1 * Math.sin(Date.now() / 45) * 1.2 * wiggleFactor;
+        let shakeX = Math.sin(Date.now() / 40) * 1.2 * wiggleFactor;
+        let shakeY = -1 * Math.sin(Date.now() / 45) * 1.2 * wiggleFactor;
+        shakeX = Math.max(Math.min(shakeX, 8), -8);
+        shakeY = Math.max(Math.min(shakeY, 8), -8);
 
-        const finalScale = baseScale * wiggleScale;
+        // Final scale combines base and wiggle, clamped to avoid extreme sizes
+        const finalScale = Math.min(Math.max(baseScale * wiggleScale, 1), 10);
 
         labelRef.current.style.transform = `translateX(${shakeX}px) translateY(${shakeY}px) scale(${finalScale}) rotate(${rotation}deg)`;
       }
@@ -113,7 +116,7 @@ function YapTimer({ timer, visible }) {
       style={{
         position: "absolute",
         bottom: "calc(100% - 15px)",
-        left: "20%",
+        left: "15%",
         transform: "translateX(-50%)",
         fontSize: "20px",
         fontWeight: "bold",
@@ -123,6 +126,10 @@ function YapTimer({ timer, visible }) {
         transition: "opacity 1s ease", // fade in/out
         pointerEvents: "none",
         textAlign: "center",
+        transformOrigin: "center",
+        overflow: "auto",
+        whiteSpace: "nowrap",
+        outline: "1px solid red",
       }}
     >
       {timer.toFixed(1)}s
@@ -147,8 +154,11 @@ function FloatingPercent({ percent, getColor, settings }) {
           wiggleScale = 1 + 0.3 * wiggleFactor;
           shakeX = Math.sin(Date.now() / 30) * 3 * wiggleFactor;
           shakeY = -1 * Math.sin(Date.now() / 30) * 3 * wiggleFactor;
+          shakeX = Math.max(Math.min(shakeX, 5), -5);
+          shakeY = Math.max(Math.min(shakeY, 5), -5);
         }
-        const finalScale = baseScale * wiggleScale;
+        //clamp final scale to avoid extreme sizes
+        const finalScale = Math.min(Math.max(baseScale * wiggleScale, 0.8), 10);
         labelRef.current.style.transform = `translateX(${shakeX}px) translateY(${shakeY}px) scale(${finalScale}) rotate(${rotation}deg)`;
       }
       animFrame = requestAnimationFrame(animate);
@@ -281,6 +291,7 @@ function YapMeterCore({ settings, wsRef, clientRef, isRefresh }) {
   const percent = Math.min(displayScore / settings.yapMeterMaxYap, 1);
   const trailPercent = Math.min(trailScore / settings.yapMeterMaxYap, 1);
 
+  // handle running state
   useEffect(() => {
     if (percent === 1 && !running) {
       setRunning(true);
@@ -369,8 +380,10 @@ function YapMeterCore({ settings, wsRef, clientRef, isRefresh }) {
     const animate = () => {
       if (running && timer >= 20) {
         const intensity = (timer - 20) * 0.3; // grows stronger over time
-        const shakeX = Math.sin(Date.now() / 40) * intensity;
-        const shakeY = Math.cos(Date.now() / 50) * intensity;
+        let shakeX = Math.sin(Date.now() / 40) * intensity;
+        let shakeY = Math.cos(Date.now() / 50) * intensity;
+        shakeX = Math.max(Math.min(shakeX, 5), -5);
+        shakeY = Math.max(Math.min(shakeY, 5), -5);
 
         el.style.transform = `translate(${shakeX}px, ${shakeY}px)`;
         animFrame = requestAnimationFrame(animate);
@@ -468,6 +481,7 @@ function YapMeterCore({ settings, wsRef, clientRef, isRefresh }) {
             position: "relative",
             border: "4px solid #fff0",
             outline: "0.5px solid rgba(255,255,255,0.8)",
+            transition: "translate 0.1s ease-out",
           }}
         >
           {thresholds.map((t) => (
