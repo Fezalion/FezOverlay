@@ -2,6 +2,7 @@ import { useMetadata } from "../../hooks/useMetadata";
 import SongOverlaySettings from "./SongOverlaySettings";
 import EmoteOverlaySettings from "./EmoteOverlaySettings";
 import YapMeterSettings from "./YapMeterSettings";
+import CommandSettings from "./CommandSettings";
 
 function Settings() {
   const {
@@ -36,6 +37,7 @@ function Settings() {
             settings={settings}
             updateSetting={updateSetting}
           ></YapMeterSettings>
+          <CommandSettings></CommandSettings>
         </div>
         <EmoteOverlaySettings
           settings={settings}

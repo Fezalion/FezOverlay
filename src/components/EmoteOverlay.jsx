@@ -9,7 +9,6 @@ import { useMessageHandler } from "../hooks/useMessageHandler";
 import { useEmoteLifecycle } from "../hooks/useEmoteLifecycle";
 import { useRaidHandler } from "../hooks/useRaidHandler";
 import { useSubscriberTracker } from "../hooks/useSubscriberTracker";
-import { useCommandsSystem } from "../hooks/useCommandsSystem";
 
 export default function EmoteOverlay() {
   const { settings, refreshSettings } = useMetadata();
@@ -68,7 +67,7 @@ export default function EmoteOverlay() {
   );
 }
 
-function EmoteOverlayCore({ settings, isRefresh, wsRef }) {
+function EmoteOverlayCore({ settings, wsRef }) {
   const sceneRef = useRef(null);
   const bodiesWithTimers = useRef([]);
 
@@ -140,12 +139,6 @@ function EmoteOverlayCore({ settings, isRefresh, wsRef }) {
     physics.engineRef.current,
     bodiesWithTimers,
     settings.emoteLifetime
-  );
-
-  const { commands } = useCommandsSystem(clientRef.current);
-  console.log(
-    "Loaded commands:",
-    commands.map((c) => c.name)
   );
 
   // Start DOM updates when physics engine is ready

@@ -51,6 +51,7 @@ if (process.pkg) {
 const distRoot = path.join(baseDir, "dist");
 const SETTINGS_FILE = path.join(baseDir, "settings.json");
 const BOTS_FILE = path.join(baseDir, "excludedBots.json");
+const COMMANDS_FILE = path.join(baseDir, "customcommands.json");
 const versionFile = path.join(baseDir, "version.txt");
 
 app.use(bodyParser.json());
@@ -202,6 +203,18 @@ function loadExcludedBots() {
 function saveExcludedBots(bots) {
   fs.writeFileSync(BOTS_FILE, JSON.stringify(bots, null, 2));
 }
+
+function loadCustomCommands() {
+  try {
+    return JSON.parse(fs.readFileSync(COMMANDS_FILE, "utf8"));
+  } catch {
+    return [];
+  }
+}
+
+function saveCustomCommands(cmds) {
+  fs.writeFileSync(COMMANDS_FILE, JSON.stringify(cmds, null, 2));
+}
 // --- SETTINGS API ---
 function loadSettings() {
   try {
@@ -307,6 +320,42 @@ app.post("/api/bots", (req, res) => {
 app.get("/api/bots", (req, res) => {
   const bots = loadExcludedBots();
   res.json(bots);
+});
+
+app.post("/api/commands", (req, res) => {
+  const current = loadCustomCommands();
+  const { action, name, text } = req.body;
+
+  if (!name || !action || (action === "add" && !text)) {
+    return res
+      .status(400)
+      .json({ success: false, error: "Missing action or name or text" });
+  }
+
+  let updated = current;
+
+  if (action === "add") {
+    // Remove any existing command with the same name (case-insensitive)
+    updated = current.filter(
+      (cmd) => cmd.name.toLowerCase() !== name.toLowerCase()
+    );
+    // Add the new command
+    updated.push({ name, text });
+  } else if (action === "remove") {
+    updated = current.filter(
+      (cmd) => cmd.name.toLowerCase() !== name.toLowerCase()
+    );
+  } else {
+    return res.status(400).json({ success: false, error: "Invalid action" });
+  }
+
+  saveCustomCommands(updated);
+  res.json({ success: true, commands: updated });
+});
+
+app.get("/api/commands", (req, res) => {
+  const cmds = loadCustomCommands();
+  res.json(cmds);
 });
 
 // POST update one or more settings (partial update)
