@@ -129,7 +129,6 @@ function YapTimer({ timer, visible }) {
         transformOrigin: "center",
         overflow: "auto",
         whiteSpace: "nowrap",
-        outline: "1px solid red",
       }}
     >
       {timer.toFixed(1)}s
