@@ -18,7 +18,8 @@ export default {
 
     const action = args[0].toLowerCase();
     const name = args[1]?.toLowerCase();
-    const text = args[2]?.toLowerCase();
+    //text may contain spaces, so join all remaining args
+    const text = args.slice(2).join(" ");
 
     if (!["add", "remove", "list"].includes(action)) {
       client.say(
