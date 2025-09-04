@@ -1,6 +1,6 @@
 import { useRef, useEffect } from "react";
 
-export function useEmoteLoader(emoteSetId) {
+export function useEmoteLoader(emoteSetId, refreshToken) {
   const emoteMapRef = useRef(new Map());
 
   useEffect(() => {
@@ -46,7 +46,7 @@ export function useEmoteLoader(emoteSetId) {
     return () => {
       emoteMapRef.current.clear();
     };
-  }, [emoteSetId]);
+  }, [emoteSetId, refreshToken]);
 
   return emoteMapRef.current;
 }

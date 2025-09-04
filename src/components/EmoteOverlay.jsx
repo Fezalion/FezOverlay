@@ -28,7 +28,10 @@ export default function EmoteOverlay() {
     const handleMessage = (event) => {
       try {
         const data = JSON.parse(event.data);
-        if (data.type === "refresh") {
+        if (
+          data.type === "refresh" &&
+          (data.target === "all" || data.target === "emotes")
+        ) {
           setRefreshToken((c) => c + 1);
         } else {
           wsRef.current?.onCoreMessage?.(data);
@@ -63,16 +66,17 @@ export default function EmoteOverlay() {
       settings={settings}
       isRefresh={refreshToken > 0}
       wsRef={wsRef}
+      refreshToken={refreshToken}
     />
   );
 }
 
-function EmoteOverlayCore({ settings, wsRef }) {
+function EmoteOverlayCore({ settings, wsRef, refreshToken }) {
   const sceneRef = useRef(null);
   const bodiesWithTimers = useRef([]);
 
   const clientRef = useTwitchClient(settings.twitchName);
-  const emoteMap = useEmoteLoader(settings.emoteSetId);
+  const emoteMap = useEmoteLoader(settings.emoteSetId, refreshToken);
   const physics = usePhysicsEngine();
   const subscriberTracker = useSubscriberTracker(clientRef.current, false);
   const viewerTracker = useSubscriberTracker(clientRef.current, true);

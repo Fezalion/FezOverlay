@@ -21,7 +21,10 @@ export default function YapMeter() {
 
     ws.onmessage = (event) => {
       const eventData = JSON.parse(event.data);
-      if (eventData.type === "refresh") {
+      if (
+        eventData.type === "refresh" &&
+        (eventData.target === "all" || eventData.target === "yapmeter")
+      ) {
         setRefreshToken((c) => c + 1);
         console.log("🔄 YapMeter refreshing");
       }

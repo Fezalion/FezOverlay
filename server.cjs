@@ -389,6 +389,7 @@ app.post("/api/refresh", (req, res) => {
   broadcast(
     JSON.stringify({
       type: "refresh",
+      target: req.body?.target || "all",
     })
   );
   res.send("Refresh triggered");

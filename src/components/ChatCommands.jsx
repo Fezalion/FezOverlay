@@ -19,7 +19,10 @@ export default function ChatCommands() {
     const handleMessage = (event) => {
       try {
         const data = JSON.parse(event.data);
-        if (data.type === "refresh") {
+        if (
+          data.type === "refresh" &&
+          (data.target === "all" || data.target === "commands")
+        ) {
           setRefreshToken((c) => c + 1);
         }
       } catch (err) {

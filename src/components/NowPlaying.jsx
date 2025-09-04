@@ -304,7 +304,10 @@ export function NowPlaying() {
 
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
-      if (data.type === "refresh") {
+      if (
+        data.type === "refresh" &&
+        (data.target === "all" || data.target === "song")
+      ) {
         handleRefresh();
       }
     };
