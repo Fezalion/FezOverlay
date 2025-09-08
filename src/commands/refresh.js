@@ -24,7 +24,7 @@ export default {
       const res = await fetch("/api/refresh", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ target }),
+        body: JSON.stringify({ type: "refresh", target: target ?? "all" }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       client.say(channel, `✅ Refreshed ${target}.`);
