@@ -5,6 +5,7 @@ import { kamehameha } from "./kamehameha";
 import { lightning } from "./lightning";
 import { shinraTensei } from "./shinraTensei";
 import { cyclone } from "./cyclone";
+import { judgmentCut } from "./judgmentCut";
 
 export function createSkills(helpers) {
   return {
@@ -15,5 +16,6 @@ export function createSkills(helpers) {
     lightning: lightning(helpers),
     shinraTensei: shinraTensei(helpers),
     cyclone: cyclone(helpers),
+    judgmentCut: judgmentCut(helpers),
   };
 }
