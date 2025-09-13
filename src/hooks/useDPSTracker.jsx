@@ -201,7 +201,6 @@ class BattleDPSTracker {
       ">${entry.skillName}</span>
     `;
 
-      // Insert at bottom (new messages push up old ones)
       overlay.appendChild(msg);
     }
   }
