@@ -56,10 +56,10 @@ class BattleDPSTracker {
       // Only display the new message
       this._displaySingleMessage(entry);
 
-      // Schedule removal of this specific message after 3 seconds
+      // Schedule removal of this specific message after 7 seconds
       setTimeout(() => {
         this._removeMessageFromDOM(entryId);
-      }, 3000);
+      }, 7000);
     } catch (error) {
       console.error("Error in recordSkillUse:", error);
       console.log("Parameters:", { userId, userName, color, skillName });
@@ -163,10 +163,10 @@ class BattleDPSTracker {
       const msg = document.createElement("div");
       msg.id = entry.entryId;
       msg.style.cssText = `
-      background: rgba(15, 23, 42, 0.55);
+      background: rgba(15, 23, 42, 0.8);
       border-right: 4px solid ${entry.color};
       color: #fff;
-      font-size: 12px;
+      font-size: 14px;
       font-weight: 600;
       padding: 10px 14px;
       border-radius: 0px;
@@ -182,16 +182,7 @@ class BattleDPSTracker {
       overflow: hidden;
     `;
 
-      // Add subtle gradient overlay
-      msg.innerHTML = `
-      <div style="
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 1px;
-        background: linear-gradient(90deg, transparent, ${entry.color}aa, transparent);
-      "></div>
+      msg.innerHTML = `      
       <span style="
         color: ${entry.color}; 
         font-weight: 700; 
