@@ -57,6 +57,7 @@ export function useMetadata() {
     battleEventDPSTrackerLive: true,
     battleEventDPSTrackerFloatLeft: false,
     battleEventAcceptPlebs: false,
+    battleEventShowSkillHistory: true,
   });
 
   const [availableSubEffects, setAvailableSubEffects] = useState([]);
@@ -195,6 +196,7 @@ export function useMetadata() {
         battleEventDPSTrackerFloatLeft: Boolean(
           data.battleEventDPSTrackerFloatLeft
         ),
+        battleEventShowSkillHistory: Boolean(data.battleEventShowSkillHistory),
       });
 
       setError(null);

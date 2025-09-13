@@ -322,7 +322,7 @@ export function useBattleSystem(
       }
 
       if (attacker && canGainMana) {
-        const manaGain = 15 + damage * 0.25;
+        const manaGain = 15 + damage * 0.1;
         attacker.mana = Math.min(attacker.maxMana, attacker.mana + manaGain);
         showManaGain(attacker, manaGain);
       }
@@ -660,6 +660,26 @@ export function useBattleSystem(
         const skill = specialSkills[randomSkill];
 
         //apply the skill
+
+        console.log("Participant:", participant);
+        console.log("Skill:", skill);
+        console.log("subscriberName:", participant.subscriberName);
+        console.log("skill.name:", skill?.name);
+        // Log skill use in global skill history overlay
+        if (
+          dpsTracker &&
+          dpsTracker.current &&
+          battleSettings.battleEventShowSkillHistory &&
+          typeof dpsTracker.current.recordSkillUse === "function"
+        ) {
+          dpsTracker.current.recordSkillUse(
+            participant.id,
+            participant.subscriberName,
+            participant.userColor || "#fff",
+            skill.name
+          );
+        }
+
         skill.effect(participant);
         participant.mana = 0;
 
@@ -823,9 +843,13 @@ export function useBattleSystem(
     dmgEl.style.transition = "transform 1.2s ease-out, opacity 1.2s ease-out";
     document.body.appendChild(dmgEl);
 
-    // Trigger fly-up animation
+    // Add left-right variation
+    const horizontal = (Math.random() - 0.5) * 40; // -20 to +20 px
+    const vertical = -60;
+
+    // Trigger fly-up animation with left-right offset
     requestAnimationFrame(() => {
-      dmgEl.style.transform = "translateY(-30px)";
+      dmgEl.style.transform = `translate(${horizontal}px, ${vertical}px)`;
       dmgEl.style.opacity = "0";
     });
 

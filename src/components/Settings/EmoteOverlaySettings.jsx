@@ -417,6 +417,32 @@ export default function EmoteOverlaySettings({ settings, updateSetting }) {
                 />
               </button>
             </div>
+            <div className="flex items-center space-x-3">
+              <label className="font-semibold">Display skill history.</label>
+              <button
+                onClick={() =>
+                  updateSetting(
+                    "battleEventShowSkillHistory",
+                    !settings.battleEventShowSkillHistory
+                  )
+                }
+                className={`relative inline-flex items-center h-6 w-12 rounded-full transition-colors duration-300
+            ${
+              settings.battleEventShowSkillHistory
+                ? "bg-rose-500"
+                : "bg-gray-700"
+            }`}
+              >
+                <span
+                  className={`inline-block w-5 h-5 transform bg-white rounded-full shadow-md transition-transform duration-300
+              ${
+                settings.battleEventShowSkillHistory
+                  ? "translate-x-6"
+                  : "translate-x-1"
+              }`}
+                />
+              </button>
+            </div>
           </EffectCard>
         </EffectCard>
       </div>

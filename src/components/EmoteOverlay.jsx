@@ -91,6 +91,7 @@ function EmoteOverlayCore({ settings, wsRef, refreshToken }) {
     battleEventDPSTrackerFloatLeft: settings.battleEventDPSTrackerFloatLeft,
     battleEventDPSTrackerLive: settings.battleEventDPSTrackerLive,
     battleEventAcceptPlebs: settings.battleEventAcceptPlebs,
+    battleEventShowSkillHistory: settings.battleEventShowSkillHistory,
     twitchName: settings.twitchName,
   };
 

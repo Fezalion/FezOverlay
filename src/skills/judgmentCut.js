@@ -14,8 +14,7 @@ export const judgmentCut = ({
     engine.timing.timeScale = 0; // dramatic slow-mo
 
     const farEnemy = findFarthestEnemy(participant);
-    let pointX = participant.body.position.x;
-    let pointY = participant.body.position.y;
+    if (!farEnemy) return;
     const chargeDuration = 1800;
     teleport(participant, farEnemy.body.position.x, farEnemy.body.position.y);
 
@@ -135,8 +134,8 @@ export const judgmentCut = ({
 
           // Add randomization to the damage per slash
           const baseDamage =
-            (battleSettings.battleEventDamage * 2) / slashCount;
-          const randomFactor = 0.9 + Math.random() * 0.2; // 0.9 to 1.1
+            (battleSettings.battleEventDamage * 4) / slashCount;
+          const randomFactor = 0.5 + Math.random() * 0.5; // 0.9 to 1.1
           const damage = baseDamage * randomFactor;
           dealDamage(enemy, damage, participant, false);
 

@@ -8,6 +8,211 @@ class BattleDPSTracker {
     this.battleActive = false;
     this.finalResults = null;
     this.battleSettings = settings;
+    this.skillHistory = [];
+  }
+
+  // Record a skill use (global, color-coded)
+  // Record a skill use (global, color-coded) - SAFER VERSION
+  recordSkillUse(userId, userName, color, skillName) {
+    try {
+      // Validate inputs
+      if (!userId || !userName || !skillName) {
+        console.warn("recordSkillUse: Missing required parameters", {
+          userId,
+          userName,
+          skillName,
+        });
+        return;
+      }
+
+      // Assign a unique id for each message
+      const entryId = `skillmsg-${Date.now()}-${Math.random()
+        .toString(36)
+        .slice(2, 8)}`;
+
+      const entry = {
+        userId: String(userId),
+        userName: String(userName),
+        color: String(color || "#fff"),
+        skillName: String(skillName),
+        timestamp: Date.now(),
+        entryId,
+      };
+
+      // Initialize skillHistory if it doesn't exist
+      if (!this.skillHistory) {
+        this.skillHistory = [];
+      }
+
+      this.skillHistory.push(entry);
+
+      // Keep only last 10 in memory
+      if (this.skillHistory.length > 10) {
+        this.skillHistory.shift();
+      }
+
+      console.log("Recording skill use:", entry); // Debug log
+
+      // Only display the new message
+      this._displaySingleMessage(entry);
+
+      // Schedule removal of this specific message after 3 seconds
+      setTimeout(() => {
+        this._removeMessageFromDOM(entryId);
+      }, 3000);
+    } catch (error) {
+      console.error("Error in recordSkillUse:", error);
+      console.log("Parameters:", { userId, userName, color, skillName });
+    }
+  }
+
+  // Remove specific message from DOM
+  _removeMessageFromDOM(entryId) {
+    const msg = document.getElementById(entryId);
+    if (msg && msg.parentNode) {
+      msg.style.animation =
+        "skill-slide-out 0.35s cubic-bezier(.4,1.4,.6,1) forwards";
+
+      const handleAnimationEnd = () => {
+        msg.removeEventListener("animationend", handleAnimationEnd);
+        if (msg.parentNode) {
+          msg.parentNode.removeChild(msg); // Remove just the message, not the overlay
+
+          // Clean up empty overlay
+          const overlay = document.getElementById("skill-history-overlay");
+          if (overlay && overlay.children.length === 0) {
+            overlay.remove();
+          }
+        }
+      };
+
+      msg.addEventListener("animationend", handleAnimationEnd);
+
+      // Fallback cleanup
+      setTimeout(() => {
+        if (msg && msg.parentNode) {
+          msg.parentNode.removeChild(msg);
+          const overlay = document.getElementById("skill-history-overlay");
+          if (overlay && overlay.children.length === 0) {
+            overlay.remove();
+          }
+        }
+      }, 400);
+    }
+  }
+
+  getSkillHistory() {
+    return this.skillHistory.slice();
+  }
+
+  // Display a single new message
+  _displaySingleMessage(entry) {
+    // Inject animation styles once
+    if (!document.getElementById("skill-history-animations")) {
+      const style = document.createElement("style");
+      style.id = "skill-history-animations";
+      style.textContent = `
+      @keyframes skill-slide-in {
+        from { 
+          opacity: 0; 
+          transform: translateX(80px) scale(0.8); 
+        }
+        to { 
+          opacity: 0.95; 
+          transform: translateX(0) scale(1); 
+        }
+      }
+      @keyframes skill-slide-out {
+        from { 
+          opacity: 0.95; 
+          transform: translateX(0) scale(1); 
+        }
+        to { 
+          opacity: 0; 
+          transform: translateX(80px) scale(0.8); 
+        }
+      }
+    `;
+      document.head.appendChild(style);
+    }
+
+    // Create overlay if not present
+    let overlay = document.getElementById("skill-history-overlay");
+    if (!overlay) {
+      overlay = document.createElement("div");
+      overlay.id = "skill-history-overlay";
+      overlay.style.cssText = `
+      position: fixed;
+      right: 20px;
+      bottom: 20px;
+      z-index: 10003;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      gap: 8px;
+      pointer-events: none;
+      min-width: 250px;
+      max-width: 600px;
+      max-height: 400px;
+    `;
+      document.body.appendChild(overlay);
+    }
+
+    // Only add this message if it doesn't already exist
+    if (!document.getElementById(entry.entryId)) {
+      const msg = document.createElement("div");
+      msg.id = entry.entryId;
+      msg.style.cssText = `
+      background: rgba(15, 23, 42, 0.55);
+      border-right: 4px solid ${entry.color};
+      color: #fff;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 10px 14px;
+      border-radius: 0px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+      text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+      margin: 0;
+      letter-spacing: 0.3px;
+      display: flex;
+      align-items: center;
+      animation: skill-slide-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+      backdrop-filter: blur(12px);      
+      position: relative;
+      overflow: hidden;
+    `;
+
+      // Add subtle gradient overlay
+      msg.innerHTML = `
+      <div style="
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 1px;
+        background: linear-gradient(90deg, transparent, ${entry.color}aa, transparent);
+      "></div>
+      <span style="
+        color: ${entry.color}; 
+        font-weight: 700; 
+        margin-right: 8px;
+        text-shadow: 0 0 8px ${entry.color}33;
+      ">${entry.userName}</span>
+      <span style="
+        opacity: 0.8; 
+        margin-right: 8px;
+        font-weight: 400;
+      ">used</span>
+      <span style="
+        color: #ffd43b; 
+        font-weight: 700;
+        text-shadow: 0 0 8px #ffd43b33;
+      ">${entry.skillName}</span>
+    `;
+
+      // Insert at bottom (new messages push up old ones)
+      overlay.appendChild(msg);
+    }
   }
 
   startBattle() {
