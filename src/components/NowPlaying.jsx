@@ -2,7 +2,7 @@ import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { useMetadata } from "../hooks/useMetadata";
 
 // Constants
-const POLL_RATE = 1000;
+const POLL_RATE = 3000;
 const MOVE_AMOUNT = 1;
 const SPACE = "\u00A0\u00A0";
 const NOTHING_PLAYING = "Nothing is playing...";
@@ -12,6 +12,8 @@ const OPACITY_TRANSITION_MS = 300; // Increased for smoother song transitions
 
 const useTrackPolling = (lastfmName, refreshToken) => {
   const [track, setTrack] = useState(null);
+  const lastValidTrackRef = useRef(null);
+  const debounceTimeout = useRef(null);
 
   useEffect(() => {
     if (!lastfmName) return;
@@ -21,25 +23,57 @@ const useTrackPolling = (lastfmName, refreshToken) => {
         const response = await fetch(`/api/lastfm/latest/${lastfmName}`);
         const data = await response.json();
 
-        if (!data || data.error) {
-          setTrack(null);
+        // Validate track data
+        const valid =
+          data &&
+          !data.error &&
+          data.track &&
+          typeof data.track.name === "string" &&
+          data.track.name.trim() !== "" &&
+          typeof data.track.artist === "string" &&
+          data.track.artist.trim() !== "";
+
+        if (!valid) {
+          // Only set to null if we previously had a track
+          if (lastValidTrackRef.current !== null) {
+            setTrack(null);
+            lastValidTrackRef.current = null;
+          }
           return;
         }
 
-        setTrack({
+        const newTrack = {
           name: data.track.name,
           artist: data.track.artist,
-        });
+        };
+
+        // Only update if different from last valid
+        if (
+          !lastValidTrackRef.current ||
+          lastValidTrackRef.current.name !== newTrack.name ||
+          lastValidTrackRef.current.artist !== newTrack.artist
+        ) {
+          // Debounce rapid changes
+          if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
+          debounceTimeout.current = setTimeout(() => {
+            setTrack(newTrack);
+            lastValidTrackRef.current = newTrack;
+          }, 150); // 150ms debounce
+        }
       } catch (error) {
         console.error("Failed to fetch track:", error);
         setTrack(null);
+        lastValidTrackRef.current = null;
       }
     };
 
     fetchTrack();
     const interval = setInterval(fetchTrack, POLL_RATE);
 
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
+    };
   }, [lastfmName, refreshToken]);
 
   return track;
