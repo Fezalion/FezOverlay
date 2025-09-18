@@ -3,6 +3,7 @@ import Matter from "matter-js";
 import {
   createEmoteElement,
   createEffectsRegistry,
+  removeAllEmoteElements,
 } from "../utils/emoteEffects";
 
 export function useEmoteSpawner(
@@ -89,6 +90,8 @@ export function useEmoteSpawner(
       Matter.Body.setAngularVelocity(body, (Math.random() - 0.5) * 0.2);
 
       const el = createEmoteElement(emote.url, sizeX, sizeY, emote.animated);
+      // Append to body for floating emotes
+      document.body.appendChild(el);
 
       let cleanupEffects = [];
       if (isSub && subEffects && subEffectTypes.length > 0) {
@@ -131,5 +134,5 @@ export function useEmoteSpawner(
     ]
   );
 
-  return { spawnEmote };
+  return { spawnEmote, removeAllEmoteElements };
 }

@@ -137,7 +137,7 @@ export function useBattleSystem(
 
       return nearest;
     } catch (e) {
-      console.error("error at findNearestEnemy");
+      console.error("error at findNearestEnemy", e);
     }
   };
 
@@ -327,11 +327,13 @@ export function useBattleSystem(
         showManaGain(attacker, manaGain);
       }
 
-      target.el.querySelector(".avatar").style.filter =
-        "brightness(2) hue-rotate(180deg)";
+      const avatarImg = target.el.querySelector(".avatar");
+      if (avatarImg) {
+        avatarImg.style.filter = "brightness(2) hue-rotate(180deg)";
+      }
       setTimeout(() => {
-        if (target.el.querySelector(".avatar"))
-          target.el.querySelector(".avatar").style.filter = "";
+        const avatarImg2 = target.el.querySelector(".avatar");
+        if (avatarImg2) avatarImg2.style.filter = "";
       }, 200);
     },
     []
@@ -561,6 +563,7 @@ export function useBattleSystem(
       wrapper.style.boxShadow = `0 0 20px ${subscriber.color}`;
       wrapper.style.border = `2px solid ${subscriber.color}`;
       wrapper.style.borderRadius = "50%";
+
       wrapper.appendChild(elImg);
 
       // IMPORTANT: use the wrapper as the moved element
@@ -692,7 +695,7 @@ export function useBattleSystem(
           });
         }
       } catch (e) {
-        console.error("Error at procSpecialSkill");
+        console.error("Error at procSpecialSkill", e);
       }
     },
     [specialSkills]
@@ -967,7 +970,7 @@ export function useBattleSystem(
             battleSettings.twitchName,
             `🏆 ${winner.subscriberName} WINS! 🏆`
           )
-          .catch((e) => {
+          .catch(() => {
             const winnerDisplay = document.createElement("div");
             winnerDisplay.innerHTML = `🏆 ${winner.subscriberName} WINS! 🏆`;
             winnerDisplay.style.position = "fixed";
@@ -1010,7 +1013,7 @@ export function useBattleSystem(
       setTimeout(() => {
         client.current
           .say(battleSettings.twitchName, `🏆 DRAW 🏆`)
-          .catch((e) => {
+          .catch(() => {
             const winnerDisplay = document.createElement("div");
             winnerDisplay.innerHTML = `🏆 DRAW 🏆`;
             winnerDisplay.style.position = "fixed";
@@ -1116,6 +1119,7 @@ export function useBattleSystem(
 
       battleParticipants.current = [];
       activeBattleRef.current = null;
+      bodiesWithTimers.current = [];
       console.log("Battle ended and all participants cleaned up");
     }, 3000);
   }, [engineRef, client, battleSettings, battleParticipants]);
@@ -1350,18 +1354,25 @@ export function useBattleSystem(
       color: white;
       font-size: 10px;
       z-index: 10001;
-      max-width: 150px;
-      width: 150px;
+      max-width: 250px;
+      width: 250px;
     `;
 
     let content =
       '<div style="color: #4a9eff; font-weight: bold; margin-bottom: 8px;">REAL-TIME DPS</div>';
 
-    liveStats.slice(0, 5).forEach((player, index) => {
+    liveStats.slice(0, 5).forEach((player) => {
+      // Limit name length and pad for alignment
+      let displayName = player.name;
+      const maxLen = 12;
+      if (displayName.length > maxLen) {
+        displayName = displayName.slice(0, maxLen - 1) + "…";
+      }
+      // Use monospace font for alignment and fixed width for name
       content += `
-        <div style="margin-bottom: 4px; padding: 2px 0;">
-          <span style="color: ${player.color};">${player.name}</span>: 
-          <span style="color: #ff6b6b; font-weight: bold; float:right;">${player.dps} DPS</span> 
+        <div style="margin-bottom: 4px; padding: 2px 0; display: flex; justify-content: space-between; align-items: center; font-family: monospace;">
+          <span style="color: ${player.color}; min-width: 90px; max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block;">${displayName}</span>
+          <span style="color: #ff6b6b; font-weight: bold;">${player.dps} DPS</span>
         </div>
       `;
     });

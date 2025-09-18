@@ -12,55 +12,63 @@ export function usePhysicsEngine() {
     let world = engine.world;
     engine.gravity.y = 1;
 
-    const width = window.innerWidth;
-    const height = window.innerHeight;
-
     const wallThickness = 200;
-    const walls = [
-      Matter.Bodies.rectangle(
-        -wallThickness / 2,
-        height / 2,
-        wallThickness,
-        height,
-        {
-          isStatic: true,
-        }
-      ),
-      Matter.Bodies.rectangle(
-        width + wallThickness / 2,
-        height / 2,
-        wallThickness,
-        height,
-        {
-          isStatic: true,
-        }
-      ),
-      Matter.Bodies.rectangle(
-        width / 2,
-        -wallThickness / 2,
-        width,
-        wallThickness,
-        {
-          isStatic: true,
-        }
-      ),
-      Matter.Bodies.rectangle(
-        width / 2,
-        height + wallThickness / 2,
-        width,
-        wallThickness,
-        {
-          isStatic: true,
-        }
-      ),
-    ];
+    function createWalls(width, height) {
+      return [
+        Matter.Bodies.rectangle(
+          -wallThickness / 2,
+          height / 2,
+          wallThickness,
+          height,
+          { isStatic: true }
+        ),
+        Matter.Bodies.rectangle(
+          width + wallThickness / 2,
+          height / 2,
+          wallThickness,
+          height,
+          { isStatic: true }
+        ),
+        Matter.Bodies.rectangle(
+          width / 2,
+          -wallThickness / 2,
+          width,
+          wallThickness,
+          { isStatic: true }
+        ),
+        Matter.Bodies.rectangle(
+          width / 2,
+          height + wallThickness / 2,
+          width,
+          wallThickness,
+          { isStatic: true }
+        ),
+      ];
+    }
+
+    let width = window.innerWidth;
+    let height = window.innerHeight;
+    let walls = createWalls(width, height);
     Matter.World.add(world, walls);
+
+    // Handle window resize
+    function handleResize() {
+      width = window.innerWidth;
+      height = window.innerHeight;
+      // Remove old walls
+      Matter.World.remove(world, walls);
+      // Add new walls
+      walls = createWalls(width, height);
+      Matter.World.add(world, walls);
+    }
+    window.addEventListener("resize", handleResize);
 
     let runner = Matter.Runner.create();
     runnerRef.current = runner;
     Matter.Runner.run(runner, engine);
 
     return () => {
+      window.removeEventListener("resize", handleResize);
       if (rafId.current) {
         cancelAnimationFrame(rafId.current);
       }
