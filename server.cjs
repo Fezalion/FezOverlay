@@ -574,7 +574,13 @@ if (!fs.existsSync(distRoot)) {
 
 wss.on("connection", (ws) => {
   console.log("WebSocket client connected");
-
+  // send refresh on new connection
+  broadcast(
+    JSON.stringify({
+      type: "refresh",
+      target: "all",
+    })
+  );
   ws.on("message", (message) => {
     try {
       const data = JSON.parse(message.toString());
