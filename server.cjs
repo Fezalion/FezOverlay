@@ -12,7 +12,6 @@ const app = express();
 const server = http.createServer(app);
 
 const wss = new WebSocketServer({ server });
-
 // Load env initially
 function getEnvPath() {
   if (process.pkg) {
@@ -69,6 +68,42 @@ function GenerateAccess() {
     console.error("[Twitch API] CLIENT_ID is missing in .env");
     return;
   }
+
+  // --- Global error logging ---
+  const ERROR_LOG_FILE = path.join(
+    baseDir,
+    `error-log-${new Date().toISOString().replace(/[:.]/g, "-")}.log`
+  );
+  const errorLog = [];
+  function logErrorToFile(err, info) {
+    const entry = `[${new Date().toISOString()}] ${
+      err && err.stack ? err.stack : err
+    }\n${info ? "Info: " + info + "\n" : ""}`;
+    errorLog.push(entry);
+    try {
+      fs.appendFileSync(ERROR_LOG_FILE, entry + "\n\n");
+    } catch (e) {
+      console.error("Failed to write to error log:", e);
+    }
+  }
+
+  process.on("uncaughtException", (err) => {
+    logErrorToFile(err, "uncaughtException");
+    console.error("Uncaught Exception:", err);
+    process.exit(1);
+  });
+  process.on("unhandledRejection", (reason) => {
+    logErrorToFile(reason, "unhandledRejection");
+    console.error("Unhandled Rejection:", reason);
+    process.exit(1);
+  });
+  process.on("exit", (code) => {
+    if (errorLog.length > 0) {
+      try {
+        fs.appendFileSync(ERROR_LOG_FILE, `Process exited with code ${code}\n`);
+      } catch (e) {}
+    }
+  });
 
   const authUrl =
     `https://id.twitch.tv/oauth2/authorize` +
@@ -243,6 +278,20 @@ function getCurrentVersion() {
     return "";
   }
 }
+
+// Endpoint to receive client/browser error logs
+app.post("/api/log-client-error", (req, res) => {
+  const { error, info, userAgent } = req.body || {};
+  const entry = `[${new Date().toISOString()}] CLIENT ERROR\nUser-Agent: ${
+    userAgent || req.headers["user-agent"] || ""
+  }\n${error}\n${info ? "Info: " + info + "\n" : ""}`;
+  try {
+    fs.appendFileSync(ERROR_LOG_FILE, entry + "\n\n");
+    res.status(200).json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.toString() });
+  }
+});
 
 // GET all settings
 app.get("/api/settings", (req, res) => {

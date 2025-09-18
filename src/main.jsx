@@ -8,6 +8,9 @@ import AuthCallback from "./AuthCallback";
 import YapMeter from "./components/YapMeter";
 import ChatCommands from "./components/ChatCommands";
 import "./index.css";
+import { setupGlobalErrorLogger } from "./utils/errorLogger";
+
+setupGlobalErrorLogger();
 
 function hexToRgb(hex) {
   hex = hex.replace("#", "");
