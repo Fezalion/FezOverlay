@@ -8,7 +8,12 @@ export default {
       try {
         const res = await fetch("/api/commands");
         const commands = await res.json();
-        client.say(channel, `${commands.join(", ")}`);
+        const commandNames = Array.isArray(commands)
+          ? commands.map((cmd) =>
+              typeof cmd === "string" ? cmd : cmd.name || JSON.stringify(cmd)
+            )
+          : [];
+        client.say(channel, `${commandNames.join(", ")}`);
       } catch (err) {
         console.error("Failed to fetch commands:", err);
         client.say(channel, "❌ Could not fetch commands.");
@@ -73,7 +78,12 @@ export default {
       try {
         const res = await fetch("/api/commands");
         const commands = await res.json();
-        client.say(channel, `Commands: ${commands.join(", ")}`);
+        const commandNames = Array.isArray(commands)
+          ? commands.map((cmd) =>
+              typeof cmd === "string" ? cmd : cmd.name || JSON.stringify(cmd)
+            )
+          : [];
+        client.say(channel, `Commands: ${commandNames.join(", ")}`);
       } catch (err) {
         console.error("Failed to fetch commands:", err);
         client.say(channel, "❌ Could not fetch commands.");
