@@ -21,26 +21,6 @@ if (!fs.existsSync(envPath)) {
   );
 }
 
-// Clean up old .js and .css files in the dist folder
-const distDir = path.join(baseDir, "dist/assets");
-if (fs.existsSync(distDir)) {
-  const files = fs.readdirSync(distDir);
-  for (const file of files) {
-    if (
-      file.endsWith(".js") ||
-      file.endsWith(".css") ||
-      file.endsWith(".png")
-    ) {
-      try {
-        fs.unlinkSync(path.join(distDir, file));
-        console.log("Deleted old file:", file);
-      } catch (err) {
-        console.warn("Failed to delete file:", file, err.message);
-      }
-    }
-  }
-}
-
 function getLatestRelease(cb) {
   const url = `https://api.github.com/repos/${repo}/releases/latest`;
   console.log("Fetching latest release from:", url);
@@ -369,7 +349,27 @@ function main() {
       process.stdin.on("data", process.exit.bind(process, 0));
       return;
     } else {
-      console.log("New version available. Updating...");
+      console.log("New version available.Cleaning then updating...");
+
+      // Clean up old .js and .css files in the dist folder
+      const distDir = path.join(baseDir, "dist/assets");
+      if (fs.existsSync(distDir)) {
+        const files = fs.readdirSync(distDir);
+        for (const file of files) {
+          if (
+            file.endsWith(".js") ||
+            file.endsWith(".css") ||
+            file.endsWith(".png")
+          ) {
+            try {
+              fs.unlinkSync(path.join(distDir, file));
+              console.log("Deleted old file:", file);
+            } catch (err) {
+              console.warn("Failed to delete file:", file, err.message);
+            }
+          }
+        }
+      }
     }
 
     // Download both exe and dist.zip
