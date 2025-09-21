@@ -36,7 +36,6 @@ function getLatestRelease(cb) {
         res.on("data", (chunk) => (data += chunk));
         res.on("end", () => {
           try {
-            console.log("GitHub API response status:", res.statusCode);
             const release = JSON.parse(data);
 
             // Check for API errors
@@ -89,12 +88,9 @@ function downloadFile(url, dest, cb) {
           headers: { "User-Agent": "node" },
         },
         (response) => {
-          console.log(`Response status: ${response.statusCode}`);
-
           // Handle redirects
           if (response.statusCode === 301 || response.statusCode === 302) {
             const location = response.headers.location;
-            console.log("Redirecting to:", location);
             file.close();
             fs.unlink(dest, () => {}); // Delete partial file
             return makeRequest(location, redirectCount + 1);
@@ -147,7 +143,6 @@ function downloadFile(url, dest, cb) {
           file.on("finish", () => {
             // Clear the progress line and show completion
             process.stdout.write("\r" + " ".repeat(80) + "\r"); // Clear line
-            console.log(`✓ ${fileName} downloaded successfully!`);
             file.close(cb);
           });
 
@@ -183,7 +178,6 @@ function extractZip(zipPath, destDir, cb) {
     const unzipCommand = `powershell -command "Expand-Archive -Path '${zipPath}' -DestinationPath '${destDir}' -Force"`;
 
     console.log("Extracting files...");
-    console.log("Command:", unzipCommand);
 
     // Show a simple progress indicator
     const progressInterval = setInterval(() => {
@@ -198,9 +192,6 @@ function extractZip(zipPath, destDir, cb) {
         console.log(
           "PowerShell extraction failed, trying alternative method..."
         );
-        console.log("Error:", error.message);
-        console.log("stdout:", stdout);
-        console.log("stderr:", stderr);
 
         // Fallback: copy zip file and provide instructions
         const destZipPath = path.join(destDir, "dist.zip");
@@ -213,14 +204,11 @@ function extractZip(zipPath, destDir, cb) {
         cb();
       } else {
         console.log("✓ Files extracted successfully!");
-        console.log("stdout:", stdout);
-        if (stderr) console.log("stderr:", stderr);
 
         // Debug: List what was extracted
         console.log("Checking extracted files...");
         try {
           const files = fs.readdirSync(destDir);
-          console.log("Files in dist folder:", files);
 
           // Check if index.html exists
           const indexPath = path.join(destDir, "index.html");
@@ -262,7 +250,6 @@ function extractZip(zipPath, destDir, cb) {
           if (fs.existsSync(assetsPath)) {
             console.log("✓ assets folder found");
             const assetFiles = fs.readdirSync(assetsPath);
-            console.log("Asset files:", assetFiles);
           } else {
             console.log("✗ assets folder not found");
           }
@@ -309,7 +296,6 @@ function main() {
   if (fs.existsSync(distPath)) {
     try {
       const files = fs.readdirSync(distPath);
-      console.log("Current files in dist:", files);
 
       // Check for key files
       const indexPath = path.join(distPath, "index.html");
@@ -324,7 +310,6 @@ function main() {
       if (fs.existsSync(assetsPath)) {
         console.log("✓ assets folder exists");
         const assetFiles = fs.readdirSync(assetsPath);
-        console.log("Asset files:", assetFiles);
       } else {
         console.log("✗ assets folder missing");
       }
@@ -341,7 +326,11 @@ function main() {
   if (fs.existsSync(distDir)) {
     const files = fs.readdirSync(distDir);
     for (const file of files) {
-      if (file.endsWith(".js") || file.endsWith(".css")) {
+      if (
+        file.endsWith(".js") ||
+        file.endsWith(".css") ||
+        file.endsWith(".html")
+      ) {
         try {
           fs.unlinkSync(path.join(distDir, file));
           console.log("Deleted old file:", file);
@@ -391,49 +380,6 @@ function main() {
     let downloadsCompleted = 0;
     let totalDownloads = 0;
     let hasError = false;
-
-    // Batch script content
-    const batContent = `
-@echo off
-setlocal enabledelayedexpansion
-
-if not exist "updater.exe.new" (
-    echo [ERROR] File "updater.exe.new" not found.
-    exit /b 1
-)
-
-echo Waiting for updater.exe to stop...
-:wait_loop
-TASKLIST | find /I "updater.exe" >nul 2>&1
-if %errorlevel%==0 (
-    timeout /t 1 /nobreak >nul
-    goto wait_loop
-)
-
-if exist "updater.exe" (
-    echo Attempting to replace updater.exe...
-) else (
-    echo No existing updater.exe, just renaming new file...
-)
-
-set attempts=0
-:move_retry
-move /Y "updater.exe.new" "updater.exe" >nul 2>&1
-if exist "updater.exe.new" (
-    set /a attempts+=1
-    if !attempts! lss 5 (
-        echo [WARN] Move failed, retrying in 1 second... (!attempts!/5)
-        timeout /t 1 /nobreak >nul
-        goto move_retry
-    ) else (
-        echo [ERROR] Failed to replace updater.exe after 5 attempts.
-        exit /b 2
-    )
-)
-
-echo [SUCCESS] updater.exe replaced successfully.
-exit /b 0
-`;
 
     if (exeAsset) totalDownloads++;
     if (distAsset) totalDownloads++;
