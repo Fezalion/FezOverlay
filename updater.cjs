@@ -22,7 +22,7 @@ if (!fs.existsSync(envPath)) {
 }
 
 // Clean up old .js and .css files in the dist folder
-const distDir = path.join(baseDir, "dist");
+const distDir = path.join(baseDir, "dist/assets");
 if (fs.existsSync(distDir)) {
   const files = fs.readdirSync(distDir);
   for (const file of files) {
