@@ -4,7 +4,6 @@ export default {
     "Add custom chat commands. Usage: !command add <name> <text> | !command remove <name> | !command list",
   execute: async (client, channel, userstate, args) => {
     if (args.length === 0) {
-      // Show list
       try {
         const res = await fetch("/api/commands");
         const commands = await res.json();
