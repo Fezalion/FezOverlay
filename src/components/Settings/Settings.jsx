@@ -68,7 +68,7 @@ function Settings() {
 
       <div className="flex gap-8">
         {/* Sidebar Menu */}
-        <nav className="w-48 flex-shrink-0">
+        <nav className="w-48 flex-shrink-0 sticky top-6 self-start">
           <ul className="flex flex-col gap-2">
             {MENU.map((item) => (
               <li key={item.key}>

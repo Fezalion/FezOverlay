@@ -33,6 +33,11 @@ export default function CommandSettings() {
   }
 
   function addCommand(name, text) {
+    // Prevent duplicate command names (case-insensitive)
+    if (commands.some((cmd) => cmd.name.toLowerCase() === name.toLowerCase())) {
+      alert(`A command named '${name}' already exists.`);
+      return;
+    }
     fetch("/api/commands", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -71,31 +76,7 @@ export default function CommandSettings() {
         {/* Command Settings */}
         <div className="relative bg-white/5 p-4 rounded-xl border border-white/10">
           <h3 className="text-lg font-semibold mb-4">Custom Commands</h3>
-          <div className="space-y-4 max-h-96 overflow-y-auto pr-2">
-            {!commands && (
-              <p className="text-center text-gray-400">No commands added.</p>
-            )}
-            {commands &&
-              commands.map((cmd, index) => (
-                <div key={index} className="flex items-center space-x-2 p-2">
-                  <span className="text-white font-mono">!{cmd.name}</span>
-                  <input
-                    type="text"
-                    value={cmd.text}
-                    onChange={() => {
-                      updateCommand(cmd.name, event.target.value);
-                    }}
-                    className="flex-1 bg-gray-800 text-white px-2 py-1 rounded-md border border-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                  ></input>
-                  <button
-                    onClick={() => removeCommand(cmd.name)}
-                    className="ml-auto px-2 py-1 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-500 transition"
-                  >
-                    Remove
-                  </button>
-                </div>
-              ))}
-
+          <div className="space-y-4 pr-2">
             <div>
               <h4 className="text-md font-semibold mb-2">Add New Command</h4>
               <div className="flex items-center space-x-2 p-2">
@@ -121,6 +102,19 @@ export default function CommandSettings() {
                       nameInput.value &&
                       textInput.value
                     ) {
+                      // Prevent duplicate command names (case-insensitive)
+                      if (
+                        commands.some(
+                          (cmd) =>
+                            cmd.name.toLowerCase() ===
+                            nameInput.value.toLowerCase()
+                        )
+                      ) {
+                        alert(
+                          `A command named '${nameInput.value}' already exists.`
+                        );
+                        return;
+                      }
                       addCommand(nameInput.value, textInput.value);
                       nameInput.value = "";
                       textInput.value = "";
@@ -134,6 +128,34 @@ export default function CommandSettings() {
                 </button>
               </div>
             </div>
+
+            <hr className="border-gray-700" />
+
+            <h4 className="text-md font-semibold mb-2">Existing Commands</h4>
+
+            {!commands && (
+              <p className="text-center text-gray-400">No commands added.</p>
+            )}
+            {commands &&
+              commands.map((cmd, index) => (
+                <div key={index} className="flex items-center space-x-2 p-2">
+                  <span className="text-white font-mono">!{cmd.name}</span>
+                  <input
+                    type="text"
+                    value={cmd.text}
+                    onChange={() => {
+                      updateCommand(cmd.name, event.target.value);
+                    }}
+                    className="flex-1 bg-gray-800 text-white px-2 py-1 rounded-md border border-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  ></input>
+                  <button
+                    onClick={() => removeCommand(cmd.name)}
+                    className="ml-auto px-2 py-1 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-500 transition"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
           </div>
         </div>
       </div>
