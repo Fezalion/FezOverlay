@@ -18,10 +18,6 @@ export default function SongOverlaySettings({ settings, updateSetting }) {
     <>
       <div className="space-y-6">
         <div className="bg-white/5 p-4 rounded-xl border border-white/10 space-y-6">
-          <h3 className="text-2xl font-semibold text-center">
-            Song Overlay Settings
-          </h3>
-
           {/* Account Settings */}
           <div className="bg-white/5 p-4 rounded-xl border border-white/10">
             <h3 className="text-lg font-semibold mb-4">Account</h3>
@@ -84,7 +80,7 @@ export default function SongOverlaySettings({ settings, updateSetting }) {
                   color: `rgb(${hexToRgb(settings.fontColor)})`,
                   background: settings.bgColor,
                   textAlign: settings.playerAlignment,
-                  textShadow,
+                  textShadow: settings.textStroke ? textShadow : "none",
                 }}
               >
                 Example Artist - Example Track
@@ -175,7 +171,7 @@ export default function SongOverlaySettings({ settings, updateSetting }) {
                   color: `rgb(${hexToRgb(settings.fontColor)})`,
                   background: settings.bgColor,
                   textAlign: settings.playerAlignment,
-                  textShadow,
+                  textShadow: settings.textStroke ? textShadow : "none",
                 }}
               >
                 Example Artist - Example Track

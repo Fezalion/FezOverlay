@@ -1,8 +1,16 @@
+import { useState } from "react";
 import { useMetadata } from "../../hooks/useMetadata";
 import SongOverlaySettings from "./SongOverlaySettings";
 import EmoteOverlaySettings from "./EmoteOverlaySettings";
 import YapMeterSettings from "./YapMeterSettings";
 import CommandSettings from "./CommandSettings";
+
+const MENU = [
+  { key: "song", label: "Song Overlay", component: SongOverlaySettings },
+  { key: "emote", label: "Emote Overlay", component: EmoteOverlaySettings },
+  { key: "yap", label: "Yap Meter", component: YapMeterSettings },
+  { key: "commands", label: "Commands", component: CommandSettings },
+];
 
 function Settings() {
   const {
@@ -12,6 +20,37 @@ function Settings() {
     version,
     latestVersion,
   } = useMetadata();
+
+  const [selected, setSelected] = useState(MENU[0].key);
+
+  // Map key to component
+  const renderComponent = (key) => {
+    switch (key) {
+      case "song":
+        return (
+          <SongOverlaySettings
+            settings={settings}
+            updateSetting={updateSetting}
+          />
+        );
+      case "emote":
+        return (
+          <EmoteOverlaySettings
+            settings={settings}
+            updateSetting={updateSetting}
+            availableSubEffects={availableSubEffects}
+          />
+        );
+      case "yap":
+        return (
+          <YapMeterSettings settings={settings} updateSetting={updateSetting} />
+        );
+      case "commands":
+        return <CommandSettings />;
+      default:
+        return null;
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black p-6 text-white">
@@ -27,23 +66,28 @@ function Settings() {
         )}
       </h1>
 
-      <div className="grid gap-8 md:grid-cols-2">
-        <div className="flex flex-col gap-8">
-          <SongOverlaySettings
-            settings={settings}
-            updateSetting={updateSetting}
-          />
-          <YapMeterSettings
-            settings={settings}
-            updateSetting={updateSetting}
-          ></YapMeterSettings>
-          <CommandSettings></CommandSettings>
-        </div>
-        <EmoteOverlaySettings
-          settings={settings}
-          updateSetting={updateSetting}
-          availableSubEffects={availableSubEffects}
-        />
+      <div className="flex gap-8">
+        {/* Sidebar Menu */}
+        <nav className="w-48 flex-shrink-0">
+          <ul className="flex flex-col gap-2">
+            {MENU.map((item) => (
+              <li key={item.key}>
+                <button
+                  className={`w-full text-left px-4 py-2 rounded transition-colors ${
+                    selected === item.key
+                      ? "bg-gray-700 font-bold"
+                      : "hover:bg-gray-800"
+                  }`}
+                  onClick={() => setSelected(item.key)}
+                >
+                  {item.label}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </nav>
+        {/* Main Content */}
+        <div className="flex-1 min-w-0">{renderComponent(selected)}</div>
       </div>
     </div>
   );

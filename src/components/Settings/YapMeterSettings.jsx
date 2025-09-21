@@ -4,10 +4,6 @@ export default function YapMeterSettings({ settings, updateSetting }) {
   return (
     <div className="space-y-6">
       <div className="bg-white/5 p-4 rounded-xl border border-white/10 space-y-6">
-        <h3 className="text-2xl font-semibold text-center">
-          Yap Meter Settings
-        </h3>
-
         {/* YapMeter Settings */}
         <div className="relative bg-white/5 p-4 rounded-xl border border-white/10">
           <h3 className="text-lg font-semibold mb-4">YapMeter</h3>
