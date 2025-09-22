@@ -14,6 +14,7 @@ export function useGlobalEffects(
 ) {
   const magneticEventRef = useRef(false);
   const reverseGravityEventRef = useRef(false);
+  const dpsTrackerRef = useRef(null);
 
   const battleSystem = useBattleSystem(
     engineRef,
@@ -26,11 +27,19 @@ export function useGlobalEffects(
     client
   );
 
+  dpsTrackerRef.current = battleSystem.getDpsTracker();
+
   const startMagneticEvent = useCallback(
     (duration, str) => {
       const engine = engineRef.current;
       if (magneticEventRef.current || !engine) return;
 
+      dpsTrackerRef.current?.recordSkillUse(
+        "system",
+        "Chat",
+        "#fff",
+        "Magnetic Event"
+      );
       magneticEventRef.current = true;
 
       const forceMagnitude = str / 100000;
@@ -66,6 +75,13 @@ export function useGlobalEffects(
     (duration, str) => {
       const engine = engineRef.current;
       if (reverseGravityEventRef.current || !engine) return;
+
+      dpsTrackerRef.current?.recordSkillUse(
+        "system",
+        "Chat",
+        "#fff",
+        "Reverse Gravity"
+      );
 
       reverseGravityEventRef.current = true;
 
