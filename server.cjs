@@ -449,6 +449,7 @@ const availableSubEffects = [
   "hueShift",
   "magneticAttraction",
   "reverseGravity",
+  "noGravity",
   "battleEvent",
 ];
 

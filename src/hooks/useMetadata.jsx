@@ -47,6 +47,9 @@ export function useMetadata() {
     subEffectReverseGravityChance: 5,
     subEffectReverseGravityStrength: 2,
     subEffectReverseGravityDuration: 5,
+    //No Gravity settings
+    subEffectNoGravityChance: 5,
+    subEffectNoGravityDuration: 5,
     // Battle Event settings
     battleEventChance: 5,
     battleEventParticipants: 8,
@@ -183,6 +186,11 @@ export function useMetadata() {
         subEffectReverseGravityStrength: toNumber(
           data.subEffectReverseGravityStrength,
           2
+        ),
+        subEffectNoGravityChance: toNumber(data.subEffectNoGravityChance, 5),
+        subEffectNoGravityDuration: toNumber(
+          data.subEffectNoGravityDuration,
+          5
         ),
         // Battle Event settings
         battleEventChance: toNumber(data.battleEventChance, 5),

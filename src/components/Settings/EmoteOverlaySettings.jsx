@@ -114,6 +114,8 @@ export default function EmoteOverlaySettings({ settings, updateSetting }) {
                 subEffectReverseGravityChance: 5,
                 subEffectReverseGravityDuration: 5,
                 subEffectReverseGravityStrength: 2,
+                subEffectNoGravityChance: 5,
+                subEffectNoGravityDuration: 5,
                 battleEventChance: 5,
                 battleEventParticipants: 8,
                 battleEventHp: 300,
@@ -257,6 +259,40 @@ export default function EmoteOverlaySettings({ settings, updateSetting }) {
             },
             {
               key: "subEffectReverseGravityChance",
+              label: "Chance (%)",
+              min: 1,
+              max: 100,
+              step: 1,
+              parser: parseInt,
+            },
+          ]}
+        />
+
+        <EffectCard
+          effectKey="noGravity"
+          label="No Gravity"
+          enabled={settings.subEffectTypes.includes("noGravity")}
+          toggleEnabled={() =>
+            updateSetting(
+              "subEffectTypes",
+              settings.subEffectTypes.includes("noGravity")
+                ? settings.subEffectTypes.filter((t) => t !== "noGravity")
+                : [...settings.subEffectTypes, "noGravity"]
+            )
+          }
+          settings={settings}
+          onChange={updateSetting}
+          fields={[
+            {
+              key: "subEffectNoGravityDuration",
+              label: "Duration (s)",
+              min: 1,
+              max: 30,
+              step: 1,
+              parser: parseInt,
+            },
+            {
+              key: "subEffectNoGravityChance",
               label: "Chance (%)",
               min: 1,
               max: 100,
