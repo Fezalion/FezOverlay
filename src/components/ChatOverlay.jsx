@@ -433,10 +433,10 @@ function ChatOverlayCore({ settings, setLocalSetting, updateSettings }) {
     // decide per-message if effects proc
     const doRainbow =
       settings.chatEffectRainbowText &&
-      Math.random() < (settings.chatEffectRainbowTextChance || 0);
+      Math.random() * 100 < (settings.chatEffectRainbowTextChance || 0);
     const doJump =
       settings.chatEffectJumpingText &&
-      Math.random() < (settings.chatEffectJumpingTextChance || 0);
+      Math.random() * 100 < (settings.chatEffectJumpingTextChance || 0);
 
     // Helper to render a single character (with possible motion props)
     const renderChar = (ch, globalIndex, charIndex) => {
