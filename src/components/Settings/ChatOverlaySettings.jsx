@@ -335,6 +335,30 @@ export default function ChatOverlaySettings({ settings, updateSetting }) {
               },
             ]}
           ></EffectCard>
+
+          <EffectCard
+            effectKey="chatEffectScatterText"
+            label="ScatterIn Text"
+            enabled={settings.chatEffectScatterText}
+            toggleEnabled={() =>
+              updateSetting(
+                "chatEffectScatterText",
+                !settings.chatEffectScatterText
+              )
+            }
+            settings={settings}
+            onChange={updateSetting}
+            fields={[
+              {
+                key: "chatEffectScatterTextChance",
+                label: "Chance (s)",
+                min: 1,
+                max: 100,
+                step: 1,
+                parser: parseInt,
+              },
+            ]}
+          ></EffectCard>
         </div>
       </div>
     </>

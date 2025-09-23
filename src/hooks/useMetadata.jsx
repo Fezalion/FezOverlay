@@ -39,6 +39,9 @@ export function useMetadata() {
     chatEffectJumpingText: false,
     chatEffectJumpingTextChance: 10,
 
+    chatEffectScatterText: false,
+    chatEffectScatterTextChance: 10,
+
     //YapMeter Settings
     yapMeterThreshold: 1.0,
     yapMeterSilenceThreshold: 3,
@@ -187,6 +190,12 @@ export function useMetadata() {
         chatEffectJumpingText: Boolean(data.chatEffectJumpingText) || false,
         chatEffectJumpingTextChance: toNumber(
           data.chatEffectJumpingTextChance,
+          10
+        ),
+
+        chatEffectScatterText: Boolean(data.chatEffectScatterText) || false,
+        chatEffectScatterTextChance: toNumber(
+          data.chatEffectScatterTextChance,
           10
         ),
 

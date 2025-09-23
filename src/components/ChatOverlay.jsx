@@ -188,10 +188,30 @@ const getJumpAnimation = (i, charDelay = 0.04) => ({
   },
 });
 
+const getScatterInAnimation = (i) => {
+  // random offset: spread characters in a circle around their final spot
+  const offsetX = (Math.random() - 0.5) * 120; // -60px .. +60px
+  const offsetY = (Math.random() - 0.5) * 120;
+
+  return {
+    initial: { opacity: 0, x: offsetX, y: offsetY },
+    animate: { opacity: 1, x: 0, y: 0 },
+    transition: {
+      duration: 0.4,
+      ease: "easeOut",
+      delay: i * 0.015, // stagger in
+    },
+  };
+};
+
 /* Merge helpers -> produce animate + transition objects for motion props */
-const buildMotionProps = (i, { rainbow = false, jumping = false } = {}) => {
+const buildMotionProps = (
+  i,
+  { rainbow = false, jumping = false, scatter = false } = {}
+) => {
   const animate = {};
   const transition = {};
+  const initial = {};
 
   if (rainbow) {
     const r = getRainbowAnimation(i);
@@ -202,14 +222,21 @@ const buildMotionProps = (i, { rainbow = false, jumping = false } = {}) => {
   if (jumping) {
     const j = getJumpAnimation(i);
     Object.assign(animate, j.animate);
-    // merge transition; if both present they live under separate keys (color, y)
     Object.assign(transition, j.transition);
+  }
+
+  if (scatter) {
+    const s = getScatterInAnimation(i);
+    Object.assign(initial, s.initial);
+    Object.assign(animate, s.animate);
+    Object.assign(transition, s.transition);
   }
 
   // return undefined for empty so <span> can be used instead of motion.span
   return {
     animate: Object.keys(animate).length ? animate : undefined,
     transition: Object.keys(transition).length ? transition : undefined,
+    initial: Object.keys(initial).length ? initial : undefined,
   };
 };
 
@@ -339,6 +366,9 @@ function ChatOverlayCore({ settings, setLocalSetting, updateSettings }) {
         doJump:
           settings.chatEffectJumpingText &&
           Math.random() * 100 < (settings.chatEffectJumpingTextChance || 0),
+        doScatter:
+          settings.chatEffectScatterText &&
+          Math.random() * 100 < (settings.chatEffectScatterTextChance || 0),
       };
 
       setMessages((prev) => [...prev.slice(-maxMessages + 1), chatMessage]);
@@ -415,15 +445,24 @@ function ChatOverlayCore({ settings, setLocalSetting, updateSettings }) {
   };
 
   // Render emotes inline using your 7TV "emotes" Map
-  const renderMessageAndEmotes = (msg, emotes, settings, doRainbow, doJump) => {
+  const renderMessageAndEmotes = (
+    msg,
+    emotes,
+    settings,
+    doRainbow,
+    doJump,
+    doScatter
+  ) => {
     // Helper to render a single character (with possible motion props)
     const renderChar = (ch, globalIndex, charIndex) => {
+      console.log(doScatter);
       // we use a single index for staggering across the message:
       // globalIndex + charIndex helps keep steady staggering if you choose.
       const i = globalIndex + charIndex;
-      const { animate, transition } = buildMotionProps(i, {
+      const { animate, transition, initial } = buildMotionProps(i, {
         rainbow: doRainbow,
         jumping: doJump,
+        scatter: doScatter,
       });
 
       // if no animation, return plain span
@@ -437,6 +476,7 @@ function ChatOverlayCore({ settings, setLocalSetting, updateSettings }) {
           key={`${globalIndex}-${charIndex}`}
           animate={animate}
           transition={transition}
+          initial={initial}
           style={{ display: "inline-block" }}
         >
           {ch}
@@ -619,7 +659,8 @@ function ChatMessage({
               emotes,
               settings,
               msg.doRainbow,
-              msg.doJump
+              msg.doJump,
+              msg.doScatter
             )}
           </span>
         </div>
