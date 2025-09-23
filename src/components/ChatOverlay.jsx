@@ -164,32 +164,11 @@ const getPositionStyles = (coords, alignment) => {
       return baseStyles;
   }
 };
-
-const rainbowColors = [
-  "#FF0000", // red
-  "#FF7F00", // orange
-  "#FFFF00", // yellow
-  "#00FF00", // green
-  "#0000FF", // blue
-  "#4B0082", // indigo
-  "#8B00FF", // violet
-];
-
 const getRainbowAnimation = (i, charDelay = 0.03) => ({
-  animate: {
-    color: [
-      "#FF0000",
-      "#FF7F00",
-      "#FFFF00",
-      "#00FF00",
-      "#0000FF",
-      "#4B0082",
-      "#8B00FF",
-    ],
-  },
+  animate: { filter: ["hue-rotate(0deg)", "hue-rotate(360deg)"] },
   transition: {
-    color: {
-      duration: 1.5, // was 4, much quicker loop
+    filter: {
+      duration: 2,
       repeat: Infinity,
       ease: "linear",
       delay: i * charDelay,
@@ -353,6 +332,13 @@ function ChatOverlayCore({ settings, setLocalSetting, updateSettings }) {
         badges: userstate.badges || {},
         emotes: userstate.emotes || {},
         opacity: 1,
+        // Lock in animation flags here 👇
+        doRainbow:
+          settings.chatEffectRainbowText &&
+          Math.random() * 100 < (settings.chatEffectRainbowTextChance || 0),
+        doJump:
+          settings.chatEffectJumpingText &&
+          Math.random() * 100 < (settings.chatEffectJumpingTextChance || 0),
       };
 
       setMessages((prev) => [...prev.slice(-maxMessages + 1), chatMessage]);
@@ -429,15 +415,7 @@ function ChatOverlayCore({ settings, setLocalSetting, updateSettings }) {
   };
 
   // Render emotes inline using your 7TV "emotes" Map
-  const renderMessageAndEmotes = (msg, emotes) => {
-    // decide per-message if effects proc
-    const doRainbow =
-      settings.chatEffectRainbowText &&
-      Math.random() * 100 < (settings.chatEffectRainbowTextChance || 0);
-    const doJump =
-      settings.chatEffectJumpingText &&
-      Math.random() * 100 < (settings.chatEffectJumpingTextChance || 0);
-
+  const renderMessageAndEmotes = (msg, emotes, settings, doRainbow, doJump) => {
     // Helper to render a single character (with possible motion props)
     const renderChar = (ch, globalIndex, charIndex) => {
       // we use a single index for staggering across the message:
@@ -628,7 +606,13 @@ function ChatMessage({
               color: settings.chatFontColor, // base color if no rainbow
             }}
           >
-            {renderEmotes(msg.message, emotes, settings)}
+            {renderEmotes(
+              msg.message,
+              emotes,
+              settings,
+              msg.doRainbow,
+              msg.doJump
+            )}
           </span>
         </div>
       </div>
