@@ -551,11 +551,7 @@ function ChatOverlayCore({ settings, setLocalSetting, updateSettings }) {
       <div
         className="flex flex-col text-white overflow-hidden"
         style={chatStyles.container}
-      >
-        <div className="flex items-center justify-center h-full text-gray-400 text-sm">
-          Connecting to chat...
-        </div>
-      </div>
+      ></div>
     );
   }
 
@@ -564,8 +560,8 @@ function ChatOverlayCore({ settings, setLocalSetting, updateSettings }) {
       style={chatStyles.container}
       className={
         settings.chatEditMode
-          ? "flex flex-col-reverse flex-1 overflow-hidden p-2 outline bg-black/35"
-          : "flex flex-col-reverse flex-1 overflow-hidden p-2"
+          ? "flex flex-col-reverse flex-1 overflow-hidden outline bg-black/35"
+          : "flex flex-col-reverse flex-1 overflow-hidden"
       }
     >
       {messages
