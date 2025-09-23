@@ -453,7 +453,10 @@ function ChatOverlayCore({ settings, setLocalSetting, updateSettings }) {
                   {msg.displayName}:
                 </span>
                 <span
-                  style={{ color: settings.chatFontColor }}
+                  style={{
+                    color: settings.chatFontColor,
+                    fontSize: settings.chatFontSize,
+                  }}
                   className="ml-1"
                 >
                   {renderEmotes(msg.message, emotes)}
