@@ -579,7 +579,10 @@ function ChatMessage({
       <div className="flex-1 min-w-0">
         <div
           className="text-sm leading-relaxed"
-          style={{ fontSize: settings.chatFontSize }}
+          style={{
+            fontSize: settings.chatFontSize,
+            fontWeight: settings.chatFontBold ? "bold" : "normal",
+          }}
         >
           {/* badges + name: never break between them */}
           <span
@@ -589,7 +592,11 @@ function ChatMessage({
             {renderBadges(msg)}
             <span
               className="font-semibold"
-              style={{ color: msg.color, fontSize: settings.chatFontSize }}
+              style={{
+                color: msg.color,
+                fontSize: settings.chatFontSize,
+                fontWeight: settings.chatFontBold ? "bold" : "normal",
+              }}
             >
               {msg.displayName}:
             </span>
@@ -600,6 +607,7 @@ function ChatMessage({
             className="ml-1"
             style={{
               fontSize: settings.chatFontSize,
+              fontWeight: settings.chatFontBold ? "bold" : "normal",
               display: "inline",
               overflowWrap: "break-word",
               verticalAlign: "top",

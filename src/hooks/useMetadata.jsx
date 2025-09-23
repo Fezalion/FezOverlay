@@ -30,6 +30,7 @@ export function useMetadata() {
     chatWidth: 800,
     chatHeight: 300,
     chatFontSize: 14,
+    chatFontBold: false,
 
     //ChatOverlay Effects
     chatEffectRainbowText: false,
@@ -174,6 +175,7 @@ export function useMetadata() {
         chatWidth: toNumber(data.chatWidth, 800),
         chatHeight: toNumber(data.chatHeight, 300),
         chatFontSize: toNumber(data.chatFontSize, 14),
+        chatFontBold: Boolean(data.chatFontBold) || false,
 
         //ChatOverlay Effects
         chatEffectRainbowText: Boolean(data.chatEffectRainbowText) || false,

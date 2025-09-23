@@ -121,6 +121,23 @@ export default function ChatOverlaySettings({ settings, updateSetting }) {
                 updateSetting("chatFontSize", parseInt(e.target.value))
               }
             />
+
+            <label className="flex items-center gap-2 mb-4 mt-4">
+              <label className="font-semibold">Enable Bold Text</label>
+              <button
+                onClick={() =>
+                  updateSetting("chatFontBold", !settings.chatFontBold)
+                }
+                className={`relative inline-flex items-center h-6 w-12 rounded-full transition-colors duration-300
+              ${settings.chatFontBold ? "bg-rose-500" : "bg-gray-700"}`}
+              >
+                <span
+                  className={`inline-block w-5 h-5 transform bg-white rounded-full shadow-md transition-transform duration-300
+                ${settings.chatFontBold ? "translate-x-6" : "translate-x-1"}`}
+                />
+              </button>
+            </label>
+
             {/* Outline */}
             <label className="flex items-center gap-2 mb-4 mt-4">
               <label className="font-semibold">Enable Text Outline</label>
