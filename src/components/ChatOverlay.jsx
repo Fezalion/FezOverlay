@@ -22,6 +22,7 @@ export default function ChatOverlay() {
     const ws = new WebSocket("ws://localhost:48000");
 
     const handleMessage = (event) => {
+      console.log("message received, ", event);
       try {
         const data = JSON.parse(event.data);
         if (
@@ -350,6 +351,24 @@ function ChatOverlayCore({ settings, setLocalSetting, updateSettings }) {
     const client = clientRef.current;
 
     const handleMessage = (channel, userstate, message) => {
+      let doRainbow =
+        settings.chatEffectRainbowText &&
+        Math.random() * 100 < (settings.chatEffectRainbowTextChance || 0);
+
+      let doJump =
+        settings.chatEffectJumpingText &&
+        Math.random() * 100 < (settings.chatEffectJumpingTextChance || 0);
+
+      let doScatter =
+        settings.chatEffectScatterText &&
+        Math.random() * 100 < (settings.chatEffectScatterTextChance || 0);
+
+      // Make scatter and jump mutually exclusive
+      if (doJump && doScatter) {
+        // You can decide which one wins; here scatter has priority
+        doJump = false;
+      }
+
       const chatMessage = {
         id: userstate.id || `${Date.now()}-${Math.random()}`,
         displayName:
@@ -360,15 +379,9 @@ function ChatOverlayCore({ settings, setLocalSetting, updateSettings }) {
         emotes: userstate.emotes || {},
         opacity: 1,
         // Lock in animation flags here 👇
-        doRainbow:
-          settings.chatEffectRainbowText &&
-          Math.random() * 100 < (settings.chatEffectRainbowTextChance || 0),
-        doJump:
-          settings.chatEffectJumpingText &&
-          Math.random() * 100 < (settings.chatEffectJumpingTextChance || 0),
-        doScatter:
-          settings.chatEffectScatterText &&
-          Math.random() * 100 < (settings.chatEffectScatterTextChance || 0),
+        doRainbow,
+        doJump,
+        doScatter,
       };
 
       setMessages((prev) => [...prev.slice(-maxMessages + 1), chatMessage]);
@@ -400,6 +413,7 @@ function ChatOverlayCore({ settings, setLocalSetting, updateSettings }) {
     maxMessages,
     fadeDuration,
     fadeTransitionTime,
+    settings,
   ]);
 
   // Random color fallback
@@ -455,7 +469,6 @@ function ChatOverlayCore({ settings, setLocalSetting, updateSettings }) {
   ) => {
     // Helper to render a single character (with possible motion props)
     const renderChar = (ch, globalIndex, charIndex) => {
-      console.log(doScatter);
       // we use a single index for staggering across the message:
       // globalIndex + charIndex helps keep steady staggering if you choose.
       const i = globalIndex + charIndex;
