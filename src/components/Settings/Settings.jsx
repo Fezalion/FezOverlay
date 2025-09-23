@@ -97,7 +97,7 @@ function Settings() {
             <a
               href="https://github.com/sponsors/Fezalion"
               target="_blank"
-              className="w-full text-left px-4 py-2 rounded bg-gray-700 font-bold outline-1 outline-rose-500 hover:outline-rose-400 hover:scale-110"
+              className="w-full text-left px-4 py-2 rounded bg-gray-700 font-bold outline-1 outline-rose-500 hover:outline-rose-400 hover:scale-110 animate-pulse"
             >
               Sponsor me ❤️
             </a>
