@@ -7,6 +7,7 @@ import EmoteOverlay from "./components/EmoteOverlay";
 import AuthCallback from "./AuthCallback";
 import YapMeter from "./components/YapMeter";
 import ChatCommands from "./components/ChatCommands";
+import ChatOverlay from "./components/ChatOverlay";
 import "./index.css";
 import { setupGlobalErrorLogger } from "./utils/errorLogger";
 
@@ -29,42 +30,42 @@ fetch("/api/settings")
   .then((data) => {
     document.documentElement.style.setProperty(
       "--song-panel-bg",
-      data.bgColor || "#800080"
+      data.bgColor || "#800080",
     );
     document.documentElement.style.setProperty(
       "--song-panel-max-width",
-      data.maxWidth || "700px"
+      data.maxWidth || "700px",
     );
     document.documentElement.style.setProperty(
       "--song-panel-scale-size",
-      data.scaleSize || 1.0
+      data.scaleSize || 1.0,
     );
     document.documentElement.style.setProperty(
       "--song-panel-padding",
-      data.padding || "10px"
+      data.padding || "10px",
     );
 
     document.documentElement.style.setProperty(
       "--song-panel-font-family",
-      data.fontFamily || "Arial, sans-serif"
+      data.fontFamily || "Arial, sans-serif",
     );
     document.documentElement.style.setProperty(
       "--song-panel-text-color",
-      hexToRgb(data.fontColor || "#ffffff")
+      hexToRgb(data.fontColor || "#ffffff"),
     );
 
     document.documentElement.style.setProperty(
       "--song-panel-gradient-direction",
-      data.gradientDirection || "to left"
+      data.gradientDirection || "to left",
     );
 
     document.documentElement.style.setProperty(
       "--song-panel-text-stroke-width",
-      data.textStroke ? data.textStrokeSize : "0px"
+      data.textStroke ? data.textStrokeSize : "0px",
     );
     document.documentElement.style.setProperty(
       "--song-panel-text-stroke-color",
-      data.textStroke ? data.textStrokeColor : "rgba(0, 0, 0, 0)"
+      data.textStroke ? data.textStrokeColor : "rgba(0, 0, 0, 0)",
     );
   });
 
@@ -78,7 +79,8 @@ createRoot(document.getElementById("root")).render(
         <Route path="/yapmeter" element={<YapMeter />} />
         <Route path="/commands" element={<ChatCommands />} />
         <Route path="/auth/twitch/callback" element={<AuthCallback />} />
+        <Route path="/chat" element={<ChatOverlay />} />
       </Routes>
     </BrowserRouter>
-  </StrictMode>
+  </StrictMode>,
 );

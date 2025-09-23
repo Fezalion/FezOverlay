@@ -18,6 +18,19 @@ export function useMetadata() {
     scrollSpeed: 25,
     hideOnNothing: false,
 
+    //ChatOverlay Settings
+    chatLocationCoords: { x: 0, y: 0 },
+    chatBackgroundColor: "rgba(0, 0, 0, 0)",
+    chatFontColor: "#ffffff",
+    maxChatMessages: 10,
+    chatFadeDuration: 10000,
+    chatFadeTransition: 2000,
+    chatAlignment: "left",
+    chatEditMode: false,
+    chatWidth: 800,
+    chatHeight: 300,
+    chatFontSize: 14,
+
     //YapMeter Settings
     yapMeterThreshold: 1.0,
     yapMeterSilenceThreshold: 3,
@@ -139,6 +152,22 @@ export function useMetadata() {
         playerAlignment: data.playerAlignment || "right",
         scrollSpeed: data.scrollSpeed || 25,
         hideOnNothing: data.hideOnNothing || false,
+        //ChatOverlay Settings
+        chatLocationCoords: {
+          x: toNumber(data.chatLocationX, 0),
+          y: toNumber(data.chatLocationY, 0),
+        },
+        chatBackgroundColor: data.chatBackgroundColor || "rgba(0, 0, 0, 0)",
+        chatFontColor: data.chatFontColor || "#ffffff",
+        maxChatMessages: toNumber(data.maxChatMessages, 10),
+        chatFadeDuration: toNumber(data.chatFadeDuration, 10000),
+        chatFadeTransition: toNumber(data.chatFadeTransition, 2000),
+        chatAlignment: data.chatAlignment || "left",
+        chatEditMode: Boolean(data.chatEditMode),
+        chatWidth: toNumber(data.chatWidth, 800),
+        chatHeight: toNumber(data.chatHeight, 300),
+        chatFontSize: toNumber(data.chatFontSize, 14),
+
         //YapMeter Settings
         yapMeterThreshold: toNumber(data.yapMeterThreshold, 1.0),
         yapMeterSilenceThreshold: toNumber(data.yapMeterSilenceThreshold, 3),

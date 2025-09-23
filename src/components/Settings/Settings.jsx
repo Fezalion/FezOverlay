@@ -4,12 +4,14 @@ import SongOverlaySettings from "./SongOverlaySettings";
 import EmoteOverlaySettings from "./EmoteOverlaySettings";
 import YapMeterSettings from "./YapMeterSettings";
 import CommandSettings from "./CommandSettings";
+import ChatOverlaySettings from "./ChatOverlaySettings";
 
 const MENU = [
   { key: "song", label: "Song Overlay", component: SongOverlaySettings },
   { key: "emote", label: "Emote Overlay", component: EmoteOverlaySettings },
   { key: "yap", label: "Yap Meter", component: YapMeterSettings },
   { key: "commands", label: "Commands", component: CommandSettings },
+  { key: "chat", label: "Chat Overlay", component: ChatOverlaySettings },
 ];
 
 function Settings() {
@@ -47,6 +49,13 @@ function Settings() {
         );
       case "commands":
         return <CommandSettings />;
+      case "chat":
+        return (
+          <ChatOverlaySettings
+            settings={settings}
+            updateSetting={updateSetting}
+          />
+        );
       default:
         return null;
     }

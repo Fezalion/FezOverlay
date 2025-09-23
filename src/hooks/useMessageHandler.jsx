@@ -133,6 +133,8 @@ export function useMessageHandler(
     subEffectReverseGravityChance,
     subEffectReverseGravityDuration,
     subEffectReverseGravityStrength,
+    subEffectNoGravityChance,
+    subEffectNoGravityDuration,
     battleEventChance,
   ]);
 }
