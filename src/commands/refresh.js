@@ -14,10 +14,12 @@ export default {
         return;
       }
       const target = args[0].toLowerCase();
-      if (!["emotes", "yapmeter", "song", "commands"].includes(target)) {
+      if (
+        !["emotes", "yapmeter", "song", "commands", "chat"].includes(target)
+      ) {
         client.say(
           channel,
-          "❌ Usage: !refresh [emotes|yapmeter|song|commands]. To refresh all, use !refresh without args."
+          "❌ Usage: !refresh [emotes|yapmeter|song|commands|chat]. To refresh all, use !refresh without args."
         );
         return;
       }

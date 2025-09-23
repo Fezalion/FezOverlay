@@ -1,4 +1,11 @@
-import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import {
+  useState,
+  useEffect,
+  useMemo,
+  useRef,
+  useCallback,
+  useLayoutEffect,
+} from "react";
 import { useMetadata } from "../hooks/useMetadata";
 import { useTwitchClient } from "../hooks/useTwitchClient";
 import { useEmoteLoader } from "../hooks/useEmoteLoader";
@@ -333,7 +340,7 @@ function ChatOverlayCore({ settings, setLocalSetting, updateSettings }) {
     return colors[Math.floor(Math.random() * colors.length)];
   };
 
-  // Render badges inline
+  // renderBadges
   const renderBadges = (msg) => {
     if (!msg.badges) return null;
 
@@ -347,7 +354,12 @@ function ChatOverlayCore({ settings, setLocalSetting, updateSettings }) {
           src={url}
           alt={set}
           title={badges?.[set]?.[version]?.title || set}
-          style={{ height: 18, marginRight: 4, display: "inline-block" }}
+          style={{
+            height: settings.chatFontSize - 2,
+            marginRight: 4,
+            display: "inline-block",
+            verticalAlign: "middle", // keep badge centered with text
+          }}
         />
       );
     });
@@ -438,33 +450,81 @@ function ChatOverlayCore({ settings, setLocalSetting, updateSettings }) {
         .slice()
         .reverse()
         .map((msg) => (
-          <div
+          <ChatMessage
             key={msg.id}
-            className="flex items-start rounded-lg transform transition-all duration-300 ease-in-out"
+            msg={msg}
+            settings={settings}
+            badges={badges}
+            emotes={emotes}
+            fadeTransitionTime={fadeTransitionTime}
+            renderBadges={renderBadges}
+            renderEmotes={renderEmotes}
+          />
+        ))}
+    </div>
+  );
+}
+
+function ChatMessage({
+  msg,
+  settings,
+  badges,
+  emotes,
+  fadeTransitionTime,
+  renderBadges,
+  renderEmotes,
+}) {
+  const nameRef = useRef(null);
+  const [indent, setIndent] = useState(0);
+
+  useLayoutEffect(() => {
+    if (nameRef.current) {
+      setIndent(nameRef.current.offsetWidth + 6); // +6 for spacing
+    }
+  }, [msg.displayName, msg.badges, settings.chatFontSize]);
+
+  return (
+    <div
+      className="flex items-start rounded-lg transform transition-all duration-300 ease-in-out"
+      style={{
+        opacity: msg.opacity,
+        transition: `opacity ${fadeTransitionTime}ms ease-out`,
+      }}
+    >
+      <div className="flex-1 min-w-0">
+        <div
+          className="text-sm leading-relaxed"
+          style={{ fontSize: settings.chatFontSize }}
+        >
+          {/* badges + name: never break between them */}
+          <span
+            className="inline-flex items-center"
+            style={{ whiteSpace: "nowrap" }}
+          >
+            {renderBadges(msg)}
+            <span
+              className="font-semibold"
+              style={{ color: msg.color, fontSize: settings.chatFontSize }}
+            >
+              {msg.displayName}:
+            </span>
+          </span>
+
+          {/* message: normal inline text that wraps naturally */}
+          <span
+            className="ml-1"
             style={{
-              opacity: msg.opacity,
-              transition: `opacity ${fadeTransitionTime}ms ease-out`,
+              color: settings.chatFontColor,
+              fontSize: settings.chatFontSize,
+              display: "inline",
+              overflowWrap: "break-word", // allow long words to wrap
+              verticalAlign: "top",
             }}
           >
-            <div className="flex-1 min-w-0">
-              <div className="text-sm break-words leading-relaxed">
-                {renderBadges(msg)}
-                <span className="font-semibold" style={{ color: msg.color }}>
-                  {msg.displayName}:
-                </span>
-                <span
-                  style={{
-                    color: settings.chatFontColor,
-                    fontSize: settings.chatFontSize,
-                  }}
-                  className="ml-1"
-                >
-                  {renderEmotes(msg.message, emotes)}
-                </span>
-              </div>
-            </div>
-          </div>
-        ))}
+            {renderEmotes(msg.message, emotes)}
+          </span>
+        </div>
+      </div>
     </div>
   );
 }

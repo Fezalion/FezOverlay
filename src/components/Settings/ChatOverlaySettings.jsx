@@ -250,7 +250,7 @@ export default function ChatOverlaySettings({ settings, updateSetting }) {
               label="wip:chatFadeDuration, duration of messages staying on screen"
               type="range"
               min={100}
-              max={5000}
+              max={50000}
               step={10}
               value={settings.chatFadeDuration}
               onChange={(e) =>
@@ -261,7 +261,7 @@ export default function ChatOverlaySettings({ settings, updateSetting }) {
               label="wip:chatFadeTransition, duration of messages disappearingf animation"
               type="range"
               min={100}
-              max={5000}
+              max={10000}
               step={10}
               value={settings.chatFadeTransition}
               onChange={(e) =>
