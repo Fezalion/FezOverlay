@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import ColorPicker from "react-best-gradient-color-picker";
 import InputField from "./ui/InputField";
+import { EffectCard } from "./ui/EffectCard";
 import Modal from "./ui/Modal";
 import { hexToRgb, getStrokeTextShadow } from "../../utils";
 
@@ -269,6 +270,54 @@ export default function ChatOverlaySettings({ settings, updateSetting }) {
               }
             />
           </div>
+
+          <EffectCard
+            effectKey="chatEffectRainbowText"
+            label="Rainbow Text"
+            enabled={settings.chatEffectRainbowText}
+            toggleEnabled={() =>
+              updateSetting(
+                "chatEffectRainbowText",
+                !settings.chatEffectRainbowText
+              )
+            }
+            settings={settings}
+            onChange={updateSetting}
+            fields={[
+              {
+                key: "chatEffectRainbowTextChance",
+                label: "Chance (s)",
+                min: 1,
+                max: 100,
+                step: 1,
+                parser: parseInt,
+              },
+            ]}
+          ></EffectCard>
+
+          <EffectCard
+            effectKey="chatEffectJumpingText"
+            label="Jumping Text"
+            enabled={settings.chatEffectJumpingText}
+            toggleEnabled={() =>
+              updateSetting(
+                "chatEffectJumpingText",
+                !settings.chatEffectJumpingText
+              )
+            }
+            settings={settings}
+            onChange={updateSetting}
+            fields={[
+              {
+                key: "chatEffectJumpingTextChance",
+                label: "Chance (s)",
+                min: 1,
+                max: 100,
+                step: 1,
+                parser: parseInt,
+              },
+            ]}
+          ></EffectCard>
         </div>
       </div>
     </>

@@ -1,14 +1,8 @@
-import {
-  useState,
-  useEffect,
-  useMemo,
-  useRef,
-  useCallback,
-  useLayoutEffect,
-} from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useMetadata } from "../hooks/useMetadata";
 import { useTwitchClient } from "../hooks/useTwitchClient";
 import { useEmoteLoader } from "../hooks/useEmoteLoader";
+import { motion } from "motion/react";
 
 const MOVE_AMOUNT = 1;
 const MOVEMENT_DEBOUNCE_MS = 1000;
@@ -169,6 +163,75 @@ const getPositionStyles = (coords, alignment) => {
     default:
       return baseStyles;
   }
+};
+
+const rainbowColors = [
+  "#FF0000", // red
+  "#FF7F00", // orange
+  "#FFFF00", // yellow
+  "#00FF00", // green
+  "#0000FF", // blue
+  "#4B0082", // indigo
+  "#8B00FF", // violet
+];
+
+const getRainbowAnimation = (i, charDelay = 0.03) => ({
+  animate: {
+    color: [
+      "#FF0000",
+      "#FF7F00",
+      "#FFFF00",
+      "#00FF00",
+      "#0000FF",
+      "#4B0082",
+      "#8B00FF",
+    ],
+  },
+  transition: {
+    color: {
+      duration: 1.5, // was 4, much quicker loop
+      repeat: Infinity,
+      ease: "linear",
+      delay: i * charDelay,
+    },
+  },
+});
+
+const getJumpAnimation = (i, charDelay = 0.04) => ({
+  animate: { y: [0, -8, 0] }, // slightly higher jump
+  transition: {
+    y: {
+      duration: 0.3, // was 0.6, faster bounce
+      repeat: Infinity,
+      ease: "easeInOut",
+      delay: i * charDelay,
+    },
+  },
+});
+
+/* Merge helpers -> produce animate + transition objects for motion props */
+const buildMotionProps = (i, { rainbow = false, jumping = false } = {}) => {
+  const animate = {};
+  const transition = {};
+
+  if (rainbow) {
+    const r = getRainbowAnimation(i);
+    Object.assign(animate, r.animate);
+    Object.assign(transition, r.transition);
+  }
+
+  if (jumping) {
+    const j = getJumpAnimation(i);
+    Object.assign(animate, j.animate);
+    // merge transition; if both present they live under separate keys (color, y)
+    Object.assign(transition, j.transition);
+  }
+
+  // return undefined for empty so <span> can be used instead of motion.span
+  return {
+    animate: Object.keys(animate).length ? animate : undefined,
+    transition: Object.keys(transition).length ? transition : undefined,
+  };
 };
 
 function ChatOverlayCore({ settings, setLocalSetting, updateSettings }) {
@@ -366,33 +429,92 @@ function ChatOverlayCore({ settings, setLocalSetting, updateSettings }) {
   };
 
   // Render emotes inline using your 7TV "emotes" Map
-  const renderEmotes = (msg, emotes) => {
-    if (!emotes || emotes.size === 0) return msg;
+  const renderMessageAndEmotes = (msg, emotes) => {
+    // decide per-message if effects proc
+    const doRainbow =
+      settings.chatEffectRainbowText &&
+      Math.random() < (settings.chatEffectRainbowTextChance || 0);
+    const doJump =
+      settings.chatEffectJumpingText &&
+      Math.random() < (settings.chatEffectJumpingTextChance || 0);
 
+    // Helper to render a single character (with possible motion props)
+    const renderChar = (ch, globalIndex, charIndex) => {
+      // we use a single index for staggering across the message:
+      // globalIndex + charIndex helps keep steady staggering if you choose.
+      const i = globalIndex + charIndex;
+      const { animate, transition } = buildMotionProps(i, {
+        rainbow: doRainbow,
+        jumping: doJump,
+      });
+
+      // if no animation, return plain span
+      if (!animate) {
+        return <span key={`${globalIndex}-${charIndex}`}>{ch}</span>;
+      }
+
+      // motion.span needs inline-block for y motion
+      return (
+        <motion.span
+          key={`${globalIndex}-${charIndex}`}
+          animate={animate}
+          transition={transition}
+          style={{ display: "inline-block" }}
+        >
+          {ch}
+        </motion.span>
+      );
+    };
+
+    if (!emotes || emotes.size === 0) {
+      // plain text -> split into characters and render
+      return msg.split("").map((ch, i) => renderChar(ch, 0, i));
+    }
+
+    // mixed: words + emotes. We'll keep a running index for staggering
     const parts = msg.split(/\s+/);
     const result = [];
+    let runningIndex = 0;
 
-    parts.forEach((word, i) => {
+    parts.forEach((word, partIdx) => {
       const emote = emotes.get(word);
       if (emote) {
+        // optional: animate emotes too — currently left static
         result.push(
           <img
-            key={`${word}-${i}`}
+            key={`emote-${partIdx}-${runningIndex}`}
             src={emote.url}
             alt={word}
             style={{
-              height: "1.4em", // scales with font size
+              height: "1.4em",
               display: "inline",
               verticalAlign: "middle",
               margin: "0 2px",
             }}
           />
         );
+        // treat emote as one "character" for staggering
+        runningIndex += 1;
       } else {
-        result.push(word);
+        const chars = word.split("").map((ch, j) => {
+          const node = renderChar(ch, runningIndex, j);
+          return node;
+        });
+        result.push(
+          <span
+            key={`word-${partIdx}-${runningIndex}`}
+            style={{ display: "inline" }}
+          >
+            {chars}
+          </span>
+        );
+        runningIndex += word.length;
       }
-      if (i < parts.length - 1) {
-        result.push(" "); // reinsert space between words
+
+      if (partIdx < parts.length - 1) {
+        // re-add the space as a normal span (keeps spacing predictable)
+        result.push(<span key={`space-${partIdx}-${runningIndex}`}> </span>);
+        runningIndex += 1;
       }
     });
 
@@ -408,7 +530,7 @@ function ChatOverlayCore({ settings, setLocalSetting, updateSettings }) {
         maxHeight: settings.chatHeight || "100px",
         height: "auto",
         width: settings.chatWidth || "800px",
-        backgroundColor: settings.chatBackgroundColor || "rgba(0,0,0,0)",
+        background: settings.chatBackgroundColor || "rgba(0,0,0,0)",
         fontSize: settings.chatFontSize || "14px",
         fontFamily: settings.chatFont || "Inter, system-ui, sans-serif",
       },
@@ -454,11 +576,10 @@ function ChatOverlayCore({ settings, setLocalSetting, updateSettings }) {
             key={msg.id}
             msg={msg}
             settings={settings}
-            badges={badges}
             emotes={emotes}
             fadeTransitionTime={fadeTransitionTime}
             renderBadges={renderBadges}
-            renderEmotes={renderEmotes}
+            renderEmotes={renderMessageAndEmotes}
           />
         ))}
     </div>
@@ -468,21 +589,11 @@ function ChatOverlayCore({ settings, setLocalSetting, updateSettings }) {
 function ChatMessage({
   msg,
   settings,
-  badges,
   emotes,
   fadeTransitionTime,
   renderBadges,
   renderEmotes,
 }) {
-  const nameRef = useRef(null);
-  const [indent, setIndent] = useState(0);
-
-  useLayoutEffect(() => {
-    if (nameRef.current) {
-      setIndent(nameRef.current.offsetWidth + 6); // +6 for spacing
-    }
-  }, [msg.displayName, msg.badges, settings.chatFontSize]);
-
   return (
     <div
       className="flex items-start rounded-lg transform transition-all duration-300 ease-in-out"
@@ -514,14 +625,14 @@ function ChatMessage({
           <span
             className="ml-1"
             style={{
-              color: settings.chatFontColor,
               fontSize: settings.chatFontSize,
               display: "inline",
-              overflowWrap: "break-word", // allow long words to wrap
+              overflowWrap: "break-word",
               verticalAlign: "top",
+              color: settings.chatFontColor, // base color if no rainbow
             }}
           >
-            {renderEmotes(msg.message, emotes)}
+            {renderEmotes(msg.message, emotes, settings)}
           </span>
         </div>
       </div>

@@ -31,6 +31,13 @@ export function useMetadata() {
     chatHeight: 300,
     chatFontSize: 14,
 
+    //ChatOverlay Effects
+    chatEffectRainbowText: false,
+    chatEffectRainbowTextChance: 10,
+
+    chatEffectJumpingText: false,
+    chatEffectJumpingTextChance: 10,
+
     //YapMeter Settings
     yapMeterThreshold: 1.0,
     yapMeterSilenceThreshold: 3,
@@ -167,6 +174,19 @@ export function useMetadata() {
         chatWidth: toNumber(data.chatWidth, 800),
         chatHeight: toNumber(data.chatHeight, 300),
         chatFontSize: toNumber(data.chatFontSize, 14),
+
+        //ChatOverlay Effects
+        chatEffectRainbowText: Boolean(data.chatEffectRainbowText) || false,
+        chatEffectRainbowTextChance: toNumber(
+          data.chatEffectRainbowTextChance,
+          10
+        ),
+
+        chatEffectJumpingText: Boolean(data.chatEffectJumpingText) || false,
+        chatEffectJumpingTextChance: toNumber(
+          data.chatEffectJumpingTextChance,
+          10
+        ),
 
         //YapMeter Settings
         yapMeterThreshold: toNumber(data.yapMeterThreshold, 1.0),
