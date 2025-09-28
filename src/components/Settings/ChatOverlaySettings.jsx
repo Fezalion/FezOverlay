@@ -288,6 +288,45 @@ export default function ChatOverlaySettings({ settings, updateSetting }) {
             />
           </div>
 
+          <div className="flex items-center justify-between bg-white/5 p-4 rounded-xl border border-white/10">
+            <div className="flex items-center space-x-3">
+              <button
+                onClick={() => {
+                  const defaultSubEffects = {
+                    chatEffectRainbowText: true,
+                    chatEffectJumpingText: true,
+                    chatEffectScatterText: true,
+                  };
+                  Object.entries(defaultSubEffects).forEach(([key, val]) =>
+                    updateSetting(key, val)
+                  );
+                }}
+                className="px-3 py-1 text-sm font-medium text-white bg-gray-700 rounded-md hover:bg-gray-600 transition"
+              >
+                Enable All Effects
+              </button>
+            </div>
+            {/* Reset Button */}
+            <button
+              onClick={() => {
+                const defaultSubEffects = {
+                  chatEffectRainbowText: false,
+                  chatEffectRainbowTextChance: 10,
+                  chatEffectJumpingText: false,
+                  chatEffectJumpingTextChance: 10,
+                  chatEffectScatterText: false,
+                  chatEffectScatterTextChance: 10,
+                };
+                Object.entries(defaultSubEffects).forEach(([key, val]) =>
+                  updateSetting(key, val)
+                );
+              }}
+              className="px-3 py-1 text-sm font-medium text-white bg-gray-700 rounded-md hover:bg-gray-600 transition"
+            >
+              Reset
+            </button>
+          </div>
+
           <EffectCard
             effectKey="chatEffectRainbowText"
             label="Rainbow Text"
