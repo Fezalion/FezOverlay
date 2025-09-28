@@ -109,13 +109,14 @@ export default function EmoteOverlaySettings({ settings, updateSetting }) {
               const defaultSubEffects = {
                 subEffectHueShiftChance: 5,
                 subEffectBlackHoleChance: 5,
-                subEffectBlackHoleDuration: 5,
+                subEffectBlackHoleDuration: 15,
                 subEffectBlackHoleStrength: 5,
                 subEffectReverseGravityChance: 5,
-                subEffectReverseGravityDuration: 5,
+                subEffectReverseGravityDuration: 15,
                 subEffectReverseGravityStrength: 2,
-                subEffectNoGravityChance: 5,
-                subEffectNoGravityDuration: 5,
+                subEffectGravityEventStrength: 1,
+                subEffectGravityEventChance: 5,
+                subEffectGravityEventDuration: 15,
                 battleEventChance: 5,
                 battleEventParticipants: 8,
                 battleEventHp: 300,
@@ -269,22 +270,22 @@ export default function EmoteOverlaySettings({ settings, updateSetting }) {
         />
 
         <EffectCard
-          effectKey="noGravity"
-          label="No Gravity"
-          enabled={settings.subEffectTypes.includes("noGravity")}
+          effectKey="gravityEvent"
+          label="Gravity Event"
+          enabled={settings.subEffectTypes.includes("gravityEvent")}
           toggleEnabled={() =>
             updateSetting(
               "subEffectTypes",
-              settings.subEffectTypes.includes("noGravity")
-                ? settings.subEffectTypes.filter((t) => t !== "noGravity")
-                : [...settings.subEffectTypes, "noGravity"]
+              settings.subEffectTypes.includes("gravityEvent")
+                ? settings.subEffectTypes.filter((t) => t !== "gravityEvent")
+                : [...settings.subEffectTypes, "gravityEvent"]
             )
           }
           settings={settings}
           onChange={updateSetting}
           fields={[
             {
-              key: "subEffectNoGravityDuration",
+              key: "subEffectGravityEventDuration",
               label: "Duration (s)",
               min: 1,
               max: 30,
@@ -292,7 +293,15 @@ export default function EmoteOverlaySettings({ settings, updateSetting }) {
               parser: parseInt,
             },
             {
-              key: "subEffectNoGravityChance",
+              key: "subEffectGravityEventStrength",
+              label: "Gravity Strength",
+              min: 0.1,
+              max: 5,
+              step: 0.1,
+              parser: parseFloat,
+            },
+            {
+              key: "subEffectGravityEventChance",
               label: "Chance (%)",
               min: 1,
               max: 100,

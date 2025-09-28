@@ -16,8 +16,9 @@ export function useMessageHandler(
     subEffectReverseGravityChance,
     subEffectReverseGravityDuration,
     subEffectReverseGravityStrength,
-    subEffectNoGravityChance,
-    subEffectNoGravityDuration,
+    subEffectGravityEventChance,
+    subEffectGravityEventDuration,
+    subEffectGravityEventStrength,
     battleEventChance,
   } = settings;
 
@@ -50,11 +51,11 @@ export function useMessageHandler(
           str: subEffectReverseGravityStrength,
           chance: subEffectReverseGravityChance,
         },
-        noGravity: {
-          fn: globalEffects.startNoGravityEvent,
-          duration: subEffectNoGravityDuration,
-          str: null,
-          chance: subEffectNoGravityChance,
+        gravityEvent: {
+          fn: globalEffects.startGravityEvent,
+          duration: subEffectGravityEventDuration,
+          str: subEffectGravityEventStrength,
+          chance: subEffectGravityEventChance,
         },
         battleEvent: {
           fn: globalEffects.battleSystem.startBattle,
@@ -133,8 +134,9 @@ export function useMessageHandler(
     subEffectReverseGravityChance,
     subEffectReverseGravityDuration,
     subEffectReverseGravityStrength,
-    subEffectNoGravityChance,
-    subEffectNoGravityDuration,
+    subEffectGravityEventStrength,
+    subEffectGravityEventChance,
+    subEffectGravityEventDuration,
     battleEventChance,
   ]);
 }

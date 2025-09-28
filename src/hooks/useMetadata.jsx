@@ -66,14 +66,15 @@ export function useMetadata() {
     // Blackhole settings
     subEffectBlackHoleChance: 5,
     subEffectBlackHoleStrength: 5,
-    subEffectBlackHoleDuration: 5,
+    subEffectBlackHoleDuration: 15,
     //Reverse Gravity settings
     subEffectReverseGravityChance: 5,
     subEffectReverseGravityStrength: 2,
-    subEffectReverseGravityDuration: 5,
-    //No Gravity settings
-    subEffectNoGravityChance: 5,
-    subEffectNoGravityDuration: 5,
+    subEffectReverseGravityDuration: 15,
+    //Gravity event settings
+    subEffectGravityEventChance: 5,
+    subEffectGravityEventDuration: 15,
+    subEffectGravityEventStrength: 1,
     // Battle Event settings
     battleEventChance: 5,
     battleEventParticipants: 8,
@@ -228,7 +229,7 @@ export function useMetadata() {
         subEffectBlackHoleChance: toNumber(data.subEffectBlackHoleChance, 5),
         subEffectBlackHoleDuration: toNumber(
           data.subEffectBlackHoleDuration,
-          5
+          15
         ),
         subEffectBlackHoleStrength: toNumber(
           data.subEffectBlackHoleStrength,
@@ -241,16 +242,23 @@ export function useMetadata() {
         ),
         subEffectReverseGravityDuration: toNumber(
           data.subEffectReverseGravityDuration,
-          5
+          15
         ),
         subEffectReverseGravityStrength: toNumber(
           data.subEffectReverseGravityStrength,
           2
         ),
-        subEffectNoGravityChance: toNumber(data.subEffectNoGravityChance, 5),
-        subEffectNoGravityDuration: toNumber(
-          data.subEffectNoGravityDuration,
+        subEffectGravityEventChance: toNumber(
+          data.subEffectGravityEventChance,
           5
+        ),
+        subEffectGravityEventDuration: toNumber(
+          data.subEffectGravityEventDuration,
+          15
+        ),
+        subEffectGravityEventStrength: toNumber(
+          data.subEffectGravityEventStrength,
+          1
         ),
         // Battle Event settings
         battleEventChance: toNumber(data.battleEventChance, 5),

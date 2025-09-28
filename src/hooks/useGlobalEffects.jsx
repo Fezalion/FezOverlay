@@ -14,7 +14,7 @@ export function useGlobalEffects(
 ) {
   const magneticEventRef = useRef(false);
   const reverseGravityEventRef = useRef(false);
-  const noGravityEventRef = useRef(false);
+  const gravityEventRef = useRef(false);
   const dpsTrackerRef = useRef(null);
 
   const battleSystem = useBattleSystem(
@@ -35,11 +35,12 @@ export function useGlobalEffects(
       const engine = engineRef.current;
       if (magneticEventRef.current || !engine) return;
 
-      dpsTrackerRef.current?.recordSkillUse(
+      dpsTrackerRef.current?.recordEventUse(
         "system",
         "Chat",
         "#fff",
-        "Magnetic Event"
+        "Magnetic Event",
+        duration
       );
       magneticEventRef.current = true;
 
@@ -77,11 +78,12 @@ export function useGlobalEffects(
       const engine = engineRef.current;
       if (reverseGravityEventRef.current || !engine) return;
 
-      dpsTrackerRef.current?.recordSkillUse(
+      dpsTrackerRef.current?.recordEventUse(
         "system",
         "Chat",
         "#fff",
-        "Reverse Gravity"
+        "Reverse Gravity",
+        duration
       );
 
       reverseGravityEventRef.current = true;
@@ -109,54 +111,41 @@ export function useGlobalEffects(
     [engineRef, bodiesWithTimers]
   );
 
-  const startNoGravityEvent = useCallback(
-    (duration) => {
+  const startGravityEvent = useCallback(
+    (duration, gravityY = 1) => {
       const engine = engineRef.current;
-      if (noGravityEventRef.current || !engine) return;
+      if (gravityEventRef.current || !engine) return;
 
-      dpsTrackerRef.current?.recordSkillUse(
+      dpsTrackerRef.current?.recordEventUse(
         "system",
         "Chat",
         "#fff",
-        "No Gravity"
+        "Gravity Event",
+        duration
       );
 
-      noGravityEventRef.current = true;
+      gravityEventRef.current = true;
 
       // Save original gravity
       const originalGravityY = engine.world.gravity.y;
-      engine.world.gravity.y = 0;
-
-      const gravityUpdate = () => {
-        bodiesWithTimers.current.forEach(({ body, isSub }) => {
-          if (!body.isSleeping && isSub) {
-            Matter.Body.set(body, {
-              frictionAir: 0.0,
-              friction: 0.0,
-            });
-          }
-        });
-      };
-
-      Matter.Events.on(engine, "beforeUpdate", gravityUpdate);
+      engine.world.gravity.y = gravityY;
 
       setTimeout(() => {
-        Matter.Events.off(engine, "beforeUpdate", gravityUpdate);
         engine.world.gravity.y = originalGravityY;
-        noGravityEventRef.current = false;
-        console.log("no gravity event ended");
+        gravityEventRef.current = false;
+        console.log("gravity event ended");
       }, duration * 1000);
     },
-    [engineRef, bodiesWithTimers]
+    [engineRef]
   );
 
   return {
     startMagneticEvent,
     startReverseGravityEvent,
-    startNoGravityEvent,
+    startGravityEvent,
     magneticEventActive: magneticEventRef.current,
     reverseGravityEventActive: reverseGravityEventRef.current,
-    noGravityEventRef: noGravityEventRef.current,
+    gravityEventActive: gravityEventRef.current,
     battleSystem,
   };
 }

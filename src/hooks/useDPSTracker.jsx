@@ -12,7 +12,6 @@ class BattleDPSTracker {
   }
 
   // Record a skill use (global, color-coded)
-  // Record a skill use (global, color-coded) - SAFER VERSION
   recordSkillUse(userId, userName, color, skillName) {
     try {
       // Validate inputs
@@ -63,6 +62,67 @@ class BattleDPSTracker {
     } catch (error) {
       console.error("Error in recordSkillUse:", error);
       console.log("Parameters:", { userId, userName, color, skillName });
+    }
+  }
+
+  recordEventUse(userId, userName, color, skillName, duration) {
+    try {
+      // Validate inputs
+      if (!userId || !userName || !skillName || !duration) {
+        console.warn("recordEventUse: Missing required parameters", {
+          userId,
+          userName,
+          skillName,
+          duration,
+        });
+        return;
+      }
+
+      // Assign a unique id for each message
+      const entryId = `skillmsg-${Date.now()}-${Math.random()
+        .toString(36)
+        .slice(2, 8)}`;
+
+      const entry = {
+        userId: String(userId),
+        userName: String(userName),
+        color: String(color || "#fff"),
+        skillName: String(skillName),
+        timestamp: Date.now(),
+        entryId,
+        timeLeft: duration,
+      };
+
+      // Initialize skillHistory if it doesn't exist
+      if (!this.skillHistory) {
+        this.skillHistory = [];
+      }
+
+      this.skillHistory.push(entry);
+
+      // Keep only last 10 in memory
+      if (this.skillHistory.length > 10) {
+        this.skillHistory.shift();
+      }
+
+      console.log("Recording event use:", entry); // Debug log
+
+      // Only display the new message
+      this._displaySingleMessage(entry);
+
+      // Schedule removal of this specific message after X seconds
+      setTimeout(() => {
+        this._removeMessageFromDOM(entryId);
+      }, duration * 1000);
+    } catch (error) {
+      console.error("Error in recordEventUse:", error);
+      console.log("Parameters:", {
+        userId,
+        userName,
+        color,
+        skillName,
+        duration,
+      });
     }
   }
 
@@ -182,24 +242,42 @@ class BattleDPSTracker {
       overflow: hidden;
     `;
 
-      msg.innerHTML = `      
-      <span style="
-        color: ${entry.color}; 
-        font-weight: 700; 
-        margin-right: 8px;
-        text-shadow: 0 0 8px ${entry.color}33;
-      ">${entry.userName}</span>
-      <span style="
-        opacity: 0.8; 
-        margin-right: 8px;
-        font-weight: 400;
-      ">used</span>
-      <span style="
-        color: #ffd43b; 
-        font-weight: 700;
-        text-shadow: 0 0 8px #ffd43b33;
-      ">${entry.skillName}</span>
-    `;
+      msg.innerHTML = `
+        <span style="
+          color: ${entry.color}; 
+          font-weight: 700; 
+          margin-right: 8px;
+          text-shadow: 0 0 8px ${entry.color}33;
+        ">${entry.userName}</span>
+        <span style="
+          opacity: 0.8; 
+          margin-right: 8px;
+          font-weight: 400;
+        ">used</span>
+        <span style="
+          color: #ffd43b; 
+          font-weight: 700;
+          text-shadow: 0 0 8px #ffd43b33;
+        ">${entry.skillName}</span>
+        <div class="skill-time-bar" style="
+          position: absolute;
+          left: 0; bottom: 0;
+          height: 4px;
+          width: 100%;
+          background: linear-gradient(90deg, ${entry.color}, #ffd43b);
+          transition: width linear;
+          z-index: 2;
+        "></div>
+      `;
+
+      // Animate the time bar width from 100% to 0% over entry.timeLeft seconds
+      setTimeout(() => {
+        const bar = msg.querySelector(".skill-time-bar");
+        if (bar) {
+          bar.style.transition = `width ${entry.timeLeft}s linear`;
+          bar.style.width = "0%";
+        }
+      }, 50);
 
       overlay.appendChild(msg);
     }

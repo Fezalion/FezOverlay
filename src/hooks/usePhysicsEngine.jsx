@@ -10,7 +10,8 @@ export function usePhysicsEngine() {
     const engine = Matter.Engine.create();
     engineRef.current = engine;
     let world = engine.world;
-    engine.gravity.y = 1;
+    // Default: no gravity
+    engine.gravity.y = 0;
 
     const wallThickness = 200;
     function createWalls(width, height) {
