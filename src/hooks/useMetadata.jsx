@@ -47,6 +47,8 @@ export function useMetadata() {
     yapMeterSilenceThreshold: 3,
     yapMeterMaxYap: 60,
     yapMeterLength: 300,
+    yapMeterBlabberingEmote: "BLABBERING",
+    yapMeterYappingEmote: "yapping",
 
     // Service Settings
     twitchName: "",
@@ -205,6 +207,9 @@ export function useMetadata() {
         yapMeterSilenceThreshold: toNumber(data.yapMeterSilenceThreshold, 3),
         yapMeterMaxYap: toNumber(data.yapMeterMaxYap, 60),
         yapMeterLength: toNumber(data.yapMeterLength, 300),
+        yapMeterBlabberingEmote: data.yapMeterBlabberingEmote || "BLABBERING",
+        yapMeterYappingEmote: data.yapMeterYappingEmote || "yapping",
+
         // Service Settings
         twitchName: data.twitchName || "",
         lastfmName: data.lastfmName || "",

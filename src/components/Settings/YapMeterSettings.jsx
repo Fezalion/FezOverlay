@@ -74,6 +74,24 @@ export default function YapMeterSettings({ settings, updateSetting }) {
               updateSetting("yapMeterLength", parseInt(e.target.value))
             }
           />
+
+          <InputField
+            type="text"
+            label="Yap Meter Blabbering Emote (spawns at 50% yapping)"
+            value={settings.yapMeterBlabberingEmote}
+            onChange={(e) =>
+              updateSetting("yapMeterBlabberingEmote", e.target.value)
+            }
+          />
+
+          <InputField
+            type="text"
+            label="Yap Meter Yapping Emote (spawns at 100%+ yapping)"
+            value={settings.yapMeterYappingEmote}
+            onChange={(e) =>
+              updateSetting("yapMeterYappingEmote", e.target.value)
+            }
+          />
         </div>
       </div>
     </div>

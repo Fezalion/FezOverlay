@@ -179,8 +179,8 @@ function FloatingPercent({ percent, getColor, settings }) {
         fontSize: "16px",
         fontWeight: "bold",
         color: getColor(percent),
-        textShadow: `0 0 ${percent > 0.25 ? 4 : 0}px #fff, 
-                     0 0 ${percent > 0.5 ? 6 : 0}px #fff, 
+        textShadow: `0 0 ${percent > 0.25 ? 4 : 0}px #fff,
+                     0 0 ${percent > 0.5 ? 6 : 0}px #fff,
                      0 0 ${percent > 0.75 ? 8 : 0}px #fff`,
         transformOrigin: "center left",
       }}
@@ -330,7 +330,7 @@ function YapMeterCore({ settings, wsRef, clientRef, isRefresh }) {
           if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
             const payloadEmote = {
               type: "spawnEmote",
-              emote: "yapping",
+              emote: settings.yapMeterYappingEmote,
               count: 2 + Math.max(0, timer || 0),
               triggeredAt: Date.now(),
             };
@@ -353,7 +353,7 @@ function YapMeterCore({ settings, wsRef, clientRef, isRefresh }) {
           if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
             const payload = {
               type: "spawnEmote",
-              emote: "BLABBERING",
+              emote: settings.yapMeterBlabberingEmote,
               count: 5,
               triggeredAt: Date.now(),
             };
