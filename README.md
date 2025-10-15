@@ -68,14 +68,6 @@ https://www.youtube.com/watch?v=nzPYJCWTqC8
 
 The application uses a separate updater tool for downloading and updating files:
 
-### **updater.exe**
-
-- **Standalone updater**: Runs independently from the main application
-- **Downloads latest release**: Automatically fetches the latest version from GitHub
-- **Updates executable**: Downloads and replaces fezoverlay.exe with the latest version
-- **Extracts files**: Uses PowerShell to extract the zip file automatically
-- **Version tracking**: Keeps track of the current version to avoid unnecessary downloads
-
 ### **How to Update**:
 
 1. **Run updater.exe** in the same folder as fezoverlay.exe
@@ -89,8 +81,6 @@ If the updater doesn't work:
 1. Download `dist.zip` from the latest GitHub release
 2. Extract it to the same folder as fezoverlay.exe
 3. Run fezoverlay.exe
-
-**Note**: The main application (fezoverlay.exe) no longer handles updates internally. Use updater.exe for all update operations.
 
 ### Requirements for Auto-Download
 
