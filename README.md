@@ -17,21 +17,21 @@ https://www.youtube.com/watch?v=nzPYJCWTqC8
 
 ### Overlay Usage
 
-1. **Environment Variables:**
+1. **Running:**
 
-   - Create a `.env` file in the root directory:
+   - Run `updater.exe` to update and install the files, after update is done launch `fezoverlay.exe`
+
+2. **Twitch Auth:**
+
+   - Click the link in the terminal window to authenticate with Twitch API.
+
+3. **Environment Variables:**
+
+   - Create or open the `.env` file in the root directory and add:
 
      ```
      LASTFM_API_KEY=your_lastfm_api_key_here
      ```
-
-2. **Running:**
-
-   - Run `updater.exe` to update and install the files, after update is done launch `fezoverlay.exe`
-
-3. **Twitch Auth:**
-
-   - Click the link in the terminal window to authenticate with Twitch API.
 
 4. **Open the Settings Page:**
 
@@ -40,16 +40,19 @@ https://www.youtube.com/watch?v=nzPYJCWTqC8
 
 5. **Add the Overlays to OBS:**
 
-   - In OBS, add a new **Browser Source**.
+   - In OBS, add a new **Browser Source**s for the widgets you want to use.
    - Set the URL for widgets and make the resolution same as your screen:  
       `http://localhost:48000/playing`
      `http://localhost:48000/emotes`
+     `http://localhost:48000/chat`
+     `http://localhost:48000/commands`
+     `http://localhost:48000/yapmeter`
    - Set your LastFM user name in the settings page mentioned above.
    - Set your twitch username and 7tv emoteset IDs in the settings page mentioned above.
 
 6. **Position the Overlay:**
 
-   - You should have both overlays be the same size of your Scene, you can move the NowPlaying widget by either pressing interact in obs then using (Shift +) Arrow Keys, or the same in your browser.
+   - You should have the overlays be the same size of your Scene, you can move the NowPlaying/chat widgets by either pressing interact in obs then using (Shift +) Arrow Keys, or the same in your browser.
 
 7. **Edit Overlay Appearance:**
    - To change the overlay's appearance, open [http://localhost:48000/](http://localhost:48000/) in your browser again.
