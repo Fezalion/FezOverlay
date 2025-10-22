@@ -48,6 +48,9 @@ export default function EmoteOverlaySettings({ settings, updateSetting }) {
                 emoteScale: 1.0,
                 emoteDelay: 150,
                 emoteStaticMode: false,
+                enableBTTV: true,
+                enableFFZ: true,
+                includeTwitchChannelEmotes: true,
               };
               Object.entries(defaultSubEffects).forEach(([key, val]) =>
                 updateSetting(key, val)
@@ -57,6 +60,80 @@ export default function EmoteOverlaySettings({ settings, updateSetting }) {
           >
             Reset
           </button>
+
+          <div className="flex items-center space-x-3">
+            <label className="font-semibold">Make emotes static</label>
+            <button
+              onClick={() =>
+                updateSetting("emoteStaticMode", !settings.emoteStaticMode)
+              }
+              className={`relative inline-flex items-center h-6 w-12 rounded-full transition-colors duration-300
+            ${settings.emoteStaticMode ? "bg-rose-500" : "bg-gray-700"}`}
+            >
+              <span
+                className={`inline-block w-5 h-5 transform bg-white rounded-full shadow-md transition-transform duration-300
+              ${settings.emoteStaticMode ? "translate-x-6" : "translate-x-1"}`}
+              />
+            </button>
+          </div>
+
+          <div className="flex items-center space-x-3">
+            <label className="font-semibold">Enable BTTV channel emotes</label>
+            <button
+              onClick={() => updateSetting("enableBTTV", !settings.enableBTTV)}
+              className={`relative inline-flex items-center h-6 w-12 rounded-full transition-colors duration-300
+            ${settings.enableBTTV ? "bg-rose-500" : "bg-gray-700"}`}
+            >
+              <span
+                className={`inline-block w-5 h-5 transform bg-white rounded-full shadow-md transition-transform duration-300
+              ${settings.enableBTTV ? "translate-x-6" : "translate-x-1"}`}
+              />
+            </button>
+          </div>
+
+          <div className="flex items-center space-x-3">
+            <label className="font-semibold">Enable FFZ channel emotes</label>
+            <button
+              onClick={() => updateSetting("enableFFZ", !settings.enableFFZ)}
+              className={`relative inline-flex items-center h-6 w-12 rounded-full transition-colors duration-300
+            ${settings.enableFFZ ? "bg-rose-500" : "bg-gray-700"}`}
+            >
+              <span
+                className={`inline-block w-5 h-5 transform bg-white rounded-full shadow-md transition-transform duration-300
+              ${settings.enableFFZ ? "translate-x-6" : "translate-x-1"}`}
+              />
+            </button>
+          </div>
+
+          <div className="flex items-center space-x-3">
+            <label className="font-semibold">
+              Enable twitch channel emotes
+            </label>
+            <button
+              onClick={() =>
+                updateSetting(
+                  "includeTwitchChannelEmotes",
+                  !settings.includeTwitchChannelEmotes
+                )
+              }
+              className={`relative inline-flex items-center h-6 w-12 rounded-full transition-colors duration-300
+            ${
+              settings.includeTwitchChannelEmotes
+                ? "bg-rose-500"
+                : "bg-gray-700"
+            }`}
+            >
+              <span
+                className={`inline-block w-5 h-5 transform bg-white rounded-full shadow-md transition-transform duration-300
+              ${
+                settings.includeTwitchChannelEmotes
+                  ? "translate-x-6"
+                  : "translate-x-1"
+              }`}
+              />
+            </button>
+          </div>
+
           <InputField
             type="range"
             label="Emote Lifetime (ms)"
@@ -92,22 +169,6 @@ export default function EmoteOverlaySettings({ settings, updateSetting }) {
               updateSetting("emoteDelay", parseFloat(e.target.value))
             }
           />
-        </div>
-
-        <div className="flex items-center space-x-3">
-          <label className="font-semibold">Make emotes static</label>
-          <button
-            onClick={() =>
-              updateSetting("emoteStaticMode", !settings.emoteStaticMode)
-            }
-            className={`relative inline-flex items-center h-6 w-12 rounded-full transition-colors duration-300
-            ${settings.emoteStaticMode ? "bg-rose-500" : "bg-gray-700"}`}
-          >
-            <span
-              className={`inline-block w-5 h-5 transform bg-white rounded-full shadow-md transition-transform duration-300
-              ${settings.emoteStaticMode ? "translate-x-6" : "translate-x-1"}`}
-            />
-          </button>
         </div>
 
         {/* Global Controls */}

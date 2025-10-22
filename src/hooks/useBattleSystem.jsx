@@ -530,8 +530,16 @@ export function useBattleSystem(
         return null;
       }
 
-      const sizeX = emote.width * 0.8;
-      const sizeY = emote.height * 0.8;
+      // Normalize battle emote sizes to match overlay sizing. Use battleSettings.emoteBaseSize as nominal height
+      // and multiply by battleSettings.emoteScale. Preserve aspect ratio of the emote.
+      const emoteScale = battleSettings.emoteScale ?? 1;
+      const emoteBaseSize = battleSettings.emoteBaseSize ?? 64;
+      const intrinsicW = emote.width || emote.height || emoteBaseSize;
+      const intrinsicH = emote.height || emote.width || emoteBaseSize;
+      const aspect = intrinsicW / intrinsicH || 1;
+      const nominalHeight = emoteBaseSize * emoteScale * 0.8; // keep previous 0.8 factor as visual preference
+      const sizeY = nominalHeight;
+      const sizeX = Math.round(nominalHeight * aspect);
 
       const body = Matter.Bodies.rectangle(
         position.x,
@@ -623,6 +631,8 @@ export function useBattleSystem(
       engineRef,
       emoteMap,
       battleSettings.battleEventHp,
+      battleSettings.emoteScale,
+      battleSettings.emoteBaseSize,
       createHealthBar,
       createManaBar,
     ]

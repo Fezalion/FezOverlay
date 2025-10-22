@@ -64,6 +64,9 @@ export function useMetadata() {
     subEffectTypes: [],
     subOnlyMode: false,
     emoteStaticMode: false,
+    enableBTTV: true,
+    enableFFZ: true,
+    includeTwitchChannelEmotes: true,
     //HueShift
     subEffectHueShiftChance: 5,
     // Blackhole settings
@@ -231,6 +234,11 @@ export function useMetadata() {
           : [],
         subOnlyMode: Boolean(data.subOnlyMode),
         emoteStaticMode: Boolean(data.emoteStaticMode),
+        enableBTTV: Boolean(data.enableBTTV || true),
+        enableFFZ: Boolean(data.enableFFZ || true),
+        includeTwitchChannelEmotes: Boolean(
+          data.includeTwitchChannelEmotes || true
+        ),
         //HueShift
         subEffectHueShiftChance: toNumber(data.subEffectHueShiftChance, 5),
         //blackhole

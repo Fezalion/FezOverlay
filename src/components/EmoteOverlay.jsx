@@ -100,6 +100,8 @@ function EmoteOverlayCore({ settings, wsRef, refreshToken }) {
     battleEventAcceptPlebs: settings.battleEventAcceptPlebs,
     battleEventShowSkillHistory: settings.battleEventShowSkillHistory,
     twitchName: settings.twitchName,
+    emoteScale: settings.emoteScale ?? 1,
+    emoteBaseSize: settings.emoteBaseSize ?? 64,
   };
 
   const globalEffects = useGlobalEffects(
