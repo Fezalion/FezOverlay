@@ -89,6 +89,8 @@ function EmoteOverlayCore({ settings, wsRef, refreshToken }) {
     battleEventDuration: settings.battleEventDuration,
     battleEventDPSTracker: settings.battleEventDPSTracker,
     battleEventDPSTrackerFloatLeft: settings.battleEventDPSTrackerFloatLeft,
+    battleEventDPSTrackerLiveFloatLeft:
+      settings.battleEventDPSTrackerLiveFloatLeft,
     battleEventDPSTrackerLive: settings.battleEventDPSTrackerLive,
     battleEventAcceptPlebs: settings.battleEventAcceptPlebs,
     battleEventShowSkillHistory: settings.battleEventShowSkillHistory,
@@ -149,7 +151,9 @@ function EmoteOverlayCore({ settings, wsRef, refreshToken }) {
   // Start DOM updates when physics engine is ready
   useEffect(() => {
     if (physics.engineRef.current) {
-      physics.startDOMUpdates(bodiesWithTimers);
+      physics.startDOMUpdates(bodiesWithTimers, {
+        emoteStaticMode: !!settings.emoteStaticMode,
+      });
       return () => {
         physics.stopDOMUpdates();
         clearAllEmotes();
@@ -161,6 +165,7 @@ function EmoteOverlayCore({ settings, wsRef, refreshToken }) {
     physics.startDOMUpdates,
     physics.stopDOMUpdates,
     clearAllEmotes,
+    settings.emoteStaticMode,
   ]);
 
   useMessageHandler(

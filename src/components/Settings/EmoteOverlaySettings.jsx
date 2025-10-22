@@ -47,6 +47,7 @@ export default function EmoteOverlaySettings({ settings, updateSetting }) {
                 emoteLifetime: 5000,
                 emoteScale: 1.0,
                 emoteDelay: 150,
+                emoteStaticMode: false,
               };
               Object.entries(defaultSubEffects).forEach(([key, val]) =>
                 updateSetting(key, val)
@@ -93,6 +94,22 @@ export default function EmoteOverlaySettings({ settings, updateSetting }) {
           />
         </div>
 
+        <div className="flex items-center space-x-3">
+          <label className="font-semibold">Make emotes static</label>
+          <button
+            onClick={() =>
+              updateSetting("emoteStaticMode", !settings.emoteStaticMode)
+            }
+            className={`relative inline-flex items-center h-6 w-12 rounded-full transition-colors duration-300
+            ${settings.emoteStaticMode ? "bg-rose-500" : "bg-gray-700"}`}
+          >
+            <span
+              className={`inline-block w-5 h-5 transform bg-white rounded-full shadow-md transition-transform duration-300
+              ${settings.emoteStaticMode ? "translate-x-6" : "translate-x-1"}`}
+            />
+          </button>
+        </div>
+
         {/* Global Controls */}
         <div className="flex items-center justify-between bg-white/5 p-4 rounded-xl border border-white/10">
           <div className="flex items-center space-x-3">
@@ -125,6 +142,7 @@ export default function EmoteOverlaySettings({ settings, updateSetting }) {
                 battleEventDPSTracker: true,
                 battleEventAcceptPlebs: false,
                 battleEventDPSTrackerFloatLeft: false,
+                battleEventDPSTrackerLiveFloatLeft: false,
                 subOnlyMode: false,
                 subEffectTypes: [],
               };
@@ -452,6 +470,34 @@ export default function EmoteOverlaySettings({ settings, updateSetting }) {
                   className={`inline-block w-5 h-5 transform bg-white rounded-full shadow-md transition-transform duration-300
               ${
                 settings.battleEventDPSTrackerFloatLeft
+                  ? "translate-x-6"
+                  : "translate-x-1"
+              }`}
+                />
+              </button>
+            </div>
+            <div className="flex items-center space-x-3">
+              <label className="font-semibold">
+                Display Live DPS Tracker at left side.
+              </label>
+              <button
+                onClick={() =>
+                  updateSetting(
+                    "battleEventDPSTrackerLiveFloatLeft",
+                    !settings.battleEventDPSTrackerLiveFloatLeft
+                  )
+                }
+                className={`relative inline-flex items-center h-6 w-12 rounded-full transition-colors duration-300
+            ${
+              settings.battleEventDPSTrackerLiveFloatLeft
+                ? "bg-rose-500"
+                : "bg-gray-700"
+            }`}
+              >
+                <span
+                  className={`inline-block w-5 h-5 transform bg-white rounded-full shadow-md transition-transform duration-300
+              ${
+                settings.battleEventDPSTrackerLiveFloatLeft
                   ? "translate-x-6"
                   : "translate-x-1"
               }`}

@@ -63,6 +63,7 @@ export function useMetadata() {
     raidEffect: true,
     subEffectTypes: [],
     subOnlyMode: false,
+    emoteStaticMode: false,
     //HueShift
     subEffectHueShiftChance: 5,
     // Blackhole settings
@@ -85,6 +86,7 @@ export function useMetadata() {
     battleEventDuration: 60,
     battleEventDPSTracker: true,
     battleEventDPSTrackerLive: true,
+    battleEventDPSTrackerLiveFloatLeft: false,
     battleEventDPSTrackerFloatLeft: false,
     battleEventAcceptPlebs: false,
     battleEventShowSkillHistory: true,
@@ -228,6 +230,7 @@ export function useMetadata() {
           ? [data.subEffectTypes]
           : [],
         subOnlyMode: Boolean(data.subOnlyMode),
+        emoteStaticMode: Boolean(data.emoteStaticMode),
         //HueShift
         subEffectHueShiftChance: toNumber(data.subEffectHueShiftChance, 5),
         //blackhole
@@ -276,6 +279,9 @@ export function useMetadata() {
         battleEventAcceptPlebs: Boolean(data.battleEventAcceptPlebs),
         battleEventDPSTrackerFloatLeft: Boolean(
           data.battleEventDPSTrackerFloatLeft
+        ),
+        battleEventDPSTrackerLiveFloatLeft: Boolean(
+          data.battleEventDPSTrackerLiveFloatLeft
         ),
         battleEventShowSkillHistory: Boolean(data.battleEventShowSkillHistory),
       });

@@ -1340,13 +1340,18 @@ export function useBattleSystem(
     const existing = document.getElementById("live-dps-display");
     if (existing) existing.remove();
 
+    const displayFloat = battleSettings.battleEventDPSTrackerLiveFloatLeft
+      ? "left"
+      : "right";
+
+    console.log(displayFloat);
     // Create live DPS display
     const liveDisplay = document.createElement("div");
     liveDisplay.id = "live-dps-display";
     liveDisplay.style.cssText = `
       position: fixed;
       top: 20px;
-      right: 20px;
+      ${displayFloat}: 20px;
       background: rgba(0, 0, 0, 0.8);
       border: 2px solid #4a9eff;
       border-radius: 8px;

@@ -84,16 +84,26 @@ export function usePhysicsEngine() {
     };
   }, []);
 
-  const startDOMUpdates = (bodiesWithTimers) => {
+  // bodiesWithTimers: ref to array of objects { body, el, sizeX, sizeY }
+  // options: { emoteStaticMode: boolean } - when true, skip rotation
+  const startDOMUpdates = (bodiesWithTimers, options = {}) => {
+    const { emoteStaticMode = false } = options;
+
     function updateDOM() {
       bodiesWithTimers.current.forEach((obj) => {
         const { body, el, sizeX, sizeY } = obj;
         const x = body.position.x - sizeX / 2;
         const y = body.position.y - sizeY / 2;
-        el.style.transform = `translate(${x}px, ${y}px) rotate(${body.angle}rad)`;
+        if (emoteStaticMode) {
+          // only translate, no rotation
+          el.style.transform = `translate(${x}px, ${y}px)`;
+        } else {
+          el.style.transform = `translate(${x}px, ${y}px) rotate(${body.angle}rad)`;
+        }
       });
       rafId.current = requestAnimationFrame(updateDOM);
     }
+
     rafId.current = requestAnimationFrame(updateDOM);
   };
 
