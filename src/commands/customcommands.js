@@ -20,6 +20,10 @@ export default {
       return;
     }
 
+    if (!userstate.mod && !userstate.badges?.broadcaster) {
+      return;
+    }
+
     const action = args[0].toLowerCase();
     const name = args[1]?.toLowerCase();
     //text may contain spaces, so join all remaining args
