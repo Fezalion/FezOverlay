@@ -76,7 +76,12 @@ function EmoteOverlayCore({ settings, wsRef, refreshToken }) {
   const bodiesWithTimers = useRef([]);
 
   const clientRef = useTwitchClient(settings.twitchName);
-  const emoteMap = useEmoteLoader(settings.emoteSetId, refreshToken);
+  const emoteMap = useEmoteLoader(settings.emoteSetId, refreshToken, {
+    twitchName: settings.twitchName,
+    enableBTTV: settings.enableBTTV ?? true,
+    enableFFZ: settings.enableFFZ ?? true,
+    includeTwitchChannelEmotes: settings.includeTwitchChannelEmotes ?? true,
+  });
   const physics = usePhysicsEngine();
   const subscriberTracker = useSubscriberTracker(clientRef.current, false);
   const viewerTracker = useSubscriberTracker(clientRef.current, true);

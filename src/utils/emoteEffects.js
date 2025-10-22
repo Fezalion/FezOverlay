@@ -39,6 +39,25 @@ const emoteImageCache = new Map(); // url -> blobUrl
 export function createEmoteElement(url, sizeX, sizeY) {
   const img = document.createElement("img");
 
+  function normalizeUrl(u) {
+    if (!u) return u;
+    // If already absolute with http(s), keep it
+    if (/^https?:\/\//i.test(u)) return u;
+    // Work on a trimmed string
+    let s = String(u).trim();
+    // Remove any repeated leading 'http:' or 'https:' fragments (handles cases like 'https:https://...')
+    while (/^https?:/i.test(s)) {
+      s = s.replace(/^https?:/i, "");
+    }
+    // If it now starts with // -> make it https://
+    if (s.startsWith("//")) return "https:" + s;
+    // If it now starts with an absolute scheme (e.g. after trimming) return it
+    if (/^https?:\/\//i.test(s)) return s;
+    // Otherwise ensure it has https:// and remove any extra leading slashes
+    s = s.replace(/^\/+/, "");
+    return "https://" + s;
+  }
+
   // Helper to set up the image element
   function setupImg(srcUrl) {
     img.src = srcUrl;
@@ -56,24 +75,66 @@ export function createEmoteElement(url, sizeX, sizeY) {
     });
   }
 
-  // If cached, use blob URL
-  if (emoteImageCache.has(url)) {
-    setupImg(emoteImageCache.get(url));
-    console.log(`using cached emote image: ${url}`);
+  // Normalize incoming URL to avoid malformed values
+  const normalized = normalizeUrl(url);
+
+  // If cached, use cached value (could be blob URL or direct URL)
+  if (emoteImageCache.has(normalized)) {
+    setupImg(emoteImageCache.get(normalized));
+    console.log(`using cached emote image: ${normalized}`);
+    return img;
+  }
+
+  // Determine if the image is cross-origin relative to our app origin
+  let isCrossOrigin = true;
+  try {
+    const imgUrl = new URL(normalized, window.location.href);
+    isCrossOrigin = imgUrl.origin !== window.location.origin;
+  } catch {
+    isCrossOrigin = true;
+  }
+
+  if (isCrossOrigin) {
+    // Try to use the server-side proxy to get a same-origin cached copy on first load.
+    const proxyUrl = `/api/emote-proxy?url=${encodeURIComponent(normalized)}`;
+    // Set crossOrigin in case the server returns CORS-enabled images
+    img.crossOrigin = "anonymous";
+
+    // Attempt to fetch the proxied image (this will populate server cache on first request)
+    fetch(proxyUrl)
+      .then((r) => {
+        if (!r.ok) throw new Error("proxy failed");
+        // Use the proxy endpoint directly (same-origin) so browser can fetch it without CORS issues
+        const proxied = proxyUrl;
+        emoteImageCache.set(normalized, proxied);
+        setupImg(proxied);
+        console.log(`Using proxied emote image: ${proxied}`);
+      })
+      .catch(() => {
+        // Fallback: use cross-origin direct URL
+        emoteImageCache.set(normalized, normalized);
+        setupImg(normalized);
+        console.warn(
+          `Proxy failed, using cross-origin direct URL: ${normalized}`
+        );
+      });
   } else {
-    // Fetch and cache as blob
-    fetch(url)
+    // Same-origin: fetch and convert to blob URL for caching
+    fetch(normalized)
       .then((res) => res.blob())
       .then((blob) => {
         const blobUrl = URL.createObjectURL(blob);
-        emoteImageCache.set(url, blobUrl);
+        emoteImageCache.set(normalized, blobUrl);
         setupImg(blobUrl);
         console.log(`Cached emote image: ${blobUrl}`);
       })
       .catch(() => {
         // fallback to direct URL if fetch fails
-        setupImg(url);
-        console.warn(`Failed to fetch emote as blob, using direct URL: ${url}`);
+        emoteImageCache.set(normalized, normalized);
+        setupImg(normalized);
+        console.warn(
+          `Failed to fetch emote as blob, using direct URL: ${normalized}`
+        );
       });
   }
 

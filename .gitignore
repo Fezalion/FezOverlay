@@ -17,6 +17,7 @@ settings.json
 excludedBots.json
 customCommands.json
 .env
+emote-cache/*
 
 # Editor directories and files
 .vscode/*

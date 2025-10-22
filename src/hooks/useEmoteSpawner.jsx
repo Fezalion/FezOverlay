@@ -10,7 +10,14 @@ export function useEmoteSpawner(
   engine,
   emoteMap,
   bodiesWithTimers,
-  { emoteScale, subEffects, subEffectTypes, subOnlyMode, ...effectSettings }
+  {
+    emoteScale,
+    emoteBaseSize = 64,
+    subEffects,
+    subEffectTypes,
+    subOnlyMode,
+    ...effectSettings
+  }
 ) {
   const effectsRegistry = createEffectsRegistry(effectSettings);
 
@@ -20,10 +27,20 @@ export function useEmoteSpawner(
       if (!engine) return;
 
       const emote = emoteMap.get(emoteName);
-      if (!emote) return;
+      if (!emote) {
+        console.warn(`spawnEmote: emote not found in emoteMap: ${emoteName}`);
+        return;
+      }
 
-      const sizeX = emote.width * emoteScale;
-      const sizeY = emote.height * emoteScale;
+      // Normalize sizes: use emoteBaseSize as the target height (or width for square) and preserve aspect ratio.
+      // If provider sizes vary widely (FFZ often larger), this brings them to a consistent on-screen size.
+      const intrinsicW = emote.width || emote.height || emoteBaseSize;
+      const intrinsicH = emote.height || emote.width || emoteBaseSize;
+      const aspect = intrinsicW / intrinsicH || 1;
+      // Use emoteBaseSize as the nominal height, then scale by emoteScale
+      const nominalHeight = emoteBaseSize * emoteScale;
+      const sizeY = nominalHeight;
+      const sizeX = Math.round(nominalHeight * aspect);
 
       const width = window.innerWidth;
       const height = window.innerHeight;
@@ -126,6 +143,7 @@ export function useEmoteSpawner(
       engine,
       emoteMap,
       emoteScale,
+      emoteBaseSize,
       subEffects,
       subEffectTypes,
       subOnlyMode,

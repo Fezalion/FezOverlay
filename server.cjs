@@ -340,6 +340,70 @@ app.get("/api/twitch", (req, res) => {
   });
 });
 
+// Simple emote proxy & cache to avoid client-side CORS issues when fetching blobs
+const EMOTE_CACHE_DIR = path.join(baseDir, "emote_cache");
+if (!fs.existsSync(EMOTE_CACHE_DIR))
+  fs.mkdirSync(EMOTE_CACHE_DIR, { recursive: true });
+
+app.get("/api/emote-proxy", (req, res) => {
+  const raw = req.query.url;
+  if (!raw) return res.status(400).send("Missing url");
+
+  let url;
+  try {
+    url = new URL(raw);
+  } catch {
+    return res.status(400).send("Invalid url");
+  }
+
+  // Create a safe filename based on a hash
+  const safeName = Buffer.from(url.href).toString("base64").replace(/=+$/, "");
+  const ext = path.extname(url.pathname) || ".img";
+  const cachePath = path.join(EMOTE_CACHE_DIR, safeName + ext);
+
+  // If cached, serve directly
+  if (fs.existsSync(cachePath)) {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Cache-Control", "public, max-age=86400");
+    const stream = fs.createReadStream(cachePath);
+    return stream.pipe(res);
+  }
+
+  // Otherwise fetch and cache
+  const client = url.protocol === "https:" ? https : http;
+  const reqOptions = {
+    headers: {
+      "User-Agent": "node-emote-proxy",
+      Accept: "*/*",
+    },
+  };
+  client
+    .get(url.href, reqOptions, (proxyRes) => {
+      if (proxyRes.statusCode !== 200) {
+        return res.status(502).send("Failed to proxy image");
+      }
+      const tmpPath = cachePath + ".tmp";
+      const writeStream = fs.createWriteStream(tmpPath);
+      proxyRes.pipe(writeStream);
+      writeStream.on("finish", () => {
+        try {
+          fs.renameSync(tmpPath, cachePath);
+          res.setHeader("Access-Control-Allow-Origin", "*");
+          res.setHeader("Cache-Control", "public, max-age=86400");
+          const stream = fs.createReadStream(cachePath);
+          stream.pipe(res);
+        } catch (e) {
+          console.error("Failed to finalize emote cache:", e);
+          res.status(500).send("Proxy error");
+        }
+      });
+    })
+    .on("error", (err) => {
+      console.error("Emote proxy fetch error:", err.message);
+      res.status(502).send("Proxy fetch failed");
+    });
+});
+
 app.post("/api/bots", (req, res) => {
   const current = loadExcludedBots();
   const { action, username } = req.body;
