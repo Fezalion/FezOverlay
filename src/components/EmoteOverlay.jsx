@@ -37,7 +37,7 @@ export default function EmoteOverlay() {
           wsRef.current?.onCoreMessage?.(data);
         }
       } catch (err) {
-        console.error("Invalid WS message :", err);
+        console.error("Invalid WS message:", err);
       }
     };
 

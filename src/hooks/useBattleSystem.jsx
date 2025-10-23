@@ -1187,7 +1187,6 @@ export function useBattleSystem(
 
       battleParticipants.current = [];
       activeBattleRef.current = null;
-      bodiesWithTimers.current = [];
       console.log("Battle ended and all participants cleaned up");
 
       // Restore the engine timescale to previous value
@@ -1207,6 +1206,28 @@ export function useBattleSystem(
         }
       } catch (e) {
         console.warn("Unable to clear timescale watchdog after battle:", e);
+      }
+
+      // Ensure any non-battle emotes that might have been made static during
+      // the fight are restored back to dynamic so they continue to move.
+      try {
+        bodiesWithTimers.current.forEach((obj) => {
+          try {
+            const { body, isBattleParticipant } = obj;
+            if (!isBattleParticipant && body && body.isStatic) {
+              Matter.Body.setStatic(body, false);
+              // nudge them so they resume motion visually
+              Matter.Body.setVelocity(body, {
+                x: (Math.random() - 0.5) * 2,
+                y: (Math.random() - 0.5) * 2,
+              });
+            }
+          } catch {
+            /* continue on per-body errors */
+          }
+        });
+      } catch (e) {
+        console.warn("Error while unfreezing non-battle emotes:", e);
       }
     }, 3000);
   }, [engineRef, client, battleSettings, battleParticipants]);
