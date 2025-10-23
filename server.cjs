@@ -345,6 +345,26 @@ const EMOTE_CACHE_DIR = path.join(baseDir, "emote_cache");
 if (!fs.existsSync(EMOTE_CACHE_DIR))
   fs.mkdirSync(EMOTE_CACHE_DIR, { recursive: true });
 
+// Leaderboard storage (simple JSON file)
+const LEADERBOARD_FILE = path.join(baseDir, "leaderboard.json");
+function loadLeaderboard() {
+  try {
+    return JSON.parse(fs.readFileSync(LEADERBOARD_FILE, "utf8"));
+  } catch {
+    return {}; // username -> wins
+  }
+}
+
+function saveLeaderboard(data) {
+  try {
+    fs.writeFileSync(LEADERBOARD_FILE, JSON.stringify(data, null, 2), "utf8");
+    return true;
+  } catch (e) {
+    console.error("Failed to save leaderboard:", e);
+    return false;
+  }
+}
+
 app.get("/api/emote-proxy", (req, res) => {
   const raw = req.query.url;
   if (!raw) return res.status(400).send("Missing url");
@@ -495,6 +515,111 @@ app.post("/api/settings", (req, res) => {
 
   saveSettings(updated);
   res.json({ success: true, settings: updated });
+});
+
+// Leaderboard endpoints
+// GET /api/leaderboard?limit=5 -> returns array [{ username, wins }]
+app.get("/api/leaderboard", (req, res) => {
+  try {
+    const limit = Math.max(1, parseInt(req.query.limit || "5", 10));
+    const data = loadLeaderboard();
+    const entries = Object.entries(data).map(([username, wins]) => ({
+      username,
+      wins: Number(wins) || 0,
+    }));
+    entries.sort(
+      (a, b) => b.wins - a.wins || a.username.localeCompare(b.username)
+    );
+    res.json(entries.slice(0, limit));
+  } catch (e) {
+    console.error("Failed to read leaderboard:", e);
+    res.status(500).json({ error: "Failed to read leaderboard" });
+  }
+});
+
+// POST /api/leaderboard/win { username }
+app.post("/api/leaderboard/win", (req, res) => {
+  try {
+    const { username } = req.body || {};
+    if (!username || typeof username !== "string") {
+      return res.status(400).json({ error: "Missing or invalid username" });
+    }
+    const key = username.trim().toLowerCase();
+    if (!key) return res.status(400).json({ error: "Invalid username" });
+
+    const data = loadLeaderboard();
+    data[key] = (Number(data[key]) || 0) + 1;
+    if (!saveLeaderboard(data)) {
+      return res.status(500).json({ error: "Failed to save leaderboard" });
+    }
+
+    // Return updated wins for the user plus top 5
+    const wins = Number(data[key]) || 0;
+    const entries = Object.entries(data).map(([username, wins]) => ({
+      username,
+      wins: Number(wins) || 0,
+    }));
+    entries.sort(
+      (a, b) => b.wins - a.wins || a.username.localeCompare(b.username)
+    );
+    const top = entries.slice(0, 5);
+    res.json({ success: true, username: username.trim(), wins, top });
+  } catch (e) {
+    console.error("Failed to update leaderboard:", e);
+    res.status(500).json({ error: "Failed to update leaderboard" });
+  }
+});
+
+// POST /api/leaderboard/announce -> broadcast a WS message to show the leaderboard in overlays
+// Implements a simple global cooldown equal to the requested duration (or default 10000ms)
+let lastLeaderboardAnnounce = 0; // timestamp in ms
+app.post("/api/leaderboard/announce", (req, res) => {
+  try {
+    const limit = Math.max(
+      1,
+      parseInt(req.body?.limit || req.query?.limit || "5", 10)
+    );
+    const duration = Number(req.body?.duration || req.query?.duration || 10000);
+
+    const now = Date.now();
+    const cooldownMs = Math.max(1000, Math.floor(duration));
+    if (now - lastLeaderboardAnnounce < cooldownMs) {
+      const retryAfter = Math.ceil(
+        (cooldownMs - (now - lastLeaderboardAnnounce)) / 1000
+      );
+      res.setHeader("Retry-After", String(retryAfter));
+      return res.status(429).json({
+        error: "Leaderboard announce is on cooldown",
+        retryAfterSeconds: retryAfter,
+      });
+    }
+
+    const data = loadLeaderboard();
+    const entries = Object.entries(data).map(([username, wins]) => ({
+      username,
+      wins: Number(wins) || 0,
+    }));
+    entries.sort(
+      (a, b) => b.wins - a.wins || a.username.localeCompare(b.username)
+    );
+    const top = entries.slice(0, limit);
+
+    // Broadcast to all connected WS clients to display the leaderboard
+    broadcast(
+      JSON.stringify({
+        type: "showLeaderboard",
+        top,
+        duration,
+      })
+    );
+
+    lastLeaderboardAnnounce = now;
+
+    res.json({ success: true, top });
+  } catch (e) {
+    console.error("Failed to announce leaderboard:", e);
+    res.status(500).json({ error: "Failed to announce leaderboard" });
+  }
 });
 
 //POST refresh overlays from websocket

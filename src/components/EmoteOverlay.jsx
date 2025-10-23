@@ -141,6 +141,62 @@ function EmoteOverlayCore({ settings, wsRef, refreshToken }) {
             spawnEmoteRef.current?.(data.emote);
           }, i * settings.emoteDelay);
         }
+      } else if (data.type === "showLeaderboard" && Array.isArray(data.top)) {
+        // Render leaderboard panel inside sceneRef if available
+        try {
+          const parent = sceneRef.current || document.body;
+          const overlay = document.createElement("div");
+          overlay.style.cssText = `position: absolute; top: 10%; left: 50%; transform: translateX(-50%); z-index: 2147483647; pointer-events: none;`;
+
+          const panel = document.createElement("div");
+          panel.style.cssText = `background: rgba(0,0,0,0.8); border: 1px solid #4a9eff; border-radius: 12px; padding: 10px 14px; color: #fff; min-width: 320px; max-width: 720px; box-shadow: 0 8px 30px rgba(0,0,0,0.6); pointer-events: none;`;
+
+          const title = document.createElement("div");
+          title.textContent = `⚔️ Leaderboard ⚔️`;
+          title.style.cssText = `font-weight:700; color:#ffd43b; font-size:16px; margin-bottom:8px; text-align:center;`;
+          panel.appendChild(title);
+
+          const list = document.createElement("div");
+          list.style.cssText = `display:flex; flex-direction:column; gap:6px;`;
+
+          data.top.forEach((entry, i) => {
+            const row = document.createElement("div");
+            row.style.cssText = `display:flex; justify-content:space-between; align-items:center; font-size:14px;`;
+
+            const left = document.createElement("div");
+            left.textContent = `${i + 1}. ${entry.username}`;
+            left.style.cssText = `color: ${
+              i === 0
+                ? "#ffd43b"
+                : i === 1
+                ? "#c0c0c0"
+                : i === 2
+                ? "#cd7f32"
+                : "#fff"
+            }; font-weight:600;`;
+
+            const right = document.createElement("div");
+            right.textContent = `${entry.wins} wins`;
+            right.style.cssText = `color:#4a9eff; font-weight:700;`;
+
+            row.appendChild(left);
+            row.appendChild(right);
+            list.appendChild(row);
+          });
+
+          panel.appendChild(list);
+          overlay.appendChild(panel);
+          parent.appendChild(overlay);
+
+          const duration = Number(data.duration) || 10000;
+          setTimeout(() => {
+            overlay.style.transition = "opacity 0.3s ease-out";
+            overlay.style.opacity = "0";
+            setTimeout(() => overlay.remove(), 350);
+          }, duration);
+        } catch (err) {
+          console.error("Failed to render leaderboard overlay:", err);
+        }
       }
     };
 

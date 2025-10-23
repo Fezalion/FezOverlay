@@ -16,6 +16,7 @@ dist-ssr
 settings.json
 excludedBots.json
 customCommands.json
+leaderboard.json
 .env
 emote_cache/*
 

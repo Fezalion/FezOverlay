@@ -25,6 +25,26 @@ export function useBattleSystem(
   // Watchdog interval id for detecting stuck/invalid timescale
   const timescaleWatchdogRef = useRef(null);
 
+  // Increment leaderboard win for a username (fire-and-forget)
+  const incrementLeaderboardWin = async (username) => {
+    try {
+      if (!username) return null;
+
+      const resp = await fetch("/api/leaderboard/win", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username }),
+      });
+      if (!resp.ok) return null;
+      const json = await resp.json();
+      // Expect { success: true, username, wins, top }
+      return json;
+    } catch (e) {
+      console.warn("Error posting leaderboard win:", e);
+      return null;
+    }
+  };
+
   // Helper to set engine timescale and capture previous value if not already captured
   const setEngineTimeScale = (value) => {
     try {
@@ -134,6 +154,8 @@ export function useBattleSystem(
       isInitialized.current = false;
     };
   }, []);
+
+  // Increment leaderboard win for a username (fire-and-forget)
 
   // Initialize the system once
   useEffect(() => {
@@ -1033,43 +1055,42 @@ export function useBattleSystem(
     (winner) => {
       if (!winner) return;
       setTimeout(() => {
-        client.current
-          .say(
-            battleSettings.twitchName,
-            `🏆 ${winner.subscriberName} WINS! 🏆`
-          )
-          .catch(() => {
-            const winnerDisplay = document.createElement("div");
-            winnerDisplay.innerHTML = `🏆 ${winner.subscriberName} WINS! 🏆`;
-            winnerDisplay.style.position = "fixed";
-            winnerDisplay.style.top = "30px";
-            winnerDisplay.style.left = "50%";
-            winnerDisplay.style.transform = "translateX(-50%)";
-            winnerDisplay.style.fontSize = "36px";
-            winnerDisplay.style.fontWeight = "bold";
-            winnerDisplay.style.color = winner.userColor;
-            winnerDisplay.style.textShadow = "2px 2px 4px rgba(0,0,0,0.8)";
-            winnerDisplay.style.zIndex = "10001";
-            winnerDisplay.style.pointerEvents = "none";
-            winnerDisplay.style.textAlign = "center";
-            winnerDisplay.style.animation = "bounce 1s ease-in-out infinite";
+        // Build text including total wins if available
+        const winsText = winner.totalWins ? ` (Wins: ${winner.totalWins})` : "";
+        const messageText = `🏆 ${winner.subscriberName} WINS! 🏆${winsText}`;
 
-            // Add bounce animation
-            const style = document.createElement("style");
-            style.textContent = `
+        client.current.say(battleSettings.twitchName, messageText).catch(() => {
+          const winnerDisplay = document.createElement("div");
+          winnerDisplay.innerHTML = messageText;
+          winnerDisplay.style.position = "fixed";
+          winnerDisplay.style.top = "30px";
+          winnerDisplay.style.left = "50%";
+          winnerDisplay.style.transform = "translateX(-50%)";
+          winnerDisplay.style.fontSize = "36px";
+          winnerDisplay.style.fontWeight = "bold";
+          winnerDisplay.style.color = winner.userColor;
+          winnerDisplay.style.textShadow = "2px 2px 4px rgba(0,0,0,0.8)";
+          winnerDisplay.style.zIndex = "10001";
+          winnerDisplay.style.pointerEvents = "none";
+          winnerDisplay.style.textAlign = "center";
+          winnerDisplay.style.animation = "bounce 1s ease-in-out infinite";
+
+          // Add bounce animation
+          const style = document.createElement("style");
+          style.textContent = `
       @keyframes bounce {
         0%, 100% { transform: translate(-50%, -50%) scale(1); }
         50% { transform: translate(-50%, -50%) scale(1.05); }
       }
     `;
-            document.head.appendChild(style);
-            document.body.appendChild(winnerDisplay);
+          document.head.appendChild(style);
+          document.body.appendChild(winnerDisplay);
 
-            setTimeout(() => {
-              winnerDisplay.remove();
-              style.remove();
-            }, 5000);
-          });
+          setTimeout(() => {
+            winnerDisplay.remove();
+            style.remove();
+          }, 5000);
+        });
       }, 5000);
     },
     [client, battleSettings]
@@ -1118,7 +1139,7 @@ export function useBattleSystem(
     [client, battleSettings]
   );
 
-  const endBattle = useCallback(() => {
+  const endBattle = useCallback(async () => {
     const engine = engineRef.current;
     if (!activeBattleRef.current || !engine) return;
 
@@ -1150,6 +1171,18 @@ export function useBattleSystem(
     }
 
     if (winner) {
+      try {
+        // Post win to leaderboard (use subscriberName if available) and await updated wins
+        const result = await incrementLeaderboardWin(
+          winner.subscriberName || winner.subscriber?.username || winner.id
+        );
+        // If server returned wins, attach it to the winner object for display
+        if (result && typeof result.wins === "number") {
+          winner.totalWins = result.wins;
+        }
+      } catch (e) {
+        console.warn("Failed to increment leaderboard for winner:", e);
+      }
       displayWinner(winner);
     } else if (draw) {
       displayDraw(draw);
@@ -1281,6 +1314,7 @@ export function useBattleSystem(
     ) {
       activeBattleRef.current.isAlive = false;
       setTimeout(() => {
+        // fire-and-forget async endBattle
         endBattle();
       }, 500);
     }
