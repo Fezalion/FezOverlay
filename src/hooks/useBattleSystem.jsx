@@ -20,6 +20,45 @@ export function useBattleSystem(
   const battleParticipants = useRef([]);
   const battleUpdateListener = useRef(null);
   const isInitialized = useRef(false);
+  // Keep previous engine timescale so we can restore it if something mutates it
+  const previousTimeScaleRef = useRef(null);
+  // Watchdog interval id for detecting stuck/invalid timescale
+  const timescaleWatchdogRef = useRef(null);
+
+  // Helper to set engine timescale and capture previous value if not already captured
+  const setEngineTimeScale = (value) => {
+    try {
+      const engine = engineRef.current;
+      if (engine && engine.timing) {
+        // Capture previous timescale only if we haven't already
+        if (
+          previousTimeScaleRef.current === undefined ||
+          previousTimeScaleRef.current === null
+        ) {
+          previousTimeScaleRef.current = engine.timing.timeScale ?? 1;
+        }
+        engine.timing.timeScale = value;
+      }
+    } catch (e) {
+      console.warn("Unable to set engine timescale:", e);
+    }
+  };
+
+  // Helper to restore the engine timescale (optionally provide a forced value)
+  const restoreEngineTimeScale = (forcedValue) => {
+    try {
+      const engine = engineRef.current;
+      if (engine && engine.timing) {
+        const restoreTo =
+          typeof forcedValue === "number"
+            ? forcedValue
+            : previousTimeScaleRef.current ?? 1;
+        engine.timing.timeScale = restoreTo;
+      }
+    } catch (e) {
+      console.warn("Unable to restore engine timescale:", e);
+    }
+  };
 
   // Comprehensive cleanup on unmount or critical changes
   useEffect(() => {
@@ -71,6 +110,25 @@ export function useBattleSystem(
         activeBattleRef.current = null;
         battleParticipants.current = [];
         battleUpdateListener.current = null;
+      }
+
+      // Restore engine timescale if it was changed during battle
+      try {
+        if (engine && engine.timing) {
+          engine.timing.timeScale = previousTimeScaleRef.current ?? 1;
+        }
+      } catch (e) {
+        console.warn("Unable to restore engine timescale on cleanup:", e);
+      }
+
+      // Clear watchdog if running
+      try {
+        if (timescaleWatchdogRef.current) {
+          clearInterval(timescaleWatchdogRef.current);
+          timescaleWatchdogRef.current = null;
+        }
+      } catch (e) {
+        console.warn("Unable to clear timescale watchdog:", e);
       }
 
       isInitialized.current = false;
@@ -181,13 +239,13 @@ export function useBattleSystem(
 
   const radialKnockback = (caster, radius = Infinity, forceMagnitude = 0.5) => {
     const casterPos = caster.body.position;
-    const engine = engineRef.current;
 
     const allParticipants = battleParticipants.current.filter(
       (p) => p.isAlive && p.id != caster.id
     );
 
-    engine.timing.timeScale = 1;
+    // Ensure normal timescale during this forced knockback
+    setEngineTimeScale(1);
     allParticipants.forEach((target) => {
       const targetPos = target.body.position;
       const dx = targetPos.x - casterPos.x;
@@ -1131,6 +1189,25 @@ export function useBattleSystem(
       activeBattleRef.current = null;
       bodiesWithTimers.current = [];
       console.log("Battle ended and all participants cleaned up");
+
+      // Restore the engine timescale to previous value
+      try {
+        if (engine && engine.timing) {
+          engine.timing.timeScale = previousTimeScaleRef.current ?? 1;
+        }
+      } catch (e) {
+        console.warn("Unable to restore engine timescale after battle:", e);
+      }
+
+      // Clear the timescale watchdog interval
+      try {
+        if (timescaleWatchdogRef.current) {
+          clearInterval(timescaleWatchdogRef.current);
+          timescaleWatchdogRef.current = null;
+        }
+      } catch (e) {
+        console.warn("Unable to clear timescale watchdog after battle:", e);
+      }
     }, 3000);
   }, [engineRef, client, battleSettings, battleParticipants]);
 
@@ -1236,6 +1313,35 @@ export function useBattleSystem(
 
     if (battleSettings.battleEventDPSTracker) dpsTracker.current.startBattle();
 
+    // Save previous timescale and set desired active timescale
+    try {
+      if (engine && engine.timing) {
+        // Use helper to set and capture previous timescale
+        setEngineTimeScale(battleSettings.battleEventTimeScale ?? 1);
+
+        // Start a watchdog to ensure timeScale doesn't get stuck at 0 or a weird value
+        if (!timescaleWatchdogRef.current) {
+          timescaleWatchdogRef.current = setInterval(() => {
+            try {
+              const ts = engine.timing && engine.timing.timeScale;
+              // If timescale is not a finite positive number, restore to previous
+              if (!Number.isFinite(ts) || ts <= 0) {
+                restoreEngineTimeScale();
+                console.warn(
+                  "timescale watchdog restored engine.timing.timeScale to",
+                  engine.timing.timeScale
+                );
+              }
+            } catch (e) {
+              console.warn("timescale watchdog error:", e);
+            }
+          }, 1000);
+        }
+      }
+    } catch (e) {
+      console.warn("Unable to set engine timescale on startBattle:", e);
+    }
+
     const participants = spawnBattleArena();
     if (participants.length === 0) return false;
 
@@ -1336,6 +1442,16 @@ export function useBattleSystem(
         );
         if (mainIndex !== -1) {
           bodiesWithTimers.current.splice(mainIndex, 1);
+        }
+        // Ensure timescale is not stuck at 0 when participants die
+        try {
+          restoreEngineTimeScale();
+          if (timescaleWatchdogRef.current) {
+            clearInterval(timescaleWatchdogRef.current);
+            timescaleWatchdogRef.current = null;
+          }
+        } catch (e) {
+          console.warn("Error restoring timescale in kill:", e);
         }
       }, 1500);
     }
