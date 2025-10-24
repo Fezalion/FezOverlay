@@ -285,7 +285,7 @@ export function useBattleSystem(
         setTimeout(() => {
           dealDamage(
             target,
-            battleSettings.battleEventDamage * 2.5,
+            battleSettings.battleEventDamage * 1.8,
             caster,
             false
           );

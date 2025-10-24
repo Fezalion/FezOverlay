@@ -240,7 +240,7 @@ export const kamehameha = ({
           if (proj >= 0 && Math.abs(perp) < beamWidth / 2) {
             dealDamage(
               enemy,
-              battleSettings.battleEventDamage * 0.4,
+              battleSettings.battleEventDamage * 0.2,
               participant,
               false
             );

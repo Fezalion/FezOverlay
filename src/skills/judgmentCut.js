@@ -134,7 +134,7 @@ export const judgmentCut = ({
 
           // Add randomization to the damage per slash
           const baseDamage =
-            (battleSettings.battleEventDamage * 4) / slashCount;
+            (battleSettings.battleEventDamage * 2.5) / slashCount;
           const randomFactor = 0.5 + Math.random() * 0.5; // 0.9 to 1.1
           const damage = baseDamage * randomFactor;
           dealDamage(enemy, damage, participant, false);
