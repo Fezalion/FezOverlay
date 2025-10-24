@@ -498,7 +498,7 @@ export function useBattleSystem(
     healthBar.style.position = "fixed";
     healthBar.style.width = "60px";
     healthBar.style.height = "8px";
-    healthBar.style.backgroundColor = "rgba(255, 0, 0, 0.8)";
+    healthBar.style.backgroundColor = "rgba(255, 0, 0, 0.3)";
     healthBar.style.border = "1px solid #000";
     healthBar.style.borderTopLeftRadius = "4px";
     healthBar.style.borderTopRightRadius = "4px";
@@ -523,7 +523,7 @@ export function useBattleSystem(
     manaBar.style.position = "fixed";
     manaBar.style.width = "60px";
     manaBar.style.height = "6px";
-    manaBar.style.backgroundColor = "rgba(0, 0, 255, 0.8)";
+    manaBar.style.backgroundColor = "rgba(0, 0, 255, 0.3)";
     manaBar.style.border = "1px solid #000";
     manaBar.style.borderBottomLeftRadius = "4px";
     manaBar.style.borderBottomRightRadius = "4px";
