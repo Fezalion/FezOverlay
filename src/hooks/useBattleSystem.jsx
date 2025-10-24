@@ -978,16 +978,16 @@ export function useBattleSystem(
 
           // Apply damage
           if (canDamageP1) {
-            const damage =
-              battleSettings.battleEventDamage * (0.5 + Math.random() * 0.3) -
-              15;
+            const base = battleSettings.battleEventDamage;
+            const factor = 1 + (Math.random() * 0.8 - 0.4);
+            const damage = Math.round(base * factor);
             dealDamage(p1, damage, p2);
           }
 
           if (canDamageP2) {
-            const damage =
-              battleSettings.battleEventDamage * (0.5 + Math.random() * 0.3) -
-              15;
+            const base = battleSettings.battleEventDamage;
+            const factor = 1 + (Math.random() * 0.8 - 0.4);
+            const damage = Math.round(base * factor);
             dealDamage(p2, damage, p1);
           }
 
