@@ -83,7 +83,11 @@ function EmoteOverlayCore({ settings, wsRef, refreshToken }) {
     includeTwitchChannelEmotes: settings.includeTwitchChannelEmotes,
   });
   const physics = usePhysicsEngine();
-  const subscriberTracker = useSubscriberTracker(clientRef.current, false);
+  const subscriberTracker = useSubscriberTracker(
+    clientRef.current,
+    false,
+    true
+  );
   const viewerTracker = useSubscriberTracker(clientRef.current, true);
 
   const battleSettings = {
@@ -146,11 +150,47 @@ function EmoteOverlayCore({ settings, wsRef, refreshToken }) {
         try {
           const parent = sceneRef.current || document.body;
           const overlay = document.createElement("div");
-          overlay.style.cssText = `position: absolute; top: 10%; left: 50%; transform: translateX(-50%); z-index: 2147483647; pointer-events: none;`;
+          overlay.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 10002;
+      animation: fadeIn 0.5s ease-out;
+    `;
 
           const panel = document.createElement("div");
-          panel.style.cssText = `background: rgba(0,0,0,0.8); border: 1px solid #4a9eff; border-radius: 12px; padding: 10px 14px; color: #fff; min-width: 320px; max-width: 720px; box-shadow: 0 8px 30px rgba(0,0,0,0.6); pointer-events: none;`;
-
+          panel.style.cssText = `
+      background: rgba(0, 0, 0, 0.8);
+      border: 1px solid #4a9eff;
+      border-radius: 15px;
+      padding: 10px;
+      max-width: 400px;
+      max-height: 90vh;
+      overflow-y: auto;
+      animation: slideIn 0.5s ease-out;
+      position:absolute;
+      top:50%;
+      ${settings.battleEventLeaderboardFloatLeft ? "left:20px;" : "right:20px;"}
+      transform: translateY(-50%);
+    `;
+          const style = document.createElement("style");
+          style.textContent = `
+      @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+      @keyframes slideIn {
+        from { transform:translateY(-50%) translateX(-50px); opacity: 0; }
+        to { transform:translateY(-50%) translateX(0); opacity: 1; }
+      }      
+    `;
+          document.head.appendChild(style);
           const title = document.createElement("div");
           title.textContent = `⚔️ Leaderboard ⚔️`;
           title.style.cssText = `font-weight:700; color:#ffd43b; font-size:16px; margin-bottom:8px; text-align:center;`;
@@ -203,7 +243,7 @@ function EmoteOverlayCore({ settings, wsRef, refreshToken }) {
     return () => {
       if (ws) ws.onCoreMessage = null;
     };
-  }, [settings.emoteDelay, wsRef]);
+  }, [settings.emoteDelay, wsRef, settings.battleEventLeaderboardFloatLeft]);
 
   const { clearAllEmotes } = useEmoteLifecycle(
     physics.engineRef.current,

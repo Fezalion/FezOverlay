@@ -3,6 +3,23 @@ export default {
   description: "Show leaderboard on the emote overlay (top 5)",
   execute: async (client, channel) => {
     try {
+      // Check server for active battle
+      try {
+        const stateRes = await fetch(`/api/battle/state`);
+        if (stateRes.ok) {
+          const st = await stateRes.json();
+          if (st?.active) {
+            client.say(
+              channel,
+              "⚔️ A battle is currently in progress — leaderboard is disabled until the battle ends."
+            );
+            return;
+          }
+        }
+      } catch (err) {
+        // If we can't reach the server, fall through and try the announce (conservative)
+        console.debug("Could not verify battle state:", err);
+      }
       const limit = 5;
       const duration = 10000; // ms
       const res = await fetch(`/api/leaderboard/announce`, {

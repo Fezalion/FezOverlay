@@ -91,6 +91,7 @@ export function useMetadata() {
     battleEventDPSTrackerLive: true,
     battleEventDPSTrackerLiveFloatLeft: false,
     battleEventDPSTrackerFloatLeft: false,
+    battleEventLeaderboardFloatLeft: false,
     battleEventAcceptPlebs: false,
     battleEventShowSkillHistory: true,
   });
@@ -287,6 +288,9 @@ export function useMetadata() {
         battleEventAcceptPlebs: Boolean(data.battleEventAcceptPlebs),
         battleEventDPSTrackerFloatLeft: Boolean(
           data.battleEventDPSTrackerFloatLeft
+        ),
+        battleEventLeaderboardFloatLeft: Boolean(
+          data.battleEventLeaderboardFloatLeft
         ),
         battleEventDPSTrackerLiveFloatLeft: Boolean(
           data.battleEventDPSTrackerLiveFloatLeft

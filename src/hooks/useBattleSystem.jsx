@@ -1152,6 +1152,20 @@ export function useBattleSystem(
       if (existing) existing.remove();
     }
 
+    // Notify server that a battle has ended
+    try {
+      fetch("/api/battle/state", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ active: false }),
+      }).catch(() => {});
+    } catch (err) {
+      console.debug(
+        "Failed to POST battle state (start):",
+        err?.message || err
+      );
+    }
+
     // Find winner from remaining alive participants
     const aliveParticipants = battleParticipants.current.filter(
       (p) => p.isAlive
@@ -1418,6 +1432,17 @@ export function useBattleSystem(
     Matter.Events.on(engine, "beforeUpdate", battleUpdateListener.current);
 
     console.log(`Battle started with ${participants.length} participants`);
+
+    // Notify server that battle is ongoing
+    try {
+      fetch("/api/battle/state", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ active: true }),
+      }).catch(() => {});
+    } catch (err) {
+      console.debug("Failed to POST battle state (end):", err?.message || err);
+    }
 
     // Battle announcement with participant names
     const participantNames = participants

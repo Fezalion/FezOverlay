@@ -365,6 +365,30 @@ function saveLeaderboard(data) {
   }
 }
 
+// Server-wide battle active flag (in-memory)
+let serverBattleActive = false;
+
+// Endpoint to set battle state (used by overlay pages)
+app.post("/api/battle/state", (req, res) => {
+  try {
+    const active = !!req.body?.active;
+    serverBattleActive = active;
+    console.log("[API] Battle state updated:", serverBattleActive);
+    // Broadcast to all connected clients so overlays can react if needed
+    broadcast(
+      JSON.stringify({ type: "battleState", active: serverBattleActive })
+    );
+    res.json({ ok: true, active: serverBattleActive });
+  } catch (e) {
+    console.error("Failed to update battle state:", e);
+    res.status(500).json({ ok: false, error: String(e) });
+  }
+});
+
+app.get("/api/battle/state", (req, res) => {
+  res.json({ active: !!serverBattleActive });
+});
+
 app.get("/api/emote-proxy", (req, res) => {
   const raw = req.query.url;
   if (!raw) return res.status(400).send("Missing url");
