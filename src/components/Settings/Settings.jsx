@@ -5,6 +5,7 @@ import EmoteOverlaySettings from "./EmoteOverlaySettings";
 import YapMeterSettings from "./YapMeterSettings";
 import CommandSettings from "./CommandSettings";
 import ChatOverlaySettings from "./ChatOverlaySettings";
+import LeaderboardSettings from "./LeaderboardSettings";
 
 const MENU = [
   { key: "song", label: "Song Overlay", component: SongOverlaySettings },
@@ -12,6 +13,7 @@ const MENU = [
   { key: "yap", label: "Yap Meter", component: YapMeterSettings },
   { key: "commands", label: "Commands", component: CommandSettings },
   { key: "chat", label: "Chat Overlay", component: ChatOverlaySettings },
+  { key: "leaderboard", label: "Leaderboard", component: LeaderboardSettings },
 ];
 
 function Settings() {
@@ -56,6 +58,8 @@ function Settings() {
             updateSetting={updateSetting}
           />
         );
+      case "leaderboard":
+        return <LeaderboardSettings />;
       default:
         return null;
     }
