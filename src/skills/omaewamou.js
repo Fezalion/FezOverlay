@@ -8,11 +8,16 @@ export const omaewamou = ({
   disabled: false,
   effect: (participant) => {
     const engine = engineRef.current;
-    engine.timing.timeScale = 0.01;
+    engine.timing.timeScale = 0.1;
 
     showText(participant, "🫵 OMAE WA MOU SHINDEIRU");
     const randomEnemy = findStrongestEnemy(participant);
-    showText(randomEnemy, "NANI");
+
+    if (randomEnemy && randomEnemy.body) {
+      showText(randomEnemy, "NANI");
+    } else {
+      showText(participant, "NANI");
+    }
 
     setTimeout(() => {
       engine.timing.timeScale = 1;
