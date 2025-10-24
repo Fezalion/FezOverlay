@@ -1021,7 +1021,7 @@ export function useBattleSystem(
     );
     let attractionStrength = 0.0008;
 
-    if (aliveParticipants.length == 2) {
+    if (aliveParticipants.length <= 3) {
       attractionStrength = 0.01;
     }
 
