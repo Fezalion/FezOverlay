@@ -83,11 +83,7 @@ function EmoteOverlayCore({ settings, wsRef, refreshToken }) {
     includeTwitchChannelEmotes: settings.includeTwitchChannelEmotes,
   });
   const physics = usePhysicsEngine();
-  const subscriberTracker = useSubscriberTracker(
-    clientRef.current,
-    false,
-    true
-  );
+  const subscriberTracker = useSubscriberTracker(clientRef.current, false);
   const viewerTracker = useSubscriberTracker(clientRef.current, true);
 
   const battleSettings = {
