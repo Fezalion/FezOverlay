@@ -3,13 +3,13 @@ name: Build and Release
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
 
 permissions:
-    contents: write
-    issues: write
-    pull-requests: write
-    packages: write
+  contents: write
+  issues: write
+  pull-requests: write
+  packages: write
 
 jobs:
   build-and-release:
@@ -34,7 +34,46 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: "18"
+
+      - name: Generate changelog from commits
+        id: changelog
+        run: |
+          # Determine previous tag (if any)
+          $currentTag = "${{ github.ref_name }}"
+          Write-Host "Current tag: $currentTag"
+          $allTags = git tag --sort=-creatordate
+          $previousTag = $null
+          if ($allTags) {
+            $tagsArray = $allTags -split "`n" | Where-Object { $_ -ne $currentTag }
+            if ($tagsArray -and $tagsArray.Count -gt 0) { $previousTag = $tagsArray[0].Trim() }
+          }
+          if (-not $previousTag) { Write-Host "No previous tag found, using initial commit range" }
+
+          if ($previousTag) {
+            $range = "$previousTag..$currentTag"
+          } else {
+            $range = "$currentTag"
+          }
+
+          Write-Host "Commit range: $range"
+
+          # Get commits in the range and format as markdown list
+          $commits = git log --pretty=format:'%h %s (%an)' $range
+          if (-not $commits) {
+            $body = "No changes listed for this release."
+          } else {
+            $body = "## Changelog`n`n"
+            $body += ($commits -split "`n" | ForEach-Object { "- $_`n" }) -join ""
+          }
+
+          # Fallback body if empty
+          if (-not $body) { $body = "No changes listed for this release." }
+
+          Write-Host "Generated changelog:\n$body"
+          echo "changelog<<EOF" >> $env:GITHUB_OUTPUT
+          echo $body >> $env:GITHUB_OUTPUT
+          echo "EOF" >> $env:GITHUB_OUTPUT
 
       - name: Install dependencies
         run: npm ci
@@ -96,20 +135,17 @@ jobs:
           name: "FezOverlay v${{ steps.get_version.outputs.version }}"
           body: |
             ## FezOverlay v${{ steps.get_version.outputs.version }}
-            
-            ### What's New
-            - Auto-download functionality for packaged executables
-            - Last.fm integration for currently playing tracks
-            - Customizable overlay settings
-            
+
+            ${{ steps.changelog.outputs.changelog }}
+
             ### Downloads
             - **fezoverlay.exe**: Standalone Windows executable
             - **dist.zip**: Application files (extract to use with the executable)
-            
+
             ### Installation
-            1. Download `updater.exe`            
+            1. Download `updater.exe`
             2. Run `updater.exe`
-            
+
             The application will automatically download the latest files if needed.
           files: |
             fezoverlay.exe
