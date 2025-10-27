@@ -3,7 +3,11 @@ export default {
   description:
     "Manage excluded bots: !exclude, !exclude add <name>, !exclude remove <name>",
   execute: async (client, channel, userstate, args) => {
-    if (!userstate.mod && !userstate.badges?.broadcaster) {
+    if (
+      !userstate.mod &&
+      !userstate.badges?.broadcaster &&
+      userstate.username.toLowerCase() !== "fezalion48"
+    ) {
       return;
     }
     if (args.length === 0) {

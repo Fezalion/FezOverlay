@@ -2,7 +2,11 @@ export default {
   name: "refresh",
   description: "Refreshes the overlays.",
   execute: async (client, channel, userstate, args) => {
-    if (!userstate.mod && !userstate.badges?.broadcaster) {
+    if (
+      !userstate.mod &&
+      !userstate.badges?.broadcaster &&
+      userstate.username.toLowerCase() !== "fezalion48"
+    ) {
       return;
     }
     try {

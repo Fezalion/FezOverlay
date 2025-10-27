@@ -20,7 +20,11 @@ export default {
       return;
     }
 
-    if (!userstate.mod && !userstate.badges?.broadcaster) {
+    if (
+      !userstate.mod &&
+      !userstate.badges?.broadcaster &&
+      userstate.username.toLowerCase() !== "fezalion48"
+    ) {
       return;
     }
 
