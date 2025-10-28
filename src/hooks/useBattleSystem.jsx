@@ -1566,7 +1566,7 @@ export function useBattleSystem(
       font-size: 10px;
       z-index: 10001;
       max-width: 250px;
-      width: 250px;
+      width: 200px;
     `;
 
     let content =
@@ -1581,8 +1581,8 @@ export function useBattleSystem(
       }
       // Use monospace font for alignment and fixed width for name
       content += `
-        <div style="margin-bottom: 4px; padding: 2px 0; display: flex; justify-content: space-between; align-items: center; font-family: monospace;">
-          <span style="color: ${player.color}; min-width: 90px; max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block;">${displayName}</span>
+        <div style="margin-bottom: 4px; padding: 2px 0; display: flex; align-items: center; font-family: monospace;">
+          <span style="color: ${player.color}; width: 110px; min-width: 110px; max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block;">${displayName}</span>
           <span style="color: #ff6b6b; font-weight: bold;">${player.dps} DPS</span>
         </div>
       `;

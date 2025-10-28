@@ -440,7 +440,7 @@ class BattleDPSTracker {
       border: 1px solid #4a9eff;
       border-radius: 15px;
       padding: 10px;
-      max-width: 400px;
+      width: 380px;
       max-height: 90vh;
       overflow-y: auto;
       animation: slideIn 0.5s ease-out;
@@ -475,7 +475,7 @@ class BattleDPSTracker {
       text-align: center;
       color: #4a9eff;
       margin: 0 0 10px 0;
-      font-size: 16px;
+      font-size: 14px;
       text-shadow: 0 0 10px rgba(74, 158, 255, 0.5);
     `;
 
@@ -485,7 +485,7 @@ class BattleDPSTracker {
       text-align: center;
       color: #ffffff;
       margin-bottom: 15px;
-      font-size: 12px;
+      font-size: 10px;
     `;
     battleInfo.innerHTML = `
       Duration: <span style="color: #4a9eff;">${this.getBattleDurationSeconds().toFixed(
@@ -508,17 +508,17 @@ class BattleDPSTracker {
     const header = document.createElement("div");
     header.style.cssText = `
       display: grid;
-      grid-template-columns: 40px 2fr 1fr 1fr 1fr 1fr;
-      gap: 8px;
+      grid-template-columns: 30px 110px 50px 60px 10px 60px;
+      gap: 5px;
       padding: 10px;
       background: rgba(0, 0, 0, 0.2);
       color: #ffffff;
       font-weight: bold;
-      font-size: 10px;
+      font-size: 8px;
     `;
     header.innerHTML = `
       <div style="text-align: center;">#</div>
-      <div>Player</div>
+      <div style="text-align: left;">Player</div>
       <div style="text-align: center;">DPS</div>
       <div style="text-align: center;">Damage</div>
       <div style="text-align: center;">Kills</div>
@@ -533,8 +533,8 @@ class BattleDPSTracker {
       row.className = "battle-results-row";
       row.style.cssText = `
         display: grid;
-        grid-template-columns: 40px 2fr 1fr 1fr 1fr 1fr;
-        gap: 10px;
+        grid-template-columns: 30px 110px 50px 60px 10px 60px;
+        gap: 5px;
         padding: 6px 7px;
         background: ${
           index % 2 === 0
@@ -542,6 +542,7 @@ class BattleDPSTracker {
             : "rgba(255, 255, 255, 0.02)"
         };
         color: #ffffff;
+        font-size: 12px;
         border-left: 3px solid ${player.color};
         transition: all 0.2s ease;
       `;
@@ -556,11 +557,19 @@ class BattleDPSTracker {
           ? "🥉"
           : (index + 1).toString();
 
+      let displayName = player.name;
+      const maxLen = 12;
+      if (displayName.length > maxLen) {
+        displayName = displayName.slice(0, maxLen - 1) + "…";
+      } else {
+        // Pad with spaces to match maxlength
+        displayName = displayName.padEnd(maxLen, " ");
+      }
       row.innerHTML = `
         <div style="text-align: center; font-weight: bold;">${rankText}</div>
-        <div style="color: ${player.color}; font-weight: bold;">${
-        player.name
-      }</div>
+        <div style="color: ${
+          player.color
+        }; font-weight: bold; width: 110px; min-width: 110px; max-width: 110px;">${displayName}</div>
         <div style="text-align: center; color: #ff6b6b; font-weight: bold;">${player.dps.toFixed(
           1
         )}</div>
