@@ -197,10 +197,14 @@ function EmoteOverlayCore({ settings, wsRef, refreshToken }) {
 
           data.top.forEach((entry, i) => {
             const row = document.createElement("div");
-            row.style.cssText = `display:flex; justify-content:space-between; align-items:center; font-size:14px;`;
-
+            row.style.cssText = `display:flex; gap:5px; justify-content:space-between; align-items:center; font-size:14px;`;
+            let displayName = entry.username;
+            const maxLen = 12;
+            if (displayName.length > maxLen) {
+              displayName = displayName.slice(0, maxLen - 1) + "…";
+            }
             const left = document.createElement("div");
-            left.textContent = `${i + 1}. ${entry.username}`;
+            left.textContent = `${i + 1}. ${displayName}`;
             left.style.cssText = `color: ${
               i === 0
                 ? "#ffd43b"
