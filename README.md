@@ -47,6 +47,7 @@ https://www.youtube.com/watch?v=nzPYJCWTqC8
      `http://localhost:48000/chat`
      `http://localhost:48000/commands`
      `http://localhost:48000/yapmeter`
+     `http://localhost:48000/deaths`
    - Set your LastFM user name in the settings page mentioned above.
    - Set your twitch username and 7tv emoteset IDs in the settings page mentioned above.
 
