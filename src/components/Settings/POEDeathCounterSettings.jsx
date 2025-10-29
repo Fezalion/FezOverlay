@@ -147,6 +147,7 @@ export default function POEDeathCounterSettings({ settings, updateSetting }) {
             onClick={() => {
               const defaultSettings = {
                 deathCounterEmotes: ["KEKW"],
+                deathCounterEmotesPerDeath: 10,
               };
               Object.entries(defaultSettings).forEach(([key, val]) =>
                 updateSetting(key, val)
@@ -165,6 +166,26 @@ export default function POEDeathCounterSettings({ settings, updateSetting }) {
             <EmoteInput
               value={settings.deathCounterEmotes || []}
               onChange={(emotes) => updateSetting("deathCounterEmotes", emotes)}
+            />
+
+            <label className="block font-semibold">Deaths per event.</label>
+            <p className="text-sm text-gray-400 mb-2">
+              How many deaths should happen before emote event spawns.
+            </p>
+
+            <InputField
+              type="number"
+              min={1}
+              max={50}
+              value={settings.deathCounterEmotesPerDeath}
+              onChange={(e) => {
+                const value = Math.min(
+                  50,
+                  Math.max(1, parseInt(e.target.value) || 1)
+                );
+                updateSetting("deathCounterEmotesPerDeath", value);
+              }}
+              placeholder="Number of deaths (1-50)"
             />
           </div>
         </div>

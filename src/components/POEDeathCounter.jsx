@@ -82,7 +82,10 @@ function POEDeathCounterCore({ settings, wsRef }) {
     const handler = (e) => {
       const { count } = e.detail;
       setDeathCount(count);
-      if (count % 1 == 0 && settings.deathCounterEmotes?.length > 0) {
+      if (
+        count % settings.deathCounterEmotesPerDeath == 0 &&
+        settings.deathCounterEmotes?.length > 0
+      ) {
         if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
           const spawnCount = 10;
 
@@ -108,7 +111,7 @@ function POEDeathCounterCore({ settings, wsRef }) {
     };
     window.addEventListener("poe-death", handler);
     return () => window.removeEventListener("poe-death", handler);
-  }, [settings.deathCounterEmotes, wsRef]);
+  }, [settings.deathCounterEmotes, wsRef, settings.deathCounterEmotesPerDeath]);
 
   return (
     <div

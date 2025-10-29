@@ -100,6 +100,7 @@ export function useMetadata() {
     deathCounterShadowColor: "#ff0000",
     deathCounterShadow: true,
     deathCounterEmotes: ["KEKW"],
+    deathCounterEmotesPerDeath: 10,
     deathCounterPrefix: "Deaths:",
   });
 
@@ -315,6 +316,10 @@ export function useMetadata() {
             data.deathCounterEmotes.length > 0
           ? [data.deathCounterEmotes]
           : ["KEKW"],
+        deathCounterEmotesPerDeath: toNumber(
+          data.deathCounterEmotesPerDeath,
+          10
+        ),
         deathCounterPrefix: data.deathCounterPrefix || "Deaths:",
       });
 
