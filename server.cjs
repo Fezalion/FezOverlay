@@ -6,6 +6,7 @@ const http = require("http");
 const dotenv = require("dotenv");
 const fs = require("fs");
 const { WebSocketServer } = require("ws");
+var PathOfExileLog = require("poe-log-monitor");
 const repo = "Fezalion/FezOverlay";
 
 const app = express();
@@ -51,6 +52,7 @@ const distRoot = path.join(baseDir, "dist");
 const SETTINGS_FILE = path.join(baseDir, "settings.json");
 const BOTS_FILE = path.join(baseDir, "excludedBots.json");
 const COMMANDS_FILE = path.join(baseDir, "customcommands.json");
+const DEATH_LOG = path.join(__dirname, "deaths.json");
 const versionFile = path.join(baseDir, "version.txt");
 
 app.use(bodyParser.json());
@@ -825,6 +827,149 @@ wss.on("connection", (ws) => {
     console.log("WebSocket client disconnected");
   });
 });
+
+//death counter
+
+function detectPoELogFile() {
+  const possiblePaths = [
+    // Standalone
+    path.join(
+      "C:",
+      "Program Files (x86)",
+      "Grinding Gear Games",
+      "Path of Exile",
+      "logs",
+      "Client.txt"
+    ),
+    // Steam
+    path.join(
+      "C:",
+      "Program Files (x86)",
+      "Steam",
+      "steamapps",
+      "common",
+      "Path of Exile",
+      "logs",
+      "Client.txt"
+    ),
+    // Epic Games
+    path.join(
+      "C:",
+      "Program Files",
+      "Epic Games",
+      "PathOfExile",
+      "logs",
+      "Client.txt"
+    ),
+    // LocalAppData variant
+    path.join(
+      process.env.LOCALAPPDATA || "",
+      "Path of Exile",
+      "Logs",
+      "Client.txt"
+    ),
+    // Some players use D:\ drives
+    path.join(
+      "D:",
+      "SteamLibrary",
+      "steamapps",
+      "common",
+      "Path of Exile",
+      "logs",
+      "Client.txt"
+    ),
+    path.join(
+      "D:",
+      "Program Files (x86)",
+      "Grinding Gear Games",
+      "Path of Exile",
+      "logs",
+      "Client.txt"
+    ),
+  ];
+
+  for (const p of possiblePaths) {
+    try {
+      if (fs.existsSync(p)) return p;
+    } catch (e) {
+      /* ignore */
+    }
+  }
+
+  return null;
+}
+console.log(detectPoELogFile());
+const config = {
+  // default Path of Exile client log location on Windows. Change if needed.
+  poeLogPath:
+    detectPoELogFile() ||
+    path.join(
+      process.env.LOCALAPPDATA || "",
+      "Path of Exile",
+      "Logs",
+      "Client.txt"
+    ),
+  persistenceFile: DEATH_LOG,
+};
+
+function loadDeathCount() {
+  try {
+    const data = JSON.parse(fs.readFileSync(config.persistenceFile, "utf8"));
+    return data.count || 0;
+  } catch {
+    return 0;
+  }
+}
+
+function saveDeathCount(count) {
+  fs.writeFileSync(
+    config.persistenceFile,
+    JSON.stringify({ count }, null, 2),
+    "utf8"
+  );
+}
+
+let deathCount = loadDeathCount();
+
+var poeLog = new PathOfExileLog({
+  logfile: config.poeLogPath,
+});
+
+poeLog.on("death", (player) => {
+  deathCount++;
+  saveDeathCount(deathCount);
+  console.log(
+    `[POE] ${player.name || "Player"} has died (${deathCount} total)`
+  );
+
+  broadcast(
+    JSON.stringify({
+      type: "poeDeath",
+      count: deathCount,
+      player: player.name || "Player",
+    })
+  );
+});
+
+poeLog.on("deaths", (data) => {
+  console.log("The death command was used, you died " + data.deaths + " times");
+  saveDeathCount(data.deaths);
+  broadcast(
+    JSON.stringify({
+      type: "poeDeath",
+      count: data.deaths,
+      player: "Player",
+    })
+  );
+  console.log("new data saved");
+});
+
+app.get("/api/deaths", (req, res) => {
+  res.json({ count: deathCount });
+});
+
+poeLog.start();
+console.log("[POE] Log watcher started:", config.poeLogPath);
 
 server.listen(PORT, "0.0.0.0", () => {
   console.log(`Server + WS running on http://localhost:${PORT}`);

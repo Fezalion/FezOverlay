@@ -94,6 +94,13 @@ export function useMetadata() {
     battleEventLeaderboardFloatLeft: false,
     battleEventAcceptPlebs: false,
     battleEventShowSkillHistory: true,
+    //POE Death Counter settings
+    deathCounterBackground: "rgba(0,0,0,0)",
+    deathCounterColor: "#ffffff",
+    deathCounterShadowColor: "#ff0000",
+    deathCounterShadow: true,
+    deathCounterEmotes: ["KEKW"],
+    deathCounterPrefix: "Deaths:",
   });
 
   const [availableSubEffects, setAvailableSubEffects] = useState([]);
@@ -296,6 +303,19 @@ export function useMetadata() {
           data.battleEventDPSTrackerLiveFloatLeft
         ),
         battleEventShowSkillHistory: Boolean(data.battleEventShowSkillHistory),
+        //Death Counter
+        deathCounterBackground:
+          data.deathCounterBackground || "rgba(0, 0, 0, 0)",
+        deathCounterColor: data.deathCounterColor || "#ffffff",
+        deathCounterShadowColor: data.deathCounterShadowColor || "#ff0000",
+        deathCounterShadow: Boolean(data.deathCounterShadow),
+        deathCounterEmotes: Array.isArray(data.deathCounterEmotes)
+          ? data.deathCounterEmotes
+          : typeof data.deathCounterEmotes === "string" &&
+            data.deathCounterEmotes.length > 0
+          ? [data.deathCounterEmotes]
+          : ["KEKW"],
+        deathCounterPrefix: data.deathCounterPrefix || "Deaths:",
       });
 
       setError(null);

@@ -6,6 +6,7 @@ import YapMeterSettings from "./YapMeterSettings";
 import CommandSettings from "./CommandSettings";
 import ChatOverlaySettings from "./ChatOverlaySettings";
 import LeaderboardSettings from "./LeaderboardSettings";
+import POEDeathCounterSettings from "./POEDeathCounterSettings";
 
 const MENU = [
   { key: "song", label: "Song Overlay", component: SongOverlaySettings },
@@ -14,6 +15,11 @@ const MENU = [
   { key: "commands", label: "Commands", component: CommandSettings },
   { key: "chat", label: "Chat Overlay", component: ChatOverlaySettings },
   { key: "leaderboard", label: "Leaderboard", component: LeaderboardSettings },
+  {
+    key: "deathcounter",
+    label: "PoE Death Counter",
+    component: POEDeathCounterSettings,
+  },
 ];
 
 function Settings() {
@@ -60,6 +66,13 @@ function Settings() {
         );
       case "leaderboard":
         return <LeaderboardSettings />;
+      case "deathcounter":
+        return (
+          <POEDeathCounterSettings
+            settings={settings}
+            updateSetting={updateSetting}
+          />
+        );
       default:
         return null;
     }

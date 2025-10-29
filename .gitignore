@@ -17,6 +17,7 @@ settings.json
 excludedBots.json
 customCommands.json
 leaderboard.json
+deaths.json
 .env
 emote_cache/*
 
