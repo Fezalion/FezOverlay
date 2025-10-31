@@ -52,7 +52,7 @@ const distRoot = path.join(baseDir, "dist");
 const SETTINGS_FILE = path.join(baseDir, "settings.json");
 const BOTS_FILE = path.join(baseDir, "excludedBots.json");
 const COMMANDS_FILE = path.join(baseDir, "customcommands.json");
-const DEATH_LOG = path.join(__dirname, "deaths.json");
+const DEATH_LOG = path.join(baseDir, "deaths.json");
 const versionFile = path.join(baseDir, "version.txt");
 
 app.use(bodyParser.json());
@@ -909,7 +909,7 @@ const config = {
       "Logs",
       "Client.txt"
     ),
-  persistenceFile: path.join(appDataDir, "deaths.json"),
+  persistenceFile: DEATH_LOG,
 };
 
 function loadDeathCount() {
