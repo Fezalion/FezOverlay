@@ -45,7 +45,13 @@ const PORT = 48000;
 // Fix for pkg: use process.execPath for base directory if packaged
 let baseDir = __dirname;
 if (process.pkg) {
-  baseDir = path.dirname(process.execPath);
+  baseDir = process.env.APPDATA || path.join(process.env.HOME, ".config");
+}
+
+// Ensure our app data directory exists
+const appDataDir = path.join(baseDir, "FezOverlay");
+if (!fs.existsSync(appDataDir)) {
+  fs.mkdirSync(appDataDir, { recursive: true });
 }
 
 const distRoot = path.join(baseDir, "dist");
@@ -909,24 +915,32 @@ const config = {
       "Logs",
       "Client.txt"
     ),
-  persistenceFile: DEATH_LOG,
+  persistenceFile: path.join(appDataDir, "deaths.json"),
 };
 
 function loadDeathCount() {
   try {
+    if (!fs.existsSync(config.persistenceFile)) {
+      return 0;
+    }
     const data = JSON.parse(fs.readFileSync(config.persistenceFile, "utf8"));
     return data.count || 0;
-  } catch {
+  } catch (error) {
+    console.error("[PoE] Error loading death count:", error);
     return 0;
   }
 }
 
 function saveDeathCount(count) {
-  fs.writeFileSync(
-    config.persistenceFile,
-    JSON.stringify({ count }, null, 2),
-    "utf8"
-  );
+  try {
+    fs.writeFileSync(
+      config.persistenceFile,
+      JSON.stringify({ count }, null, 2),
+      "utf8"
+    );
+  } catch (error) {
+    console.error("[PoE] Error saving death count:", error);
+  }
 }
 
 let deathCount = loadDeathCount();
