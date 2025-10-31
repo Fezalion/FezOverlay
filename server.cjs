@@ -45,13 +45,7 @@ const PORT = 48000;
 // Fix for pkg: use process.execPath for base directory if packaged
 let baseDir = __dirname;
 if (process.pkg) {
-  baseDir = process.env.APPDATA || path.join(process.env.HOME, ".config");
-}
-
-// Ensure our app data directory exists
-const appDataDir = path.join(baseDir, "FezOverlay");
-if (!fs.existsSync(appDataDir)) {
-  fs.mkdirSync(appDataDir, { recursive: true });
+  baseDir = path.dirname(process.execPath);
 }
 
 const distRoot = path.join(baseDir, "dist");
