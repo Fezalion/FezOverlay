@@ -888,21 +888,52 @@ function detectPoELogFile() {
     ),
   ];
 
-  for (const p of possiblePaths) {
-    try {
-      if (fs.existsSync(p)) return p;
-    } catch (e) {
-      /* ignore */
-    }
+  // Find all existing log files and their access times
+  const existingLogs = possiblePaths
+    .map((p) => {
+      try {
+        if (fs.existsSync(p)) {
+          const stats = fs.statSync(p);
+          return {
+            path: p,
+            accessTime: stats.atimeMs,
+            modifyTime: stats.mtimeMs,
+            lastActivity: Math.max(stats.atimeMs, stats.mtimeMs),
+          };
+        }
+      } catch (e) {
+        /* ignore */
+      }
+      return null;
+    })
+    .filter(Boolean);
+
+  if (existingLogs.length === 0) {
+    return null;
   }
 
-  return null;
+  existingLogs.sort((a, b) => b.lastActivity - a.lastActivity);
+
+  // Log found clients for debugging
+  console.log("[PoE] Found Client.txt files:");
+  existingLogs.forEach((log) => {
+    console.log(
+      `- ${log.path} (Last activity: ${new Date(
+        log.lastActivity
+      ).toLocaleString()})`
+    );
+  });
+
+  // Return the most recently active log file
+  console.log(`[PoE] Selected: ${existingLogs[0].path}`);
+  return existingLogs[0].path;
 }
-console.log(detectPoELogFile());
+
+const detectedLogFile = detectPoELogFile();
 const config = {
   // default Path of Exile client log location on Windows. Change if needed.
   poeLogPath:
-    detectPoELogFile() ||
+    detectedLogFile ||
     path.join(
       process.env.LOCALAPPDATA || "",
       "Path of Exile",
