@@ -985,7 +985,7 @@ poeLog.on("death", (player) => {
     JSON.stringify({
       type: "poeDeath",
       count: deathCount,
-      player: player.name || "Player",
+      player: "Player",
     })
   );
 });
@@ -993,6 +993,7 @@ poeLog.on("death", (player) => {
 poeLog.on("deaths", (data) => {
   console.log("The death command was used, you died " + data.deaths + " times");
   saveDeathCount(data.deaths);
+  deathCount = data.deaths;
   broadcast(
     JSON.stringify({
       type: "poeDeath",
