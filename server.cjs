@@ -943,6 +943,17 @@ const config = {
   persistenceFile: DEATH_LOG,
 };
 
+function loadSettings() {
+  try {
+    if (fs.existsSync(SETTINGS_FILE)) {
+      return JSON.parse(fs.readFileSync(SETTINGS_FILE, "utf8"));
+    }
+  } catch (error) {
+    console.error("[PoE] Error loading settings:", error);
+  }
+  return {};
+}
+
 function loadDeathCount() {
   try {
     if (!fs.existsSync(config.persistenceFile)) {
@@ -975,33 +986,79 @@ var poeLog = new PathOfExileLog({
 });
 
 poeLog.on("death", (player) => {
-  deathCount++;
-  saveDeathCount(deathCount);
-  console.log(
-    `[POE] ${player.name || "Player"} has died (${deathCount} total)`
-  );
+  // Load current settings to check character name
+  const settings = loadSettings();
+  const trackedCharName = settings.deathCounterCharName;
 
-  broadcast(
-    JSON.stringify({
-      type: "poeDeath",
-      count: deathCount,
-      player: "Player",
-    })
-  );
+  // If no character name is set, or if the death is for the tracked character
+  if (
+    !trackedCharName ||
+    (player.name && player.name.toLowerCase() === trackedCharName.toLowerCase())
+  ) {
+    deathCount++;
+    saveDeathCount(deathCount);
+    console.log(
+      `[POE] ${player.name || "Player"} has died (${deathCount} total)`
+    );
+
+    broadcast(
+      JSON.stringify({
+        type: "poeDeath",
+        count: deathCount,
+        player: player.name || "Player",
+      })
+    );
+  } else {
+    console.log(
+      `[POE] Ignoring death of ${
+        player.name || "Player"
+      } (tracking: ${trackedCharName})`
+    );
+  }
 });
 
+// Handler for /deaths command
 poeLog.on("deaths", (data) => {
-  console.log("The death command was used, you died " + data.deaths + " times");
-  saveDeathCount(data.deaths);
-  deathCount = data.deaths;
-  broadcast(
-    JSON.stringify({
-      type: "poeDeath",
-      count: data.deaths,
-      player: "Player",
-    })
-  );
-  console.log("new data saved");
+  // Since /deaths doesn't provide a character name, we'll assume it's being used
+  // by the currently tracked character or accept it if no tracking is set
+  const settings = loadSettings();
+  const trackedCharName = settings.deathCounterCharName;
+
+  if (!trackedCharName) {
+    // No character tracking, accept the death count
+    console.log(
+      `[POE] Death count command used: ${data.deaths} deaths (no character tracking)`
+    );
+    saveDeathCount(data.deaths);
+    deathCount = data.deaths;
+
+    broadcast(
+      JSON.stringify({
+        type: "poeDeath",
+        count: data.deaths,
+        player: "Player",
+      })
+    );
+  } else {
+    // When tracking a specific character, we accept the count since /deaths
+    // is used by the player to set their own count
+    console.log(
+      `[POE] Death count command used: ${data.deaths} deaths (tracking ${trackedCharName}, death command does not provide char information, death counter overriden with new one for the current char)`
+    );
+
+    // Accept the count since it's intentionally set by the player
+    // Future enhancement: Could add verification against character being played
+    saveDeathCount(data.deaths);
+    deathCount = data.deaths;
+
+    broadcast(
+      JSON.stringify({
+        type: "poeDeath",
+        count: data.deaths,
+        player: trackedCharName,
+      })
+    );
+  }
 });
 
 app.get("/api/deaths", (req, res) => {

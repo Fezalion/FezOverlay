@@ -102,6 +102,7 @@ export function useMetadata() {
     deathCounterEmotes: ["KEKW"],
     deathCounterEmotesPerDeath: 10,
     deathCounterPrefix: "Deaths:",
+    deathCounterCharName: "",
   });
 
   const [availableSubEffects, setAvailableSubEffects] = useState([]);
@@ -321,6 +322,7 @@ export function useMetadata() {
           10
         ),
         deathCounterPrefix: data.deathCounterPrefix || "Deaths:",
+        deathCounterCharName: data.deathCounterCharName || "",
       });
 
       setError(null);

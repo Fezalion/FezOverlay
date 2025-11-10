@@ -14,6 +14,33 @@ export default function POEDeathCounterSettings({ settings, updateSetting }) {
         {/* Death Counter Settings */}
         <h3 className="text-lg font-semibold mb-4">Death Counter</h3>
 
+        <div className="bg-white/5 p-4 rounded-xl border border-white/10 relative">
+          <button
+            onClick={() => {
+              const defaultSettings = {
+                deathCounterCharName: "",
+              };
+              Object.entries(defaultSettings).forEach(([key, val]) =>
+                updateSetting(key, val)
+              );
+            }}
+            className="absolute top-5 right-5 px-3 py-1 text-sm font-medium text-white bg-gray-700 rounded-md hover:bg-gray-600 transition"
+          >
+            Reset
+          </button>
+          <div className="space-y-2">
+            <label className="block font-semibold">Character Name</label>
+            <p>Case Sensitive</p>
+            <InputField
+              value={settings.deathCounterCharName}
+              onChange={(e) =>
+                updateSetting("deathCounterCharName", e.target.value)
+              }
+              placeholder="Current char name"
+            />
+          </div>
+        </div>
+
         {/* Background Picker */}
         <div className="bg-white/5 p-4 rounded-xl border border-white/10 relative">
           <button
