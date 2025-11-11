@@ -188,7 +188,12 @@ export default function POEDeathCounterSettings({ settings, updateSetting }) {
             <label className="block font-semibold">Emotes</label>
             <p className="text-sm text-gray-400 mb-2">
               Type emote names and press space or enter to add them. Click × to
-              remove. Leave empty to disable emote spawns.
+              remove. You can optionally add an interval using the format
+              <code className="ml-1">EMOTE:interval</code> (for example,
+              <code className="ml-1">KEKW:5</code> will spawn that emote every 5
+              deaths). If an emote has no interval it will fall back to the
+              global "Deaths per event" setting. Leave empty to disable emote
+              spawns.
             </p>
             <EmoteInput
               value={settings.deathCounterEmotes || []}
@@ -197,7 +202,8 @@ export default function POEDeathCounterSettings({ settings, updateSetting }) {
 
             <label className="block font-semibold">Deaths per event.</label>
             <p className="text-sm text-gray-400 mb-2">
-              How many deaths should happen before emote event spawns.
+              The Deafult death count to spawn emotes (applies to emotes without
+              custom intervals)
             </p>
 
             <InputField

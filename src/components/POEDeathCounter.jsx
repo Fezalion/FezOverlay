@@ -1,5 +1,5 @@
 // POEDeathCounter.jsx
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useMetadata } from "../hooks/useMetadata";
 import { useTwitchClient } from "../hooks/useTwitchClient";
 
@@ -7,6 +7,7 @@ export default function POEDeathCounter() {
   const { settings, refreshSettings } = useMetadata();
   const [refreshToken, setRefreshToken] = useState(0);
   const clientRef = useTwitchClient(settings.twitchName);
+  const deathCounterShowDebug = false;
   const wsRef = useRef(null);
 
   // refresh settings when needed
@@ -51,17 +52,19 @@ export default function POEDeathCounter() {
     return `deathcounter-${settings.twitchName}`;
   }, [settings.twitchName]);
 
+  // Pass wsRef and settings to the core component
   return (
     <POEDeathCounterCore
       key={stableKey}
       settings={settings}
       wsRef={wsRef}
       clientRef={clientRef}
+      deathCounterShowDebug={deathCounterShowDebug}
     />
   );
 }
 
-function POEDeathCounterCore({ settings, wsRef }) {
+function POEDeathCounterCore({ settings, wsRef, deathCounterShowDebug }) {
   const [deathCount, setDeathCount] = useState(0);
 
   useEffect(() => {
@@ -77,57 +80,125 @@ function POEDeathCounterCore({ settings, wsRef }) {
     fetchCount();
   }, []);
 
+  // processDeathCount: central handler used by WS events and debug buttons
+  const processDeathCount = useCallback(
+    (count) => {
+      // Ensure count is treated as a number. Some sources (WS or button handlers)
+      // may pass strings which would cause concatenation (e.g. "137" + 1 => "1371").
+      const n = Number(count) || 0;
+      setDeathCount(n);
+
+      if (
+        !settings.deathCounterEmotes ||
+        settings.deathCounterEmotes.length === 0
+      )
+        return;
+
+      if (!(wsRef.current && wsRef.current.readyState === WebSocket.OPEN))
+        return;
+
+      const spawnCount = 10;
+
+      const parseIntervals = (items) => {
+        const out = [];
+        const fallback =
+          Number.isInteger(settings.deathCounterEmotesPerDeath) &&
+          settings.deathCounterEmotesPerDeath > 0
+            ? settings.deathCounterEmotesPerDeath
+            : 10;
+        for (const it of items) {
+          if (!it) continue;
+          const raw = String(it).trim();
+          const parts = raw.split(":");
+          const name = parts[0].trim();
+          let interval = fallback;
+          if (parts.length > 1) {
+            const parsed = parseInt(parts[1].trim(), 10);
+            if (!Number.isNaN(parsed) && parsed > 0) interval = parsed;
+            else {
+              console.warn(
+                `Invalid interval for emote '${raw}', using fallback ${fallback}`
+              );
+            }
+          }
+          out.push({ name, interval });
+        }
+        return out;
+      };
+
+      const emotes = parseIntervals(settings.deathCounterEmotes || []);
+
+      // Determine which emotes should trigger this death count
+      const triggered = emotes.filter((e) => {
+        if (!e.interval || e.interval <= 0) return false;
+        return n % e.interval === 0;
+      });
+
+      if (triggered.length === 0) return;
+
+      for (const em of triggered) {
+        for (let i = 0; i < spawnCount; i++) {
+          const payloadEmote = {
+            type: "spawnEmote",
+            emote: em.name,
+            count: 1,
+            triggeredAt: Date.now(),
+          };
+          wsRef.current.send(JSON.stringify(payloadEmote));
+        }
+        console.log(
+          `🚀 Spawned ${spawnCount} x ${em.name} for death #${n} (interval ${em.interval})`
+        );
+      }
+    },
+    [settings, wsRef]
+  );
+
   // listen for websocket “death” events broadcasted to window
   useEffect(() => {
     const handler = (e) => {
       const { count } = e.detail;
-      setDeathCount(count);
-      if (
-        count % settings.deathCounterEmotesPerDeath == 0 &&
-        settings.deathCounterEmotes?.length > 0
-      ) {
-        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-          const spawnCount = 10;
-
-          // Send multiple individual spawn messages
-          for (let i = 0; i < spawnCount; i++) {
-            // Get a random emote from the array
-            const randomEmote =
-              settings.deathCounterEmotes[
-                Math.floor(Math.random() * settings.deathCounterEmotes.length)
-              ];
-
-            const payloadEmote = {
-              type: "spawnEmote",
-              emote: randomEmote,
-              count: 1,
-              triggeredAt: Date.now(),
-            };
-            wsRef.current.send(JSON.stringify(payloadEmote));
-            console.log("🚀 Sent spawnEmote:", payloadEmote);
-          }
-        }
-      }
+      processDeathCount(count);
     };
     window.addEventListener("poe-death", handler);
     return () => window.removeEventListener("poe-death", handler);
-  }, [settings.deathCounterEmotes, wsRef, settings.deathCounterEmotesPerDeath]);
+  }, [processDeathCount]);
 
   return (
-    <div
-      id="poe-death-counter"
-      style={{
-        background: settings.deathCounterBackground,
-        color: settings.deathCounterColor,
-        fontSize: "128px",
-        fontWeight: 700,
-        textShadow: settings.deathCounterShadow
-          ? `0 0 10px ${settings.deathCounterShadowColor}`
-          : "none",
-        transition: "transform 0.2s ease",
-      }}
-    >
-      {settings.deathCounterPrefix} {deathCount}
+    <div>
+      <div
+        id="poe-death-counter"
+        style={{
+          background: settings.deathCounterBackground,
+          color: settings.deathCounterColor,
+          fontSize: "128px",
+          fontWeight: 700,
+          textShadow: settings.deathCounterShadow
+            ? `0 0 10px ${settings.deathCounterShadowColor}`
+            : "none",
+          transition: "transform 0.2s ease",
+        }}
+      >
+        {settings.deathCounterPrefix} {deathCount}
+      </div>
+
+      {/* Debug UI: simulate 1 or 5 deaths (toggleable via settings) */}
+      {deathCounterShowDebug && (
+        <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
+          <button
+            onClick={() => processDeathCount(deathCount + 1)}
+            className="px-3 py-1 rounded bg-gray-700 text-white"
+          >
+            +1 death
+          </button>
+          <button
+            onClick={() => processDeathCount(deathCount + 5)}
+            className="px-3 py-1 rounded bg-gray-700 text-white"
+          >
+            +5 deaths
+          </button>
+        </div>
+      )}
     </div>
   );
 }
