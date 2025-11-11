@@ -26,7 +26,43 @@ export function useEmoteSpawner(
       if (subOnlyMode && isSub === false) return;
       if (!engine) return;
 
-      const emote = emoteMap.get(emoteName);
+      let emote = emoteMap.get(emoteName);
+      let compositeLayers = null;
+
+      // If not found directly, support modifier syntax: base/mod or base+mod or base:mod
+      if (!emote) {
+        const sepMatch = emoteName
+          .split(/[/+:|]/)
+          .map((s) => s.trim())
+          .filter(Boolean);
+        if (sepMatch.length > 1) {
+          // Attempt to resolve each part to an emote URL
+          const layers = [];
+          for (const part of sepMatch) {
+            const e = emoteMap.get(part);
+            if (e && e.url)
+              layers.push({
+                url: e.url,
+                zeroWidth: !!e.zeroWidth,
+                width: e.width,
+                height: e.height,
+                animated: !!e.animated,
+              });
+          }
+          if (layers.length > 0) {
+            compositeLayers = layers;
+            // create a minimal emote-like object for size calculations
+            emote = {
+              url: layers[0].url || layers[0],
+              width: layers[0].width || emoteMap.get(sepMatch[0])?.width || 64,
+              height:
+                layers[0].height || emoteMap.get(sepMatch[0])?.height || 64,
+              animated: layers.some((l) => !!l.animated),
+            };
+          }
+        }
+      }
+
       if (!emote) {
         console.warn(`spawnEmote: emote not found in emoteMap: ${emoteName}`);
         return;
@@ -106,7 +142,12 @@ export function useEmoteSpawner(
       Matter.Body.setVelocity(body, { x: velX, y: velY });
       Matter.Body.setAngularVelocity(body, (Math.random() - 0.5) * 0.2);
 
-      const el = createEmoteElement(emote.url, sizeX, sizeY, emote.animated);
+      const el = createEmoteElement(
+        compositeLayers || emote.url,
+        sizeX,
+        sizeY,
+        emote.animated
+      );
       // Append to body for floating emotes
       document.body.appendChild(el);
 

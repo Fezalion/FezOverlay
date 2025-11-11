@@ -36,7 +36,106 @@ export const createEffectsRegistry = (effectSettings) => ({
 // In-memory cache for emote image blobs
 const emoteImageCache = new Map(); // url -> blobUrl
 
-export function createEmoteElement(url, sizeX, sizeY) {
+export function createEmoteElement(urlOrArray, sizeX, sizeY, animated = false) {
+  // urlOrArray may be a single URL string or an array of URL strings (layers).
+  if (Array.isArray(urlOrArray)) {
+    const container = document.createElement("div");
+    container.style.position = "fixed";
+    container.style.left = "0px";
+    container.style.top = "0px";
+    container.style.pointerEvents = "none";
+    container.style.zIndex = "9999";
+    container.style.width = sizeX + "px";
+    container.style.height = sizeY + "px";
+    container.style.opacity = "0";
+    container.style.transition = "opacity 0.5s ease";
+    requestAnimationFrame(() => {
+      container.style.opacity = "1";
+    });
+
+    // Create an img for each layer and append
+    for (const u of urlOrArray) {
+      const img = document.createElement("img");
+      img.style.width = sizeX + "px";
+      img.style.height = sizeY + "px";
+      img.style.position = "absolute";
+      img.style.left = "0px";
+      img.style.top = "0px";
+      img.style.pointerEvents = "none";
+      img.style.zIndex = "0";
+      // layer may be a string URL or an object {url, zeroWidth, width, height, animated}
+      const layerUrl = typeof u === "string" ? u : u?.url;
+      const layerMeta = typeof u === "object" && u ? u : {};
+
+      // If zeroWidth, we'll mark the element so it can be styled differently if needed
+      if (layerMeta.zeroWidth) img.dataset.zeroWidth = "true";
+
+      // Use existing logic to normalize and fetch each layer via proxy when needed
+      (function setupLayer(srcUrl, el) {
+        function normalizeUrl(u) {
+          if (!u) return u;
+          let s = String(u).trim();
+          while (/^https?:/i.test(s)) {
+            s = s.replace(/^https?:/i, "");
+          }
+          if (s.startsWith("//")) return "https:" + s;
+          s = s.replace(/^\/+/, "");
+          return "https://" + s;
+        }
+
+        const normalized = normalizeUrl(srcUrl);
+
+        // If cached, use cached value
+        if (emoteImageCache.has(normalized)) {
+          el.src = emoteImageCache.get(normalized);
+          return;
+        }
+
+        let isCrossOrigin = true;
+        try {
+          const imgUrl = new URL(normalized, window.location.href);
+          isCrossOrigin = imgUrl.origin !== window.location.origin;
+        } catch {
+          isCrossOrigin = true;
+        }
+
+        if (isCrossOrigin) {
+          const proxyUrl = `/api/emote-proxy?url=${encodeURIComponent(
+            normalized
+          )}`;
+          el.crossOrigin = "anonymous";
+          fetch(proxyUrl)
+            .then((r) => {
+              if (!r.ok) throw new Error("proxy failed");
+              const proxied = proxyUrl;
+              emoteImageCache.set(normalized, proxied);
+              el.src = proxied;
+            })
+            .catch(() => {
+              emoteImageCache.set(normalized, normalized);
+              el.src = normalized;
+            });
+        } else {
+          fetch(normalized)
+            .then((res) => res.blob())
+            .then((blob) => {
+              const blobUrl = URL.createObjectURL(blob);
+              emoteImageCache.set(normalized, blobUrl);
+              el.src = blobUrl;
+            })
+            .catch(() => {
+              emoteImageCache.set(normalized, normalized);
+              el.src = normalized;
+            });
+        }
+      })(layerUrl, img);
+
+      container.appendChild(img);
+    }
+
+    return container;
+  }
+
   const img = document.createElement("img");
 
   function normalizeUrl(u) {
@@ -76,7 +175,10 @@ export function createEmoteElement(url, sizeX, sizeY) {
   }
 
   // Normalize incoming URL to avoid malformed values
-  const normalized = normalizeUrl(url);
+  const normalized = normalizeUrl(urlOrArray);
+
+  // mark animated metadata on the element so CSS or effects can pick it up
+  if (animated) img.dataset.animated = "true";
 
   // If cached, use cached value (could be blob URL or direct URL)
   if (emoteImageCache.has(normalized)) {

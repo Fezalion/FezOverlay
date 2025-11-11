@@ -35,12 +35,16 @@ async function fetch7TVSet(set) {
         ? hostUrl + file.name
         : hostUrl + "/" + file.name;
       const url = normalizeUrl(raw);
+      const zeroWidth = emote.flags == 1;
+      //console.log(zeroWidth ?? `${data.name}:${zeroWidth}`);
+
       return {
         name: emote.name,
         url,
         width: file.width || 64,
         height: file.height || 64,
         animated: emote.data.animated || false,
+        zeroWidth,
       };
     });
   if (set === "global") globalEmoteCache = normalized;
@@ -267,6 +271,7 @@ export function useEmoteLoader(emoteSetId, refreshToken, options = {}) {
               width: em.width || 64,
               height: em.height || 64,
               animated: !!em.animated,
+              zeroWidth: !!em.zeroWidth,
             });
           }
         });

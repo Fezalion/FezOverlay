@@ -28,7 +28,47 @@ export function useMessageHandler(
     function onMessage(channel, userstate, message) {
       console.log(message);
       const words = message.split(/\s+/);
-      const emotes = words.filter((w) => emoteMap.has(w));
+      // Build ordered emote list. If an emote is immediately followed by one or
+      // more zero-width emotes, combine them into a single composite token so
+      // they render together. Trim common punctuation when checking tokens.
+      const trimPunc = (s) => s.replace(/^[^a-zA-Z0-9]+|[^a-zA-Z0-9]+$/g, "");
+      const emotes = [];
+      for (let i = 0; i < words.length; i++) {
+        const raw = words[i];
+        const w = trimPunc(raw);
+        if (!w || !emoteMap.has(w)) continue;
+        // don't treat a zero-width emote as a base for combination
+        const baseMeta = emoteMap.get(w);
+        if (baseMeta && baseMeta.zeroWidth) {
+          emotes.push(w);
+          continue;
+        }
+
+        // collect consecutive zero-width modifiers after base
+        const modifiers = [];
+        let j = i + 1;
+        while (j < words.length) {
+          const nextRaw = words[j];
+          const nextToken = trimPunc(nextRaw);
+          if (!nextToken || !emoteMap.has(nextToken)) break;
+          const meta = emoteMap.get(nextToken);
+          // require explicit true for zeroWidth (avoid truthy non-boolean values)
+          if (meta && meta.zeroWidth === true) {
+            modifiers.push(nextToken);
+            j++;
+            continue;
+          }
+          break;
+        }
+
+        if (modifiers.length > 0) {
+          // join base + modifiers using '/' separator (supported by spawner)
+          emotes.push([w, ...modifiers].join("/"));
+          i = j - 1; // skip consumed modifier tokens
+        } else {
+          emotes.push(w);
+        }
+      }
       const isSub =
         userstate.subscriber ||
         userstate.mod ||
