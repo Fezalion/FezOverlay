@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useMetadata } from "../hooks/useMetadata";
 import { useTwitchClient } from "../hooks/useTwitchClient";
 import { useEmoteLoader } from "../hooks/useEmoteLoader";
@@ -8,8 +8,7 @@ const MOVE_AMOUNT = 1;
 const MOVEMENT_DEBOUNCE_MS = 1000;
 
 export default function ChatOverlay() {
-  const { settings, refreshSettings, setLocalSetting, updateSettings } =
-    useMetadata();
+  const { settings, refreshSettings } = useMetadata();
   const [refreshToken, setRefreshToken] = useState(0);
 
   // Refresh logic
@@ -58,113 +57,10 @@ export default function ChatOverlay() {
       key={stableKey}
       settings={settings}
       isRefresh={refreshToken > 0}
-      setLocalSetting={setLocalSetting}
-      updateSettings={updateSettings}
     />
   );
 }
 
-const useKeyboardMovement = (
-  chatLocationCoords,
-  setLocalSetting,
-  updateSettings
-) => {
-  const movementTimeoutRef = useRef(null);
-  const currentPositionRef = useRef({ x: 0, y: 0 });
-
-  // Sync ref with props
-  useEffect(() => {
-    currentPositionRef.current = {
-      x: chatLocationCoords.x,
-      y: chatLocationCoords.y,
-    };
-  }, [chatLocationCoords]);
-
-  const handleMovement = useCallback(
-    (newPosition) => {
-      currentPositionRef.current = newPosition;
-
-      if (setLocalSetting) {
-        setLocalSetting("chatLocationCoords", newPosition);
-      }
-
-      // Debounce server updates
-      if (movementTimeoutRef.current) {
-        clearTimeout(movementTimeoutRef.current);
-      }
-
-      movementTimeoutRef.current = setTimeout(() => {
-        updateSettings({
-          chatLocationX: newPosition.x,
-          chatLocationY: newPosition.y,
-        });
-      }, MOVEMENT_DEBOUNCE_MS);
-    },
-    [setLocalSetting, updateSettings]
-  );
-
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      const moveBy = e.shiftKey ? MOVE_AMOUNT * 5 : MOVE_AMOUNT;
-      let newPosition = { ...currentPositionRef.current };
-      let moved = false;
-
-      switch (e.key) {
-        case "ArrowUp":
-          newPosition.y -= moveBy;
-          moved = true;
-          break;
-        case "ArrowDown":
-          newPosition.y += moveBy;
-          moved = true;
-          break;
-        case "ArrowLeft":
-          newPosition.x -= moveBy;
-          moved = true;
-          break;
-        case "ArrowRight":
-          newPosition.x += moveBy;
-          moved = true;
-          break;
-        case " ":
-          newPosition = { x: 0, y: 0 };
-          moved = true;
-          break;
-        default:
-          return;
-      }
-
-      if (moved) {
-        e.preventDefault();
-        handleMovement(newPosition);
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-      if (movementTimeoutRef.current) {
-        clearTimeout(movementTimeoutRef.current);
-      }
-    };
-  }, [handleMovement]);
-};
-
-const getPositionStyles = (coords, alignment) => {
-  const baseStyles = {
-    bottom: coords.y * -1,
-  };
-
-  switch (alignment) {
-    case "left":
-      return { ...baseStyles, left: coords.x };
-    case "right":
-      return { ...baseStyles, right: coords.x * -1 };
-    default:
-      return baseStyles;
-  }
-};
 const getRainbowAnimation = (i, charDelay = 0.03) => ({
   animate: { filter: ["hue-rotate(0deg)", "hue-rotate(360deg)"] },
   transition: {
@@ -241,17 +137,13 @@ const buildMotionProps = (
   };
 };
 
-function ChatOverlayCore({ settings, setLocalSetting, updateSettings }) {
+function ChatOverlayCore({ settings }) {
   const clientRef = useTwitchClient(settings.twitchName);
   const [messages, setMessages] = useState([]);
   const emotes = useEmoteLoader(settings.emoteSetId);
   const maxMessages = settings.maxChatMessages || 50;
   const fadeDuration = settings.chatFadeDuration || 10000;
   const fadeTransitionTime = settings.chatFadeTransition || 2000;
-
-  const { chatLocationCoords, chatAlignment } = settings;
-
-  useKeyboardMovement(chatLocationCoords, setLocalSetting, updateSettings);
 
   const [badges, setBadges] = useState({});
   const [auth, setAuth] = useState(null);
@@ -407,14 +299,7 @@ function ChatOverlayCore({ settings, setLocalSetting, updateSettings }) {
 
     client.on("message", handleMessage);
     return () => client.off("message", handleMessage);
-  }, [
-    clientRef.current,
-    clientRef,
-    maxMessages,
-    fadeDuration,
-    fadeTransitionTime,
-    settings,
-  ]);
+  }, [clientRef, maxMessages, fadeDuration, fadeTransitionTime, settings]);
 
   // Random color fallback
   const getRandomColor = () => {
@@ -555,26 +440,17 @@ function ChatOverlayCore({ settings, setLocalSetting, updateSettings }) {
   const chatStyles = useMemo(
     () => ({
       container: {
-        ...getPositionStyles(chatLocationCoords, chatAlignment),
         position: "fixed",
-        maxWidth: settings.chatWidth || "800px",
-        maxHeight: settings.chatHeight || "100px",
-        height: "auto",
-        width: settings.chatWidth || "800px",
+        bottom: 0,
+        left: 0,
+        width: "100%",
+        height: "100%",
         background: settings.chatBackgroundColor || "rgba(0,0,0,0)",
-        fontSize: settings.chatFontSize || "14px",
+        fontSize: settings.chatFontSize || "32px",
         fontFamily: settings.chatFont || "Inter, system-ui, sans-serif",
       },
     }),
-    [
-      chatAlignment,
-      chatLocationCoords,
-      settings.chatWidth,
-      settings.chatBackgroundColor,
-      settings.chatHeight,
-      settings.chatFontSize,
-      settings.chatFont,
-    ]
+    [settings.chatBackgroundColor, settings.chatFontSize, settings.chatFont]
   );
 
   if (!clientRef.current) {

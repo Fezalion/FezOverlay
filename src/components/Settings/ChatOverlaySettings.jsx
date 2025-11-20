@@ -44,7 +44,6 @@ export default function ChatOverlaySettings({ settings, updateSetting }) {
               onClick={() => {
                 const defaultSubEffects = {
                   chatBackgroundColor: "rgba(0, 0, 0, 0)",
-                  chatAlignment: "left",
                 };
                 Object.entries(defaultSubEffects).forEach(([key, val]) =>
                   updateSetting(key, val)
@@ -54,16 +53,6 @@ export default function ChatOverlaySettings({ settings, updateSetting }) {
             >
               Reset
             </button>
-
-            <label className="block mb-2">Alignment</label>
-            <select
-              value={settings.chatAlignment}
-              onChange={(e) => updateSetting("chatAlignment", e.target.value)}
-              className="appearance-none rounded-lg px-3 py-2 bg-white/10 border border-white/20 text-sm text-white focus:ring-2 focus:ring-rose-400 mb-4"
-            >
-              <option value="right">Right</option>
-              <option value="left">Left</option>
-            </select>
 
             {/* Background Picker */}
             <label className="block mb-2">Background Color</label>
@@ -91,7 +80,7 @@ export default function ChatOverlaySettings({ settings, updateSetting }) {
               onClick={() => {
                 const defaultSubEffects = {
                   chatFontColor: "#ffffff",
-                  chatFontSize: 14,
+                  chatFontSize: 32,
                 };
                 Object.entries(defaultSubEffects).forEach(([key, val]) =>
                   updateSetting(key, val)
@@ -114,7 +103,7 @@ export default function ChatOverlaySettings({ settings, updateSetting }) {
               label="Font Size"
               type="range"
               min={8}
-              max={30}
+              max={64}
               step={1}
               value={settings.chatFontSize}
               onChange={(e) =>
@@ -202,8 +191,6 @@ export default function ChatOverlaySettings({ settings, updateSetting }) {
                   chatFadeDuration: 10000,
                   chatFadeTransition: 2000,
                   chatEditMode: false,
-                  chatWidth: 800,
-                  chatHeight: 300,
                 };
                 Object.entries(defaultSubEffects).forEach(([key, val]) =>
                   updateSetting(key, val)
@@ -231,28 +218,6 @@ export default function ChatOverlaySettings({ settings, updateSetting }) {
                 />
               </button>
             </label>
-            <InputField
-              label="Width"
-              type="range"
-              min={10}
-              max={1000}
-              step={1}
-              value={settings.chatWidth}
-              onChange={(e) =>
-                updateSetting("chatWidth", parseFloat(e.target.value))
-              }
-            />
-            <InputField
-              label="Height"
-              type="range"
-              min={10}
-              max={1000}
-              step={1}
-              value={settings.chatHeight}
-              onChange={(e) =>
-                updateSetting("chatHeight", parseInt(e.target.value))
-              }
-            />
             <InputField
               label="Maximum amount of chat messages"
               type="range"
