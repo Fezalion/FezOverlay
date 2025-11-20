@@ -140,18 +140,19 @@ export function useMessageHandler(
         });
       }
 
-      if (words[0] == "!force" && isMod) {
+      const cmd = words[0].toLowerCase();
+      const arg = words[1]?.toLowerCase();
+
+      if (cmd === "!force" && isMod) {
         const battleEvent = shuffledEffects.find(
           ([key]) => key === "battleEvent"
         );
-        switch (words[1]) {
-          case "battleEvent":
+
+        switch (arg) {
+          case "battleevent":
             if (battleEvent && subEffectTypes.includes("battleEvent")) {
               battleEvent[1].fn();
             }
-            break;
-
-          default:
             break;
         }
       }
