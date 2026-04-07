@@ -10,6 +10,7 @@ import ChatCommands from "./components/ChatCommands";
 import ChatOverlay from "./components/ChatOverlay";
 import POEDeathCounter from "./components/POEDeathCounter";
 import Music from "./components/MusicOverlay";
+import FihOverlay from "./components/Fih";
 import "./index.css";
 import { setupGlobalErrorLogger } from "./utils/errorLogger";
 
@@ -84,6 +85,7 @@ createRoot(document.getElementById("root")).render(
         <Route path="/chat" element={<ChatOverlay />} />
         <Route path="/deaths" element={<POEDeathCounter />} />
         <Route path="/music" element={<Music />} />
+        <Route path="/fih" element={<FihOverlay />} />
       </Routes>
     </BrowserRouter>
   </StrictMode>,
