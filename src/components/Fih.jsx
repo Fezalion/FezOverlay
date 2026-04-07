@@ -279,7 +279,6 @@ export default function FihOverlay() {
         width: "100vw",
         height: "100vh",
         overflow: "hidden",
-        //border: isDebug ? "4px solid #ff4757" : "none",
       }}
     >
       <div
