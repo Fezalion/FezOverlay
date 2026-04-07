@@ -288,7 +288,7 @@ export default function FihOverlay() {
           inset: 0,
           outline: isDebug ? "10px solid red" : "none",
           outlineOffset: "-10px",
-          backgroundColor: isDebug ? "rgba(0, 0, 0, 0.1)" : "transparent",
+          backgroundColor: isDebug ? "rgba(0, 0, 0, 0.12)" : "transparent",
         }}
       />
       {activeSubs.map((sub) => (
