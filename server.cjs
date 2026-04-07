@@ -74,7 +74,7 @@ function GenerateAccess() {
   // --- Global error logging ---
   const ERROR_LOG_FILE = path.join(
     baseDir,
-    `error-log-${new Date().toISOString().replace(/[:.]/g, "-")}.log`
+    `error-log-${new Date().toISOString().replace(/[:.]/g, "-")}.log`,
   );
   const errorLog = [];
   function logErrorToFile(err, info) {
@@ -118,7 +118,7 @@ function GenerateAccess() {
   console.log("👉 Open this URL in your browser to authorize Twitch:");
   console.log(authUrl);
   console.log(
-    "\nAfter login, the token will be sent back and saved automatically.\n"
+    "\nAfter login, the token will be sent back and saved automatically.\n",
   );
 }
 
@@ -160,7 +160,7 @@ function getLatestRelease(cb) {
             cb(new Error("Failed to parse GitHub API response"));
           }
         });
-      }
+      },
     )
     .on("error", (err) => {
       console.error("Network error:", err.message);
@@ -191,7 +191,7 @@ if (fs.existsSync(updaterNewPath)) {
 } else {
   console.log(
     "✗ new Updater does not exist on: (if there is no new updater, this is normal)",
-    updaterNewPath
+    updaterNewPath,
   );
 }
 
@@ -216,7 +216,7 @@ if (fs.existsSync(envPath)) {
   fs.writeFileSync(envPath, cleanedLines.join("\n") + "\n", "utf8");
   if (!foundApiKey) {
     console.warn(
-      "[.env] Warning: LASTFM_API_KEY is missing or empty after cleaning. The Last.fm API will not work."
+      "[.env] Warning: LASTFM_API_KEY is missing or empty after cleaning. The Last.fm API will not work.",
     );
   }
 }
@@ -329,7 +329,7 @@ app.get("/api/currentversion", (req, res) => {
 app.get("/api/twitch", (req, res) => {
   if (!process.env.TWITCH_ACCESS_TOKEN) {
     console.error(
-      "[Twitch API] TWITCH_ACCESS_TOKEN and/or CLIENT_ID is not set"
+      "[Twitch API] TWITCH_ACCESS_TOKEN and/or CLIENT_ID is not set",
     );
     return res
       .status(500)
@@ -378,7 +378,7 @@ app.post("/api/battle/state", (req, res) => {
     console.log("[API] Battle state updated:", serverBattleActive);
     // Broadcast to all connected clients so overlays can react if needed
     broadcast(
-      JSON.stringify({ type: "battleState", active: serverBattleActive })
+      JSON.stringify({ type: "battleState", active: serverBattleActive }),
     );
     res.json({ ok: true, active: serverBattleActive });
   } catch (e) {
@@ -466,7 +466,7 @@ app.post("/api/bots", (req, res) => {
     updated = Array.from(new Set([...current, username.toLowerCase()]));
   } else if (action === "remove") {
     updated = current.filter(
-      (bot) => bot.toLowerCase() !== username.toLowerCase()
+      (bot) => bot.toLowerCase() !== username.toLowerCase(),
     );
   } else {
     return res.status(400).json({ success: false, error: "Invalid action" });
@@ -496,13 +496,13 @@ app.post("/api/commands", (req, res) => {
   if (action === "add") {
     // Remove any existing command with the same name (case-insensitive)
     updated = current.filter(
-      (cmd) => cmd.name.toLowerCase() !== name.toLowerCase()
+      (cmd) => cmd.name.toLowerCase() !== name.toLowerCase(),
     );
     // Add the new command
     updated.push({ name, text });
   } else if (action === "remove") {
     updated = current.filter(
-      (cmd) => cmd.name.toLowerCase() !== name.toLowerCase()
+      (cmd) => cmd.name.toLowerCase() !== name.toLowerCase(),
     );
   } else {
     return res.status(400).json({ success: false, error: "Invalid action" });
@@ -526,11 +526,11 @@ app.post("/api/settings", (req, res) => {
   if ("subEffectTypes" in req.body) {
     if (Array.isArray(req.body.subEffectTypes)) {
       updated.subEffectTypes = req.body.subEffectTypes.filter((type) =>
-        availableSubEffects.includes(type)
+        availableSubEffects.includes(type),
       );
     } else if (typeof req.body.subEffectTypes === "string") {
       updated.subEffectTypes = availableSubEffects.includes(
-        req.body.subEffectTypes
+        req.body.subEffectTypes,
       )
         ? [req.body.subEffectTypes]
         : [];
@@ -554,7 +554,7 @@ app.get("/api/leaderboard", (req, res) => {
       wins: Number(wins) || 0,
     }));
     entries.sort(
-      (a, b) => b.wins - a.wins || a.username.localeCompare(b.username)
+      (a, b) => b.wins - a.wins || a.username.localeCompare(b.username),
     );
     res.json(entries.slice(0, limit));
   } catch (e) {
@@ -586,7 +586,7 @@ app.post("/api/leaderboard/win", (req, res) => {
       wins: Number(wins) || 0,
     }));
     entries.sort(
-      (a, b) => b.wins - a.wins || a.username.localeCompare(b.username)
+      (a, b) => b.wins - a.wins || a.username.localeCompare(b.username),
     );
     const top = entries.slice(0, 5);
     res.json({ success: true, username: username.trim(), wins, top });
@@ -603,7 +603,7 @@ app.post("/api/leaderboard/announce", (req, res) => {
   try {
     const limit = Math.max(
       1,
-      parseInt(req.body?.limit || req.query?.limit || "5", 10)
+      parseInt(req.body?.limit || req.query?.limit || "5", 10),
     );
     const duration = Number(req.body?.duration || req.query?.duration || 10000);
 
@@ -611,7 +611,7 @@ app.post("/api/leaderboard/announce", (req, res) => {
     const cooldownMs = Math.max(1000, Math.floor(duration));
     if (now - lastLeaderboardAnnounce < cooldownMs) {
       const retryAfter = Math.ceil(
-        (cooldownMs - (now - lastLeaderboardAnnounce)) / 1000
+        (cooldownMs - (now - lastLeaderboardAnnounce)) / 1000,
       );
       res.setHeader("Retry-After", String(retryAfter));
       return res.status(429).json({
@@ -626,7 +626,7 @@ app.post("/api/leaderboard/announce", (req, res) => {
       wins: Number(wins) || 0,
     }));
     entries.sort(
-      (a, b) => b.wins - a.wins || a.username.localeCompare(b.username)
+      (a, b) => b.wins - a.wins || a.username.localeCompare(b.username),
     );
     const top = entries.slice(0, limit);
 
@@ -636,7 +636,7 @@ app.post("/api/leaderboard/announce", (req, res) => {
         type: "showLeaderboard",
         top,
         duration,
-      })
+      }),
     );
 
     lastLeaderboardAnnounce = now;
@@ -654,7 +654,7 @@ app.post("/api/refresh", (req, res) => {
     JSON.stringify({
       type: "refresh",
       target: req.body?.target || "all",
-    })
+    }),
   );
   res.send("Refresh triggered");
 });
@@ -677,7 +677,7 @@ function parseLatestTrack(data) {
   const tracks = data?.recenttracks?.track || [];
   // Find the currently playing track
   const nowPlayingTrack = tracks.find(
-    (t) => t["@attr"] && t["@attr"].nowplaying === "true"
+    (t) => t["@attr"] && t["@attr"].nowplaying === "true",
   );
   if (!nowPlayingTrack || !nowPlayingTrack.name || !nowPlayingTrack.artist) {
     return null;
@@ -714,7 +714,7 @@ app.get("/api/lastfm/latest/:username", (req, res) => {
           if (!track) {
             console.warn(
               "[LastFM API] No recent tracks found for user:",
-              username
+              username,
             );
             return res.status(404).json({ error: "No recent tracks found" });
           }
@@ -795,7 +795,7 @@ wss.on("connection", (ws) => {
     JSON.stringify({
       type: "refresh",
       target: "all",
-    })
+    }),
   );
   ws.on("message", (message) => {
     try {
@@ -806,14 +806,14 @@ wss.on("connection", (ws) => {
             type: "spawnEmote",
             emote: data.emote,
             count: data.count || 1,
-          })
+          }),
         );
       } else if (data.type === "chatMessage") {
         broadcast(
           JSON.stringify({
             type: "chatMessage",
             message: data.message,
-          })
+          }),
         );
       } else {
         console.log("Unknown message type:", data);
@@ -839,7 +839,7 @@ function detectPoELogFile() {
       "Grinding Gear Games",
       "Path of Exile",
       "logs",
-      "Client.txt"
+      "Client.txt",
     ),
     // Steam
     path.join(
@@ -850,7 +850,7 @@ function detectPoELogFile() {
       "common",
       "Path of Exile",
       "logs",
-      "Client.txt"
+      "Client.txt",
     ),
     // Epic Games
     path.join(
@@ -859,14 +859,14 @@ function detectPoELogFile() {
       "Epic Games",
       "PathOfExile",
       "logs",
-      "Client.txt"
+      "Client.txt",
     ),
     // LocalAppData variant
     path.join(
       process.env.LOCALAPPDATA || "",
       "Path of Exile",
       "Logs",
-      "Client.txt"
+      "Client.txt",
     ),
     // Some players use D:\ drives
     path.join(
@@ -876,7 +876,7 @@ function detectPoELogFile() {
       "common",
       "Path of Exile",
       "logs",
-      "Client.txt"
+      "Client.txt",
     ),
     path.join(
       "D:",
@@ -884,7 +884,7 @@ function detectPoELogFile() {
       "Grinding Gear Games",
       "Path of Exile",
       "logs",
-      "Client.txt"
+      "Client.txt",
     ),
   ];
 
@@ -919,8 +919,8 @@ function detectPoELogFile() {
   existingLogs.forEach((log) => {
     console.log(
       `- ${log.path} (Last activity: ${new Date(
-        log.lastActivity
-      ).toLocaleString()})`
+        log.lastActivity,
+      ).toLocaleString()})`,
     );
   });
 
@@ -938,7 +938,7 @@ const config = {
       process.env.LOCALAPPDATA || "",
       "Path of Exile",
       "Logs",
-      "Client.txt"
+      "Client.txt",
     ),
   persistenceFile: DEATH_LOG,
 };
@@ -972,7 +972,7 @@ function saveDeathCount(count) {
     fs.writeFileSync(
       config.persistenceFile,
       JSON.stringify({ count }, null, 2),
-      "utf8"
+      "utf8",
     );
   } catch (error) {
     console.error("[PoE] Error saving death count:", error);
@@ -998,7 +998,7 @@ poeLog.on("death", (player) => {
     deathCount++;
     saveDeathCount(deathCount);
     console.log(
-      `[POE] ${player.name || "Player"} has died (${deathCount} total)`
+      `[POE] ${player.name || "Player"} has died (${deathCount} total)`,
     );
 
     broadcast(
@@ -1006,13 +1006,13 @@ poeLog.on("death", (player) => {
         type: "poeDeath",
         count: deathCount,
         player: player.name || "Player",
-      })
+      }),
     );
   } else {
     console.log(
       `[POE] Ignoring death of ${
         player.name || "Player"
-      } (tracking: ${trackedCharName})`
+      } (tracking: ${trackedCharName})`,
     );
   }
 });
@@ -1027,7 +1027,7 @@ poeLog.on("deaths", (data) => {
   if (!trackedCharName) {
     // No character tracking, accept the death count
     console.log(
-      `[POE] Death count command used: ${data.deaths} deaths (no character tracking)`
+      `[POE] Death count command used: ${data.deaths} deaths (no character tracking)`,
     );
     saveDeathCount(data.deaths);
     deathCount = data.deaths;
@@ -1037,13 +1037,13 @@ poeLog.on("deaths", (data) => {
         type: "poeDeath",
         count: data.deaths,
         player: "Player",
-      })
+      }),
     );
   } else {
     // When tracking a specific character, we accept the count since /deaths
     // is used by the player to set their own count
     console.log(
-      `[POE] Death count command used: ${data.deaths} deaths (tracking ${trackedCharName}, death command does not provide char information, death counter overriden with new one for the current char)`
+      `[POE] Death count command used: ${data.deaths} deaths (tracking ${trackedCharName}, death command does not provide char information, death counter overriden with new one for the current char)`,
     );
 
     // Accept the count since it's intentionally set by the player
@@ -1056,7 +1056,7 @@ poeLog.on("deaths", (data) => {
         type: "poeDeath",
         count: data.deaths,
         player: trackedCharName,
-      })
+      }),
     );
   }
 });

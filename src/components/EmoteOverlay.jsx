@@ -43,7 +43,7 @@ export default function EmoteOverlay() {
 
     ws.addEventListener("message", handleMessage);
     ws.addEventListener("error", (err) =>
-      console.error("WebSocket error:", err)
+      console.error("WebSocket error:", err),
     );
     ws.addEventListener("close", () => console.log("WebSocket closed"));
 
@@ -57,7 +57,7 @@ export default function EmoteOverlay() {
 
   const stableKey = useMemo(
     () => `overlay-${settings.twitchName}-${settings.emoteSetId}`,
-    [settings.twitchName, settings.emoteSetId]
+    [settings.twitchName, settings.emoteSetId],
   );
 
   return (
@@ -112,14 +112,14 @@ function EmoteOverlayCore({ settings, wsRef, refreshToken }) {
     subscriberTracker,
     viewerTracker,
     sceneRef,
-    clientRef
+    clientRef,
   );
 
   const { spawnEmote } = useEmoteSpawner(
     physics.engineRef.current,
     emoteMap,
     bodiesWithTimers,
-    settings
+    settings,
   );
 
   // spawnEmote ref for WS messages
@@ -209,10 +209,10 @@ function EmoteOverlayCore({ settings, wsRef, refreshToken }) {
               i === 0
                 ? "#ffd43b"
                 : i === 1
-                ? "#c0c0c0"
-                : i === 2
-                ? "#cd7f32"
-                : "#fff"
+                  ? "#c0c0c0"
+                  : i === 2
+                    ? "#cd7f32"
+                    : "#fff"
             }; font-weight:600;`;
 
             const right = document.createElement("div");
@@ -248,7 +248,7 @@ function EmoteOverlayCore({ settings, wsRef, refreshToken }) {
   const { clearAllEmotes } = useEmoteLifecycle(
     physics.engineRef.current,
     bodiesWithTimers,
-    settings.emoteLifetime
+    settings.emoteLifetime,
   );
 
   // Start DOM updates when physics engine is ready
@@ -276,14 +276,14 @@ function EmoteOverlayCore({ settings, wsRef, refreshToken }) {
     emoteMap,
     spawnEmoteRef,
     globalEffects,
-    settings
+    settings,
   );
 
   useRaidHandler(
     clientRef.current,
     spawnEmoteRef,
     settings.raidEffect,
-    settings.emoteDelay
+    settings.emoteDelay,
   );
 
   return (
