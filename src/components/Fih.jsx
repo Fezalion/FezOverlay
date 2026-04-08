@@ -5,6 +5,11 @@ import { useTwitchClient } from "../hooks/useTwitchClient";
 import { useSubscriberTracker } from "../hooks/useSubscriberTracker";
 import { useMetadata } from "../hooks/useMetadata";
 
+import fih_idle from "../utils/fih/fih_still_frame_01.png";
+import fih_swim_0 from "../utils/fih/fih_still_frame_02.png";
+import fih_swim_1 from "../utils/fih/fih_still_frame_03.png";
+import fih_swim_2 from "../utils/fih/fih_still_frame_04.png";
+
 export default function FihOverlay() {
   const sceneRef = useRef(null);
   const engineRef = useRef(Matter.Engine.create());
@@ -37,13 +42,14 @@ export default function FihOverlay() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  const lastSpawnTime = useRef(0);
   const subscriberTrackerRef = useRef(subscriberTracker);
   useEffect(() => {
     subscriberTrackerRef.current = subscriberTracker;
   }, [subscriberTracker]);
 
-  const nextSpawnTime = useRef(Date.now() + randomBetween(30000, 180000));
+  const nextSpawnTime = useRef(
+    Date.now() + randomBetween(1000 * 10, 1000 * 120),
+  );
 
   function randomBetween(min, max) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -60,7 +66,8 @@ export default function FihOverlay() {
           const name = selected[0].name || selected[0].displayName;
           spawnSubBubble(name);
           // Schedule the next spawn after completing this one
-          nextSpawnTime.current = Date.now() + randomBetween(30000, 180000);
+          nextSpawnTime.current =
+            Date.now() + randomBetween(1000 * 10, 1000 * 120);
         }
       }
     }, 1000);
@@ -129,9 +136,9 @@ export default function FihOverlay() {
         frictionAir: 0.03,
         render: {
           sprite: {
-            texture: "https://openclipart.org/image/400px/265218",
-            xScale: 0.15,
-            yScale: 0.15,
+            texture: fih_idle,
+            xScale: 1,
+            yScale: 1,
           },
         },
       },
@@ -199,7 +206,6 @@ export default function FihOverlay() {
       const fish = fishRef.current;
       if (!fish) return;
 
-      const time = event.source.timing.timestamp;
       const chasing = subBodies.current.size > 0;
       const target = chasing
         ? subBodies.current.values().next().value.position
@@ -209,15 +215,34 @@ export default function FihOverlay() {
       const dy = target.y - fish.position.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
 
-      // Flip & Level Lock
-      // Inside beforeUpdate
-      const baseScale = 0.2;
+      const baseScale = 1;
+      const time = event.source.timing.timestamp;
+      let currentFrame = 0;
+
+      const speed = Math.sqrt(fish.velocity.x ** 2 + fish.velocity.y ** 2);
+      const isMoving = speed > 0.3;
+      // Determine if we should be "swimming" or "idle"
+      if (isMoving) {
+        // Cycle frames 1, 2, 3 every 150ms
+        currentFrame = 1 + (Math.floor(time / 150) % 3);
+      } else {
+        currentFrame = 0; // fih_idle
+      }
+
+      const frames = [fih_idle, fih_swim_0, fih_swim_1, fih_swim_2];
+      fish.render.sprite.texture = frames[currentFrame];
+
+      // Maintain Scale & Flip logic
       if (Math.abs(fish.velocity.x) > 0.1) {
-        // If moving right (positive velocity), xScale should be -0.2
-        // If moving left (negative velocity), xScale should be 0.2
+        // Flip the sprite based on direction
         fish.render.sprite.xScale =
           fish.velocity.x > 0 ? -baseScale : baseScale;
       }
+      // Ensure yScale stays consistent (prevents it staying small after a "gulp")
+      if (fish.render.sprite.yScale !== 1.1) {
+        fish.render.sprite.yScale = baseScale;
+      }
+
       Body.setAngle(fish, 0);
       Body.setAngularVelocity(fish, 0);
 
@@ -255,9 +280,9 @@ export default function FihOverlay() {
           Composite.remove(engine.world, sub);
           subBodies.current.delete(sub.id);
           // Gulp effect
-          fishRef.current.render.sprite.yScale = 0.3;
+          fishRef.current.render.sprite.yScale = 1.2;
           setTimeout(() => {
-            if (fishRef.current) fishRef.current.render.sprite.yScale = 0.2;
+            if (fishRef.current) fishRef.current.render.sprite.yScale = 1;
           }, 200);
         }
       });
