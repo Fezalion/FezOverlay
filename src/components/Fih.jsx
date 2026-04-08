@@ -12,12 +12,14 @@ import fih_swim_2 from "../utils/fih/fih_still_frame_04.png";
 
 export default function FihOverlay() {
   const sceneRef = useRef(null);
+  const fishCanvasRef = useRef(null);
   const engineRef = useRef(Matter.Engine.create());
   const fishRef = useRef(null);
   const subBodies = useRef(new Map());
   const wallsRef = useRef([]);
+  const facingRightRef = useRef(false);
+  const gulpScaleRef = useRef(1); // for gulp effect on custom canvas
   const [isDebug, setIsDebug] = useState(false);
-
   const [activeSubs, setActiveSubs] = useState([]);
 
   const { settings } = useMetadata();
@@ -25,35 +27,36 @@ export default function FihOverlay() {
   const subscriberTracker = useSubscriberTracker(clientRef.current, false);
 
   const idleTarget = useRef({
-    x: window.innerWidth / 2,
-    y: window.innerHeight / 2,
+    x: Math.random() * window.innerWidth,
+    y: Math.random() * window.innerHeight,
   });
+
+  // Debug toggle
   useEffect(() => {
     const handleKeyDown = (e) => {
-      // OBS sometimes blocks the default 'Space' behavior (scrolling)
-      // so we check for ' ' or 'Space'
       if (e.key === " " || e.code === "Space") {
         setIsDebug((prev) => !prev);
-        console.log("Debug toggled:", !isDebug);
       }
     };
-
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
+  // Keep subscriberTracker in a ref
   const subscriberTrackerRef = useRef(subscriberTracker);
   useEffect(() => {
     subscriberTrackerRef.current = subscriberTracker;
   }, [subscriberTracker]);
 
+  function randomBetween(min, max) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+  }
+
   const nextSpawnTime = useRef(
     Date.now() + randomBetween(1000 * 10, 1000 * 120),
   );
 
-  function randomBetween(min, max) {
-    return Math.floor(Math.random() * (max - min + 1)) + min;
-  }
+  // Subscriber spawn interval
   useEffect(() => {
     const interval = setInterval(() => {
       const now = Date.now();
@@ -65,20 +68,36 @@ export default function FihOverlay() {
         if (selected?.length > 0) {
           const name = selected[0].name || selected[0].displayName;
           spawnSubBubble(name);
-          // Schedule the next spawn after completing this one
           nextSpawnTime.current =
             Date.now() + randomBetween(1000 * 10, 1000 * 120);
         }
       }
     }, 1000);
-
     return () => clearInterval(interval);
   }, []);
 
   const spawnSubBubble = (name) => {
     const { Bodies, Composite } = Matter;
-    const x = Math.random() * (window.innerWidth - 100) + 50;
-    const y = Math.random() * (window.innerHeight - 100) + 50;
+    const padding = 100;
+    const minDistance = 400;
+    const fish = fishRef.current;
+
+    let x, y, dist;
+    let attempts = 0;
+
+    do {
+      x = Math.random() * (window.innerWidth - padding * 2) + padding;
+      y = Math.random() * (window.innerHeight - padding * 2) + padding;
+
+      if (fish) {
+        const dx = x - fish.position.x;
+        const dy = y - fish.position.y;
+        dist = Math.sqrt(dx * dx + dy * dy);
+      } else {
+        dist = minDistance + 1;
+      }
+      attempts++;
+    } while (dist < minDistance && attempts < 15);
 
     const newSub = Bodies.circle(x, y, 20, {
       label: "sub",
@@ -97,25 +116,46 @@ export default function FihOverlay() {
     Composite.add(engineRef.current.world, newSub);
   };
 
-  // 2. Idle Target Logic
+  // Idle target movement
   useEffect(() => {
     const moveIdlePoint = () => {
       const padding = 0.2;
-      idleTarget.current = {
-        x: (Math.random() * (1 - padding * 2) + padding) * window.innerWidth,
-        y: (Math.random() * (1 - padding * 2) + padding) * window.innerHeight,
-      };
+      const minDistance = 300;
+      const fish = fishRef.current;
+
+      let newX, newY, dist;
+      let attempts = 0;
+
+      do {
+        newX =
+          (Math.random() * (1 - padding * 2) + padding) * window.innerWidth;
+        newY =
+          (Math.random() * (1 - padding * 2) + padding) * window.innerHeight;
+
+        if (fish) {
+          const dx = newX - fish.position.x;
+          const dy = newY - fish.position.y;
+          dist = Math.sqrt(dx * dx + dy * dy);
+        } else {
+          dist = minDistance + 1;
+        }
+        attempts++;
+      } while (dist < minDistance && attempts < 10);
+
+      idleTarget.current = { x: newX, y: newY };
     };
+
     const interval = setInterval(moveIdlePoint, 15000);
     return () => clearInterval(interval);
   }, []);
 
-  // 3. Matter.js Main Loop
+  // Matter.js Main Loop
   useEffect(() => {
     const { Engine, Render, Runner, Bodies, Composite, Body, Events } = Matter;
     const engine = engineRef.current;
     engine.gravity.y = 0;
 
+    // Matter renderer (for subs only — fish is hidden here)
     const render = Render.create({
       element: sceneRef.current,
       engine: engine,
@@ -127,19 +167,16 @@ export default function FihOverlay() {
       },
     });
 
+    // Fish body — rendered invisibly, physics only
     const fish = Bodies.circle(
-      window.innerWidth / 2,
-      window.innerHeight / 2,
+      Math.random() * window.innerWidth,
+      Math.random() * window.innerHeight,
       40,
       {
         label: "fish",
         frictionAir: 0.03,
         render: {
-          sprite: {
-            texture: fih_idle,
-            xScale: 1,
-            yScale: 1,
-          },
+          opacity: 0, // hide from Matter renderer; we draw it on fishCanvas
         },
       },
     );
@@ -171,17 +208,33 @@ export default function FihOverlay() {
     const updateWalls = () => {
       const w = window.innerWidth;
       const h = window.innerHeight;
-      Body.setPosition(walls[0], { x: w / 2, y: -thickness / 2 }); // Top
-      Body.setPosition(walls[1], { x: w / 2, y: h + thickness / 2 }); // Bottom
-      Body.setPosition(walls[2], { x: -thickness / 2, y: h / 2 }); // Left
-      Body.setPosition(walls[3], { x: w + thickness / 2, y: h / 2 }); // Right
+      Body.setPosition(walls[0], { x: w / 2, y: -thickness / 2 });
+      Body.setPosition(walls[1], { x: w / 2, y: h + thickness / 2 });
+      Body.setPosition(walls[2], { x: -thickness / 2, y: h / 2 });
+      Body.setPosition(walls[3], { x: w + thickness / 2, y: h / 2 });
     };
     updateWalls();
     Composite.add(engine.world, walls);
 
+    // Custom fish canvas setup
+    const fishCanvas = fishCanvasRef.current;
+    const fishCtx = fishCanvas.getContext("2d");
+    fishCanvas.width = window.innerWidth;
+    fishCanvas.height = window.innerHeight;
+
+    // Preload fish images
+    const fishFrameSrcs = [fih_idle, fih_swim_0, fih_swim_1, fih_swim_2];
+    const fishImages = fishFrameSrcs.map((src) => {
+      const img = new Image();
+      img.src = src;
+      return img;
+    });
+
     const handleResize = () => {
       render.canvas.width = window.innerWidth;
       render.canvas.height = window.innerHeight;
+      fishCanvas.width = window.innerWidth;
+      fishCanvas.height = window.innerHeight;
       updateWalls();
     };
     window.addEventListener("resize", handleResize);
@@ -190,7 +243,50 @@ export default function FihOverlay() {
     Runner.run(runner, engine);
     Render.run(render);
 
-    // Sync React Nameplates
+    // Custom fish draw loop
+    let animFrame;
+    const drawFish = () => {
+      const fish = fishRef.current;
+      fishCtx.clearRect(0, 0, fishCanvas.width, fishCanvas.height);
+
+      if (fish) {
+        const speed = Math.sqrt(fish.velocity.x ** 2 + fish.velocity.y ** 2);
+        const isMoving = speed > 0.3;
+        const time = performance.now();
+
+        // Animation frame
+        let frameIndex = 0;
+        if (isMoving) frameIndex = 1 + (Math.floor(time / 150) % 3);
+        const img = fishImages[frameIndex];
+
+        // Use natural size or fallback
+        const w = img.naturalWidth || 80;
+        const h = img.naturalHeight || 80;
+
+        const { x, y } = fish.position;
+        const angle = fish.angle;
+        const gulpScale = gulpScaleRef.current;
+
+        fishCtx.save();
+        fishCtx.translate(x, y);
+        fishCtx.rotate(angle);
+
+        // Flip horizontally if facing right
+        if (facingRightRef.current) {
+          fishCtx.scale(-1, gulpScale);
+        } else {
+          fishCtx.scale(1, gulpScale);
+        }
+
+        fishCtx.drawImage(img, -w / 2, -h / 2, w, h);
+        fishCtx.restore();
+      }
+
+      animFrame = requestAnimationFrame(drawFish);
+    };
+    drawFish();
+
+    // Sync React nameplates
     Events.on(engine, "afterUpdate", () => {
       const positions = Array.from(subBodies.current.values()).map((body) => ({
         id: body.id,
@@ -201,7 +297,6 @@ export default function FihOverlay() {
       setActiveSubs(positions);
     });
 
-    // Fish AI & Movement
     Events.on(engine, "beforeUpdate", (event) => {
       const fish = fishRef.current;
       if (!fish) return;
@@ -215,40 +310,38 @@ export default function FihOverlay() {
       const dy = target.y - fish.position.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
 
-      const baseScale = 1;
-      const time = event.source.timing.timestamp;
-      let currentFrame = 0;
+      // 1. DIRECTION — update facingRight ref (used by custom canvas)
+      if (fish.velocity.x > 0.1) {
+        facingRightRef.current = true;
+      } else if (fish.velocity.x < -0.1) {
+        facingRightRef.current = false;
+      }
 
+      // 3. TILT LOGIC
       const speed = Math.sqrt(fish.velocity.x ** 2 + fish.velocity.y ** 2);
       const isMoving = speed > 0.3;
-      // Determine if we should be "swimming" or "idle"
-      if (isMoving) {
-        // Cycle frames 1, 2, 3 every 150ms
-        currentFrame = 1 + (Math.floor(time / 150) % 3);
+
+      if (dist > 30 && isMoving) {
+        // How much vertical vs horizontal to target — gives a gentle pitch
+        const tiltAngle = Math.atan2(dy, Math.abs(dx)) * 0.4; // 0.4 dampens it
+        const clampedAngle = Math.max(Math.min(tiltAngle, 0.4), -0.4);
+
+        Matter.Body.setAngle(
+          fish,
+          facingRightRef.current ? -clampedAngle : clampedAngle,
+        );
       } else {
-        currentFrame = 0; // fih_idle
+        Matter.Body.setAngle(fish, fish.angle * 0.9);
       }
 
-      const frames = [fih_idle, fih_swim_0, fih_swim_1, fih_swim_2];
-      fish.render.sprite.texture = frames[currentFrame];
+      // 4. FORCES & SWAY
+      Matter.Body.setAngularVelocity(fish, 0);
 
-      // Maintain Scale & Flip logic
-      if (Math.abs(fish.velocity.x) > 0.1) {
-        // Flip the sprite based on direction
-        fish.render.sprite.xScale =
-          fish.velocity.x > 0 ? -baseScale : baseScale;
-      }
-      // Ensure yScale stays consistent (prevents it staying small after a "gulp")
-      if (fish.render.sprite.yScale !== 1.1) {
-        fish.render.sprite.yScale = baseScale;
-      }
-
-      Body.setAngle(fish, 0);
-      Body.setAngularVelocity(fish, 0);
+      const time = event.source.timing.timestamp;
 
       if (dist > 20) {
         const force = chasing ? 0.006 : 0.0008;
-        Body.applyForce(fish, fish.position, {
+        Matter.Body.applyForce(fish, fish.position, {
           x: (dx / dist) * force,
           y: (dy / dist) * force,
         });
@@ -256,8 +349,8 @@ export default function FihOverlay() {
 
       if (!chasing) {
         const sway = Math.sin(time * 0.002) * 0.0004;
-        Body.applyForce(fish, fish.position, { x: 0, y: sway });
-        Body.setVelocity(fish, {
+        Matter.Body.applyForce(fish, fish.position, { x: 0, y: sway });
+        Matter.Body.setVelocity(fish, {
           x: fish.velocity.x * 0.98,
           y: fish.velocity.y * 0.98,
         });
@@ -273,22 +366,25 @@ export default function FihOverlay() {
             : pair.bodyB.label === "sub"
               ? pair.bodyB
               : null;
+
         if (
           sub &&
           (pair.bodyA.label === "fish" || pair.bodyB.label === "fish")
         ) {
           Composite.remove(engine.world, sub);
           subBodies.current.delete(sub.id);
-          // Gulp effect
-          fishRef.current.render.sprite.yScale = 1.2;
+
+          // Gulp effect via ref (used in custom canvas draw)
+          gulpScaleRef.current = 1.2;
           setTimeout(() => {
-            if (fishRef.current) fishRef.current.render.sprite.yScale = 1;
+            gulpScaleRef.current = 1;
           }, 200);
         }
       });
     });
 
     return () => {
+      cancelAnimationFrame(animFrame);
       window.removeEventListener("resize", handleResize);
       Render.stop(render);
       Runner.stop(runner);
@@ -306,6 +402,7 @@ export default function FihOverlay() {
         overflow: "hidden",
       }}
     >
+      {/* Matter.js canvas — renders sub bubbles only */}
       <div
         ref={sceneRef}
         style={{
@@ -316,6 +413,17 @@ export default function FihOverlay() {
           backgroundColor: isDebug ? "rgba(0, 0, 0, 0.12)" : "transparent",
         }}
       />
+
+      {/* Custom canvas — renders fish with proper flip */}
+      <canvas
+        ref={fishCanvasRef}
+        style={{
+          position: "absolute",
+          inset: 0,
+          pointerEvents: "none",
+        }}
+      />
+
       {activeSubs.map((sub) => (
         <div
           key={sub.id}
