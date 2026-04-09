@@ -103,6 +103,9 @@ export function useMetadata() {
     deathCounterEmotesPerDeath: 10,
     deathCounterPrefix: "Deaths:",
     deathCounterCharName: "",
+    //Redeem
+    redeemFeed: "",
+    redeemSongRequest: "",
   });
 
   const [availableSubEffects, setAvailableSubEffects] = useState([]);
@@ -202,19 +205,19 @@ export function useMetadata() {
         chatEffectRainbowText: Boolean(data.chatEffectRainbowText) || false,
         chatEffectRainbowTextChance: toNumber(
           data.chatEffectRainbowTextChance,
-          10
+          10,
         ),
 
         chatEffectJumpingText: Boolean(data.chatEffectJumpingText) || false,
         chatEffectJumpingTextChance: toNumber(
           data.chatEffectJumpingTextChance,
-          10
+          10,
         ),
 
         chatEffectScatterText: Boolean(data.chatEffectScatterText) || false,
         chatEffectScatterTextChance: toNumber(
           data.chatEffectScatterTextChance,
-          10
+          10,
         ),
 
         //YapMeter Settings
@@ -239,15 +242,15 @@ export function useMetadata() {
         subEffectTypes: Array.isArray(data.subEffectTypes)
           ? data.subEffectTypes
           : typeof data.subEffectTypes === "string" &&
-            data.subEffectTypes.length > 0
-          ? [data.subEffectTypes]
-          : [],
+              data.subEffectTypes.length > 0
+            ? [data.subEffectTypes]
+            : [],
         subOnlyMode: Boolean(data.subOnlyMode),
         emoteStaticMode: Boolean(data.emoteStaticMode),
         enableBTTV: Boolean(data.enableBTTV || true),
         enableFFZ: Boolean(data.enableFFZ || true),
         includeTwitchChannelEmotes: Boolean(
-          data.includeTwitchChannelEmotes || true
+          data.includeTwitchChannelEmotes || true,
         ),
         //HueShift
         subEffectHueShiftChance: toNumber(data.subEffectHueShiftChance, 5),
@@ -255,36 +258,36 @@ export function useMetadata() {
         subEffectBlackHoleChance: toNumber(data.subEffectBlackHoleChance, 5),
         subEffectBlackHoleDuration: toNumber(
           data.subEffectBlackHoleDuration,
-          15
+          15,
         ),
         subEffectBlackHoleStrength: toNumber(
           data.subEffectBlackHoleStrength,
-          5
+          5,
         ),
         //reverse gravity
         subEffectReverseGravityChance: toNumber(
           data.subEffectReverseGravityChance,
-          5
+          5,
         ),
         subEffectReverseGravityDuration: toNumber(
           data.subEffectReverseGravityDuration,
-          15
+          15,
         ),
         subEffectReverseGravityStrength: toNumber(
           data.subEffectReverseGravityStrength,
-          2
+          2,
         ),
         subEffectGravityEventChance: toNumber(
           data.subEffectGravityEventChance,
-          5
+          5,
         ),
         subEffectGravityEventDuration: toNumber(
           data.subEffectGravityEventDuration,
-          15
+          15,
         ),
         subEffectGravityEventStrength: toNumber(
           data.subEffectGravityEventStrength,
-          1
+          1,
         ),
         // Battle Event settings
         battleEventChance: toNumber(data.battleEventChance, 5),
@@ -296,13 +299,13 @@ export function useMetadata() {
         battleEventDPSTrackerLive: Boolean(data.battleEventDPSTrackerLive),
         battleEventAcceptPlebs: Boolean(data.battleEventAcceptPlebs),
         battleEventDPSTrackerFloatLeft: Boolean(
-          data.battleEventDPSTrackerFloatLeft
+          data.battleEventDPSTrackerFloatLeft,
         ),
         battleEventLeaderboardFloatLeft: Boolean(
-          data.battleEventLeaderboardFloatLeft
+          data.battleEventLeaderboardFloatLeft,
         ),
         battleEventDPSTrackerLiveFloatLeft: Boolean(
-          data.battleEventDPSTrackerLiveFloatLeft
+          data.battleEventDPSTrackerLiveFloatLeft,
         ),
         battleEventShowSkillHistory: Boolean(data.battleEventShowSkillHistory),
         //Death Counter
@@ -314,15 +317,19 @@ export function useMetadata() {
         deathCounterEmotes: Array.isArray(data.deathCounterEmotes)
           ? data.deathCounterEmotes
           : typeof data.deathCounterEmotes === "string" &&
-            data.deathCounterEmotes.length > 0
-          ? [data.deathCounterEmotes]
-          : ["KEKW"],
+              data.deathCounterEmotes.length > 0
+            ? [data.deathCounterEmotes]
+            : ["KEKW"],
         deathCounterEmotesPerDeath: toNumber(
           data.deathCounterEmotesPerDeath,
-          10
+          10,
         ),
         deathCounterPrefix: data.deathCounterPrefix || "Deaths:",
         deathCounterCharName: data.deathCounterCharName || "",
+
+        //
+        redeemFeed: data.redeemFeed || "",
+        redeemSongRequest: data.redeemSongRequest || "",
       });
 
       setError(null);
@@ -411,7 +418,7 @@ export function useMetadata() {
         return false;
       }
     },
-    [debouncedRefresh]
+    [debouncedRefresh],
   );
 
   // Bulk update multiple settings at once
@@ -445,7 +452,7 @@ export function useMetadata() {
             };
             console.log(
               "Updated playerLocationCoords:",
-              newSettings.playerLocationCoords
+              newSettings.playerLocationCoords,
             );
           }
 
@@ -461,7 +468,7 @@ export function useMetadata() {
         return false;
       }
     },
-    [debouncedRefresh]
+    [debouncedRefresh],
   );
 
   // Load all data on initial mount

@@ -9,6 +9,7 @@ import fih_idle from "../utils/fih/fih_still_frame_01.png";
 import fih_swim_0 from "../utils/fih/fih_still_frame_02.png";
 import fih_swim_1 from "../utils/fih/fih_still_frame_03.png";
 import fih_swim_2 from "../utils/fih/fih_still_frame_04.png";
+import fih_feed from "../utils/fih/feed.png";
 
 export default function FihOverlay() {
   const sceneRef = useRef(null);
@@ -30,6 +31,51 @@ export default function FihOverlay() {
     x: Math.random() * window.innerWidth,
     y: Math.random() * window.innerHeight,
   });
+
+  //Feed redeem
+  useEffect(() => {
+    if (!clientRef.current) return;
+
+    let localref = clientRef.current;
+    const handleMessage = (channel, userstate, message, self) => {
+      // Ignore messages from the bot itself
+      if (self) return;
+
+      // Check for the specific reward ID
+      if (userstate["custom-reward-id"] === settings.redeemFeed) {
+        // Use the ref to get the current tracker instance
+        const tracker = subscriberTrackerRef.current;
+        if (!tracker) return;
+
+        // 1. Get up to 5 random subscribers
+        const available = tracker.getSubscriberCount();
+        const spawnCount = Math.min(available, 5);
+
+        if (spawnCount > 0) {
+          const selectedSubscribers = tracker.getRandomSubscribers(spawnCount);
+
+          // 2. Loop through and spawn with 100ms delay
+          selectedSubscribers.forEach((sub, index) => {
+            setTimeout(() => {
+              const name = sub.name || sub.displayName;
+              spawnSubBubble(name);
+            }, index * 100); // 0ms, 100ms, 200ms, etc.
+          });
+
+          // Reset the auto-spawn timer so they don't overlap immediately
+          nextSpawnTime.current =
+            Date.now() + randomBetween(1000 * 10, 1000 * 120);
+        }
+      }
+    };
+
+    localref.on("message", handleMessage);
+
+    // Cleanup: remove the listener when the component unmounts
+    return () => {
+      localref.removeListener("message", handleMessage);
+    };
+  }, [settings.redeemFeed, clientRef]);
 
   // Debug toggle
   useEffect(() => {
@@ -104,9 +150,9 @@ export default function FihOverlay() {
       restitution: 0.8,
       render: {
         sprite: {
-          texture: "https://openclipart.org/image/400px/338744",
-          xScale: 0.1,
-          yScale: 0.1,
+          texture: fih_feed,
+          xScale: 1,
+          yScale: 1,
         },
       },
     });

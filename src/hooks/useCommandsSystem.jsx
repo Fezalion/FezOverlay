@@ -1,8 +1,11 @@
 import { useEffect, useState, useMemo, useRef } from "react";
+import { useMetadata } from "./useMetadata";
 
 export function useCommandsSystem(client) {
   const [commands, setCommands] = useState([]);
   const [customCommands, setCustomCommands] = useState([]);
+
+  const { settings, updateSetting } = useMetadata();
   const wsRef = useRef(null);
 
   // Improved WebSocket setup with reconnect
@@ -102,6 +105,29 @@ export function useCommandsSystem(client) {
     if (!client) return;
 
     function onMessage(channel, userstate, message) {
+      //special cases
+      const isMod = userstate.mod || userstate.badges?.broadcaster;
+
+      if (userstate["custom-reward-id"] && message == "!setfeed" && isMod) {
+        const rewardId = userstate["custom-reward-id"];
+        updateSetting("redeemFeed", rewardId);
+        if (settings.redeemFeed === rewardId) {
+          client.say(channel, `Feed redeem has been set.`);
+        } else {
+          client.say(channel, `Feed redeem could not be set.`);
+        }
+      }
+
+      if (userstate["custom-reward-id"] && message == "!setsr" && isMod) {
+        const rewardId = userstate["custom-reward-id"];
+        updateSetting("redeemSongRequest", rewardId);
+        if (settings.redeemFeed === rewardId) {
+          client.say(channel, `Song request redeem has been set.`);
+        } else {
+          client.say(channel, `Song request  could not be set.`);
+        }
+      }
+
       const [cmdName, ...args] = message.slice(1).split(" ");
 
       if (
@@ -113,7 +139,7 @@ export function useCommandsSystem(client) {
         console.log(
           "Custom command triggered:",
           cmdName,
-          customCommandMap.get(cmdName.toLowerCase())
+          customCommandMap.get(cmdName.toLowerCase()),
         );
         client.say(channel, customCommandMap.get(cmdName.toLowerCase()));
       }

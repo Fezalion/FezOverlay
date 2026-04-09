@@ -5,7 +5,7 @@ export function useMessageHandler(
   emoteMap,
   spawnEmoteRef,
   globalEffects,
-  settings
+  settings,
 ) {
   const {
     emoteDelay,
@@ -26,7 +26,10 @@ export function useMessageHandler(
     if (!client || !spawnEmoteRef) return;
 
     function onMessage(channel, userstate, message) {
+      const isMod = userstate.mod || userstate.badges?.broadcaster;
+
       console.log(message);
+
       const words = message.split(/\s+/);
       // Build ordered emote list. If an emote is immediately followed by one or
       // more zero-width emotes, combine them into a single composite token so
@@ -75,8 +78,6 @@ export function useMessageHandler(
         userstate.badges?.vip ||
         userstate.badges?.broadcaster;
 
-      const isMod = userstate.mod || userstate.badges?.broadcaster;
-
       // Handle global effects
       const effectsMap = {
         magneticAttraction: {
@@ -106,7 +107,7 @@ export function useMessageHandler(
       };
       let b = false;
       const shuffledEffects = Object.entries(effectsMap).sort(
-        () => Math.random() - 0.5
+        () => Math.random() - 0.5,
       );
       for (const [
         effectName,
@@ -145,7 +146,7 @@ export function useMessageHandler(
 
       if (cmd === "!force" && isMod) {
         const battleEvent = shuffledEffects.find(
-          ([key]) => key === "battleEvent"
+          ([key]) => key === "battleEvent",
         );
 
         switch (arg) {
