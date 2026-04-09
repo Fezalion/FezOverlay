@@ -112,16 +112,22 @@ export function useCommandsSystem(client) {
         const rewardId = userstate["custom-reward-id"];
         updateSetting("redeemFeed", rewardId);
         if (settings.redeemFeed === rewardId) {
-          client.say(channel, `Feed redeem has been set.`);
+          client.say(
+            channel,
+            `Feed redeem has been set. ${settings.redeemFeed}`,
+          );
         } else {
-          client.say(channel, `Feed redeem could not be set.`);
+          client.say(
+            channel,
+            `Feed redeem could not be set. ${settings.redeemFeed} > ${rewardId}`,
+          );
         }
       }
 
       if (userstate["custom-reward-id"] && message == "!setsr" && isMod) {
         const rewardId = userstate["custom-reward-id"];
         updateSetting("redeemSongRequest", rewardId);
-        if (settings.redeemFeed === rewardId) {
+        if (settings.redeemSongRequest === rewardId) {
           client.say(channel, `Song request redeem has been set.`);
         } else {
           client.say(channel, `Song request  could not be set.`);
