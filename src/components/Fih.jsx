@@ -40,7 +40,7 @@ export default function FihOverlay() {
     const handleMessage = (channel, userstate, message, self) => {
       // Ignore messages from the bot itself
       if (self) return;
-
+      console.log("1a");
       // Check for the specific reward ID
       if (userstate["custom-reward-id"] === settings.redeemFeed) {
         // Use the ref to get the current tracker instance
@@ -50,16 +50,18 @@ export default function FihOverlay() {
         // 1. Get up to 5 random subscribers
         const available = tracker.getSubscriberCount();
         const spawnCount = Math.min(available, 5);
+        console.log(`spawncount ${spawnCount}`);
 
         if (spawnCount > 0) {
           const selectedSubscribers = tracker.getRandomSubscribers(spawnCount);
 
           // 2. Loop through and spawn with 100ms delay
           selectedSubscribers.forEach((sub, index) => {
+            console.log(`spawning ${sub.name}`);
             setTimeout(() => {
               const name = sub.name || sub.displayName;
               spawnSubBubble(name);
-            }, index * 100); // 0ms, 100ms, 200ms, etc.
+            }, index * 1000); // 0ms, 100ms, 200ms, etc.
           });
 
           // Reset the auto-spawn timer so they don't overlap immediately
@@ -75,7 +77,7 @@ export default function FihOverlay() {
     return () => {
       localref.removeListener("message", handleMessage);
     };
-  }, [settings.redeemFeed, clientRef]);
+  }, [settings, clientRef]);
 
   // Debug toggle
   useEffect(() => {
@@ -478,7 +480,7 @@ export default function FihOverlay() {
             left: sub.x,
             top: sub.y - 40,
             transform: "translateX(-50%)",
-            color: "white",
+            color: sub.color ?? "#fff",
             backgroundColor: "rgba(0,0,0,0.6)",
             padding: "2px 8px",
             borderRadius: "4px",
@@ -486,7 +488,7 @@ export default function FihOverlay() {
             fontWeight: "bold",
             pointerEvents: "none",
             whiteSpace: "nowrap",
-            border: "1px solid #54a0ff",
+            border: `1px solid ${sub.color ?? "#fff"}`,
             fontFamily: "monospace",
           }}
         >

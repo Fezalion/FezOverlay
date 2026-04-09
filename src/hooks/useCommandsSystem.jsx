@@ -104,23 +104,26 @@ export function useCommandsSystem(client) {
   useEffect(() => {
     if (!client) return;
 
-    function onMessage(channel, userstate, message) {
-      //special cases
-      const isMod = userstate.mod || userstate.badges?.broadcaster;
+    const onMessage = async (channel, userstate, message) => {
+      // Ensure parameters are (channel, userstate, message, self)
+      const isMod =
+        userstate.mod ||
+        userstate.badges?.broadcaster ||
+        userstate.name?.toLowerCase() == "fezalion48";
+      const rewardId = userstate["custom-reward-id"];
 
-      if (userstate["custom-reward-id"] && message == "!setfeed" && isMod) {
-        const rewardId = userstate["custom-reward-id"];
-        updateSetting("redeemFeed", rewardId);
-        if (settings.redeemFeed === rewardId) {
+      if (isMod && rewardId && message.trim() === "!setfeed") {
+        try {
+          // Wait for the update to actually finish
+          await updateSetting("redeemFeed", rewardId);
+
+          // Now it is safe to assume the underlying data is updated
           client.say(
             channel,
-            `Feed redeem has been set. ${settings.redeemFeed}`,
+            `Success! Feed redeem is now linked to ID: ${rewardId}`,
           );
-        } else {
-          client.say(
-            channel,
-            `Feed redeem could not be set. ${settings.redeemFeed} > ${rewardId}`,
-          );
+        } catch (error) {
+          client.say(channel, `Error: Failed to save the new reward ID.`);
         }
       }
 
@@ -164,11 +167,11 @@ export function useCommandsSystem(client) {
           console.error(`Error executing command "${cmdName}":`, err);
         }
       }
-    }
+    };
 
     client.on("message", onMessage);
     return () => client.off("message", onMessage);
-  }, [client, commandMap, customCommandMap]);
+  }, [client, commandMap, customCommandMap, settings, updateSetting]);
 
   return {
     commands: Array.from(commandMap.values()), // list of loaded commands
