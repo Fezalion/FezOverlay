@@ -127,13 +127,18 @@ export function useCommandsSystem(client) {
         }
       }
 
-      if (userstate["custom-reward-id"] && message == "!setsr" && isMod) {
-        const rewardId = userstate["custom-reward-id"];
-        updateSetting("redeemSongRequest", rewardId);
-        if (settings.redeemSongRequest === rewardId) {
-          client.say(channel, `Song request redeem has been set.`);
-        } else {
-          client.say(channel, `Song request  could not be set.`);
+      if (isMod && rewardId && message.trim() === "!setsr") {
+        try {
+          // Wait for the update to actually finish
+          await updateSetting("redeemSongRequest", rewardId);
+
+          // Now it is safe to assume the underlying data is updated
+          client.say(
+            channel,
+            `Success! Song redeem is now linked to ID: ${rewardId}`,
+          );
+        } catch (error) {
+          client.say(channel, `Error: Failed to save the new reward ID.`);
         }
       }
 
