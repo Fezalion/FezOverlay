@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import YouTubePlayer from "../components/YouTubePlayer";
-import { fetchVideoInfo } from "../utils/youtube";
+import { fetchPlaylistData, fetchVideoInfo } from "../utils/youtube";
 
 // ============================================================
 const WS_URL = "ws://localhost:48000";
@@ -136,14 +136,16 @@ function IconBtn({ onClick, title, children, danger }) {
 export default function Music() {
   const [queue, setQueue] = useState([]);
   const [current, setCurrent] = useState(null);
-  const [playlist, setPlaylist] = useState([]);
+  const [playlists, setPlaylists] = useState([]);
   const [playlistInput, setPlaylistInput] = useState("");
   const [playlistLoading, setPlaylistLoading] = useState(false);
+  const [playlistImportInput, setPlaylistImportInput] = useState("");
+  const [playlistImportLoading, setPlaylistImportLoading] = useState(false);
   const [wsConnected, setWsConnected] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(25);
-  const [activeTab, setActiveTab] = useState("queue"); // "queue" | "playlist"
+  const [activeTab, setActiveTab] = useState("queue"); // "queue" | "playlist" | "playlists"
   const [dragIndex, setDragIndex] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [dragPlaylistIndex, setDragPlaylistIndex] = useState(null);
@@ -151,10 +153,15 @@ export default function Music() {
 
   const playerRef = useRef(null);
   const queueRef = useRef(queue);
-  const playlistRef = useRef(playlist);
+  const playlistRef = useRef([]);
   const timerRef = useRef(null);
+  const savePlaylistsTimeoutRef = useRef(null);
+  const hasLoadedPlaylistsRef = useRef(false);
   const isTransitioningRef = useRef(false);
   const playlistIndexRef = useRef(0);
+
+  const primaryPlaylist = playlists.find((entry) => entry.isPrimary) ?? null;
+  const playlist = primaryPlaylist?.items ?? [];
 
   useEffect(() => {
     queueRef.current = queue;
@@ -192,7 +199,7 @@ export default function Music() {
 
   useEffect(() => {
     playlistIndexRef.current = 0;
-  }, [playlist]);
+  }, [playlist, primaryPlaylist?.id]);
 
   useEffect(() => {
     playNext();
@@ -200,6 +207,48 @@ export default function Music() {
 
   useEffect(() => {
     return () => clearInterval(timerRef.current); // cleanup on unmount
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+    const loadSavedPlaylists = async () => {
+      try {
+        const res = await fetch("/api/music/playlists");
+        if (!res.ok) return;
+        const data = await res.json();
+        if (isMounted && Array.isArray(data)) {
+          setPlaylists(data);
+        }
+      } catch (err) {
+        console.error("[MusicOverlay] Failed to load playlists:", err);
+      } finally {
+        hasLoadedPlaylistsRef.current = true;
+      }
+    };
+    loadSavedPlaylists();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!hasLoadedPlaylistsRef.current) return;
+    clearTimeout(savePlaylistsTimeoutRef.current);
+    savePlaylistsTimeoutRef.current = setTimeout(async () => {
+      try {
+        await fetch("/api/music/playlists", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ playlists }),
+        });
+      } catch (err) {
+        console.error("[MusicOverlay] Failed to save playlists:", err);
+      }
+    }, 400);
+  }, [playlists]);
+
+  useEffect(() => {
+    return () => clearTimeout(savePlaylistsTimeoutRef.current);
   }, []);
 
   useEffect(() => {
@@ -214,7 +263,13 @@ export default function Music() {
       };
       ws.onerror = () => ws.close();
       ws.onmessage = async (event) => {
-        // handle messages
+        try {
+          const parsed =
+            typeof event.data === "string" ? JSON.parse(event.data) : event.data;
+          await handleRedeemSongRequest(parsed);
+        } catch {
+          // Ignore non-JSON websocket payloads (e.g. legacy "refresh" string)
+        }
       };
     };
     connect();
@@ -227,6 +282,31 @@ export default function Music() {
   useEffect(() => {
     playerRef.current?.setVolume(volume);
   }, [volume]);
+
+  const stopProgressTimer = useCallback(() => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+  }, []);
+
+  const startProgressTimer = useCallback(() => {
+    stopProgressTimer();
+    timerRef.current = setInterval(() => {
+      const player = playerRef.current;
+      if (!player) return;
+      const time = Number(player.getCurrentTime?.() ?? 0);
+      const total = Number(player.getDuration?.() ?? 0);
+      setCurrentTime(time);
+      setDuration(total);
+    }, 250);
+  }, [stopProgressTimer]);
+
+  useEffect(() => {
+    if (!current?.videoId) {
+      stopProgressTimer();
+    }
+  }, [current?.videoId, stopProgressTimer]);
 
   const togglePlay = () => {
     if (!playerRef.current) return;
@@ -253,12 +333,77 @@ export default function Music() {
     });
   };
 
+  const updatePrimaryPlaylistItems = (updater) => {
+    setPlaylists((prev) =>
+      prev.map((entry) =>
+        entry.isPrimary ? { ...entry, items: updater(entry.items ?? []) } : entry,
+      ),
+    );
+  };
+
+  const extractVideoId = useCallback((input) => {
+    const source = String(input || "").trim();
+    if (!source) return null;
+    const match = source.match(
+      /(?:v=|youtu\.be\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/,
+    );
+    return match ? match[1] : source.length === 11 ? source : null;
+  }, []);
+
+  const extractPlaylistId = (input) => {
+    const playlistMatch = input.match(/[?&]list=([a-zA-Z0-9_-]+)/);
+    if (playlistMatch?.[1]) return playlistMatch[1];
+    return /^[a-zA-Z0-9_-]+$/.test(input) ? input : null;
+  };
+
+  async function handleRedeemSongRequest(payload) {
+    if (!payload || typeof payload !== "object") return;
+    const messageType = String(payload.type || "").toLowerCase();
+    if (messageType !== "redeemsongrequest") return;
+
+    const rawInput =
+      payload.songUrl ||
+      payload.url ||
+      payload.videoUrl ||
+      payload.videoId ||
+      payload.song ||
+      payload.message ||
+      "";
+    const videoId = extractVideoId(rawInput);
+    if (!videoId) return;
+
+    const requestedBy =
+      payload.requestedBy ||
+      payload.user ||
+      payload.username ||
+      payload.displayName ||
+      "Viewer";
+
+    const info = await fetchVideoInfo(videoId);
+    setQueue((q) => [
+      ...q,
+      {
+        videoId,
+        title: info.title ?? videoId,
+        channel: info.channel ?? "Unknown",
+        requestedBy,
+      },
+    ]);
+  }
+
+  const triggerSongRequestDebug = async () => {
+    await handleRedeemSongRequest({
+      type: "redeemsongrequest",
+      videoId: "dQw4w9WgXcQ",
+      requestedBy: "DebugButton",
+    });
+  };
+
   const addToPlaylist = async () => {
     const input = playlistInput.trim();
     if (!input) return;
 
-    const match = input.match(/(?:v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
-    const videoId = match ? match[1] : input.length === 11 ? input : null;
+    const videoId = extractVideoId(input);
 
     if (!videoId) return;
 
@@ -271,19 +416,68 @@ export default function Music() {
     setPlaylistLoading(true);
     try {
       const info = await fetchVideoInfo(videoId);
-      setPlaylist((p) => [
-        ...p,
-        { videoId, title: info.title, channel: info.channel },
-      ]);
+      const newItem = { videoId, title: info.title, channel: info.channel };
+      if (!primaryPlaylist) {
+        setPlaylists([
+          {
+            id: crypto.randomUUID(),
+            name: "Manual Playlist",
+            sourceType: "manual",
+            sourceId: null,
+            isPrimary: true,
+            items: [newItem],
+          },
+        ]);
+      } else {
+        updatePrimaryPlaylistItems((items) => [...items, newItem]);
+      }
       setPlaylistInput("");
     } catch {
-      setPlaylist((p) => [
-        ...p,
-        { videoId, title: videoId, channel: "Unknown" },
-      ]);
+      const fallbackItem = { videoId, title: videoId, channel: "Unknown" };
+      if (!primaryPlaylist) {
+        setPlaylists([
+          {
+            id: crypto.randomUUID(),
+            name: "Manual Playlist",
+            sourceType: "manual",
+            sourceId: null,
+            isPrimary: true,
+            items: [fallbackItem],
+          },
+        ]);
+      } else {
+        updatePrimaryPlaylistItems((items) => [...items, fallbackItem]);
+      }
       setPlaylistInput("");
     }
     setPlaylistLoading(false);
+  };
+
+  const importYoutubePlaylist = async () => {
+    const input = playlistImportInput.trim();
+    if (!input) return;
+    const playlistId = extractPlaylistId(input);
+    if (!playlistId) return;
+
+    setPlaylistImportLoading(true);
+    try {
+      const data = await fetchPlaylistData(playlistId);
+      const items = (data.items ?? []).filter((item) => item?.videoId);
+      setPlaylists((prev) => [
+        ...prev,
+        {
+          id: crypto.randomUUID(),
+          name: data.title || "Imported Playlist",
+          sourceType: "youtube",
+          sourceId: playlistId,
+          isPrimary: prev.length === 0,
+          items,
+        },
+      ]);
+      setPlaylistImportInput("");
+    } finally {
+      setPlaylistImportLoading(false);
+    }
   };
 
   const playPlaylistItem = (index) => {
@@ -305,7 +499,24 @@ export default function Music() {
   };
 
   const removeFromPlaylist = (index) => {
-    setPlaylist((p) => p.filter((_, i) => i !== index));
+    updatePrimaryPlaylistItems((items) => items.filter((_, i) => i !== index));
+  };
+
+  const setPrimaryPlaylist = (playlistId) => {
+    setPlaylists((prev) =>
+      prev.map((entry) => ({ ...entry, isPrimary: entry.id === playlistId })),
+    );
+    playlistIndexRef.current = 0;
+  };
+
+  const deletePlaylist = (playlistId) => {
+    setPlaylists((prev) => {
+      const remaining = prev.filter((entry) => entry.id !== playlistId);
+      if (remaining.length > 0 && !remaining.some((entry) => entry.isPrimary)) {
+        remaining[0] = { ...remaining[0], isPrimary: true };
+      }
+      return remaining;
+    });
   };
 
   const controlBtnStyle = {
@@ -325,12 +536,13 @@ export default function Music() {
   return (
     <div
       style={{
-        minHeight: "100vh",
+        height: "100vh",
         background: "#0a0a0f",
         color: "#fff",
         fontFamily: "'DM Mono', 'Courier New', monospace",
         display: "flex",
         flexDirection: "column",
+        overflow: "hidden",
       }}
     >
       <style>{`
@@ -374,11 +586,29 @@ export default function Music() {
           FezOverlay<span style={{ color: accent }}>Music.</span>
         </div>
         <div style={{ flex: 1 }} />
+        <button
+          onClick={triggerSongRequestDebug}
+          style={{
+            background: "rgba(255,255,255,0.06)",
+            border: "1px solid rgba(255,255,255,0.14)",
+            borderRadius: "8px",
+            color: "rgba(255,255,255,0.75)",
+            fontFamily: "inherit",
+            fontSize: "10px",
+            letterSpacing: "0.8px",
+            textTransform: "uppercase",
+            cursor: "pointer",
+            padding: "6px 10px",
+          }}
+          title="Simulate redeemsongrequest websocket payload"
+        >
+          Test WS
+        </button>
         <WsStatus connected={wsConnected} />
       </div>
 
       {/* ── MAIN LAYOUT ── */}
-      <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
+      <div style={{ flex: 1, display: "flex", overflow: "hidden", minHeight: 0 }}>
         {/* ── LEFT: NOW PLAYING ── */}
         <div
           style={{
@@ -389,6 +619,7 @@ export default function Music() {
             display: "flex",
             flexDirection: "column",
             overflow: "hidden",
+            minHeight: 0,
           }}
         >
           {/* player embed (hidden visually but functional) */}
@@ -407,11 +638,20 @@ export default function Music() {
                 videoId={current.videoId}
                 onReady={(player) => {
                   playerRef.current = player;
-                  // ... (rest of your onReady logic)
+                  player.setVolume(volume);
+                  setCurrentTime(0);
+                  setDuration(Number(player.getDuration?.() ?? 0));
+                  startProgressTimer();
                 }}
                 onStateChange={(e) => {
-                  if (e.data === 1) setIsPlaying(true);
-                  if (e.data === 2 || e.data === 3) setIsPlaying(false);
+                  if (e.data === 1) {
+                    setIsPlaying(true);
+                    startProgressTimer();
+                  }
+                  if (e.data === 2 || e.data === 3) {
+                    setIsPlaying(false);
+                    stopProgressTimer();
+                  }
                 }}
                 onEnd={playNext}
               />
@@ -661,6 +901,7 @@ export default function Music() {
             ) : (
               queue.slice(0, 4).map((item, i) => {
                 const c = getColor(i);
+                const isCurrentSong = current?.videoId === item.videoId;
                 return (
                   <div
                     key={`${item.videoId}-${i}`}
@@ -670,7 +911,8 @@ export default function Music() {
                       alignItems: "center",
                       gap: "10px",
                       padding: "8px 20px",
-                      borderLeft: `2px solid ${c}44`,
+                      borderLeft: `2px solid ${isCurrentSong ? accent : c}66`,
+                      background: isCurrentSong ? `${accent}1a` : "transparent",
                     }}
                   >
                     <span style={{ fontSize: "10px", color: c, width: "16px" }}>
@@ -722,6 +964,7 @@ export default function Music() {
             display: "flex",
             flexDirection: "column",
             overflow: "hidden",
+            minHeight: 0,
           }}
         >
           {/* tabs */}
@@ -737,8 +980,13 @@ export default function Music() {
               { id: "queue", label: `Request Queue`, count: queue.length },
               {
                 id: "playlist",
-                label: "Fallback Playlist",
+                label: "Primary Playlist",
                 count: playlist.length,
+              },
+              {
+                id: "playlists",
+                label: "Playlists",
+                count: playlists.length,
               },
             ].map((tab) => (
               <button
@@ -840,6 +1088,7 @@ export default function Music() {
                   <tbody>
                     {queue.map((item, i) => {
                       const c = getColor(i);
+                      const isCurrentSong = current?.videoId === item.videoId;
                       return (
                         <tr
                           key={item.videoId}
@@ -859,7 +1108,9 @@ export default function Music() {
                             background:
                               dragIndex === i
                                 ? "rgba(255,255,255,0.08)"
-                                : "transparent",
+                                : isCurrentSong
+                                  ? `${accent}1f`
+                                  : "transparent",
                           }}
                         >
                           <td style={{ padding: "12px 16px", width: "48px" }}>
@@ -1063,6 +1314,7 @@ export default function Music() {
                         const isDropTarget = dropTargetIndex === i;
                         const isBeingDragged = dragPlaylistIndex === i;
                         const c = getColor(i);
+                        const isCurrentSong = current?.videoId === item.videoId;
 
                         return (
                           <tr
@@ -1081,7 +1333,7 @@ export default function Music() {
                                 dragPlaylistIndex !== null &&
                                 dragPlaylistIndex !== i
                               ) {
-                                setPlaylist((prev) => {
+                                updatePrimaryPlaylistItems((prev) => {
                                   const arr = [...prev];
                                   const [moved] = arr.splice(
                                     dragPlaylistIndex,
@@ -1102,7 +1354,9 @@ export default function Music() {
                               background:
                                 dragPlaylistIndex === i
                                   ? "rgba(255,255,255,0.08)"
-                                  : "transparent",
+                                  : isCurrentSong
+                                    ? `${accent}1f`
+                                    : "transparent",
                               // Visual indicator: Thick top border when hovering during a drag
                               borderTop: isDropTarget
                                 ? `2px solid ${accent}`
@@ -1189,7 +1443,7 @@ export default function Music() {
                         }}
                         onDrop={() => {
                           if (dragPlaylistIndex !== null) {
-                            setPlaylist((prev) => {
+                            updatePrimaryPlaylistItems((prev) => {
                               const arr = [...prev];
                               const [moved] = arr.splice(dragPlaylistIndex, 1);
                               arr.push(moved); // Put at the absolute end
@@ -1209,6 +1463,169 @@ export default function Music() {
                       >
                         <td colSpan="5" />
                       </tr>
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ── PLAYLIST MANAGER TAB ── */}
+          {activeTab === "playlists" && (
+            <div
+              style={{
+                flex: 1,
+                display: "flex",
+                flexDirection: "column",
+                overflow: "hidden",
+              }}
+            >
+              <div
+                style={{
+                  padding: "16px 24px",
+                  borderBottom: "1px solid rgba(255,255,255,0.06)",
+                  display: "flex",
+                  gap: "10px",
+                }}
+              >
+                <input
+                  value={playlistImportInput}
+                  onChange={(e) => setPlaylistImportInput(e.target.value)}
+                  onKeyDown={(e) =>
+                    e.key === "Enter" && !playlistImportLoading && importYoutubePlaylist()
+                  }
+                  placeholder="YouTube playlist URL or playlist ID..."
+                  style={{
+                    flex: 1,
+                    background: "rgba(255,255,255,0.05)",
+                    border: "1px solid rgba(255,255,255,0.1)",
+                    borderRadius: "8px",
+                    padding: "8px 12px",
+                    color: "#fff",
+                    fontSize: "12px",
+                    fontFamily: "inherit",
+                    outline: "none",
+                  }}
+                />
+                <button
+                  onClick={importYoutubePlaylist}
+                  disabled={playlistImportLoading}
+                  style={{
+                    padding: "8px 16px",
+                    background: `${accent}22`,
+                    border: `1px solid ${accent}55`,
+                    borderRadius: "8px",
+                    color: accent,
+                    fontSize: "11px",
+                    cursor: "pointer",
+                    fontFamily: "inherit",
+                    letterSpacing: "0.5px",
+                    opacity: playlistImportLoading ? 0.5 : 1,
+                    transition: "all 0.15s",
+                  }}
+                >
+                  {playlistImportLoading ? "..." : "Import"}
+                </button>
+              </div>
+
+              <div style={{ flex: 1, overflowY: "auto" }}>
+                {playlists.length === 0 ? (
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      height: "200px",
+                      gap: "8px",
+                    }}
+                  >
+                    <div style={{ fontSize: "28px", opacity: 0.2 }}>♫</div>
+                    <div
+                      style={{ fontSize: "12px", color: "rgba(255,255,255,0.6)" }}
+                    >
+                      No playlists imported
+                    </div>
+                  </div>
+                ) : (
+                  <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                    <thead>
+                      <tr
+                        style={{
+                          borderBottom: "1px solid rgba(255,255,255,0.06)",
+                        }}
+                      >
+                        {["Name", "Source", "Tracks", "Primary", ""].map((h, i) => (
+                          <th
+                            key={i}
+                            style={{
+                              padding: "10px 16px",
+                              textAlign: "left",
+                              fontSize: "9px",
+                              color: "rgba(255,255,255,0.6)",
+                              letterSpacing: "2px",
+                              textTransform: "uppercase",
+                              fontWeight: "400",
+                            }}
+                          >
+                            {h}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {playlists.map((entry) => (
+                        <tr
+                          key={entry.id}
+                          className="row-hover"
+                          onDoubleClick={() => setPrimaryPlaylist(entry.id)}
+                          style={{
+                            borderBottom: "1px solid rgba(255,255,255,0.04)",
+                          }}
+                        >
+                          <td style={{ padding: "12px 16px" }}>
+                            <div style={{ fontSize: "13px", color: "#fff", fontWeight: 500 }}>
+                              {entry.name}
+                            </div>
+                          </td>
+                          <td style={{ padding: "12px 16px" }}>
+                            <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.6)" }}>
+                              {entry.sourceType === "youtube" ? "YouTube" : "Manual"}
+                            </span>
+                          </td>
+                          <td style={{ padding: "12px 16px" }}>
+                            <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.6)" }}>
+                              {entry.items?.length ?? 0}
+                            </span>
+                          </td>
+                          <td style={{ padding: "12px 16px" }}>
+                            {entry.isPrimary ? (
+                              <Tag color={accent}>PRIMARY</Tag>
+                            ) : (
+                              <button
+                                onClick={() => setPrimaryPlaylist(entry.id)}
+                                style={{
+                                  background: "rgba(255,255,255,0.05)",
+                                  border: "1px solid rgba(255,255,255,0.12)",
+                                  borderRadius: "6px",
+                                  color: "rgba(255,255,255,0.7)",
+                                  fontSize: "10px",
+                                  padding: "4px 8px",
+                                  cursor: "pointer",
+                                  fontFamily: "inherit",
+                                }}
+                              >
+                                Set Primary
+                              </button>
+                            )}
+                          </td>
+                          <td style={{ padding: "12px 16px", textAlign: "right" }}>
+                            <IconBtn onClick={() => deletePlaylist(entry.id)} title="Delete" danger>
+                              ✕
+                            </IconBtn>
+                          </td>
+                        </tr>
+                      ))}
                     </tbody>
                   </table>
                 )}

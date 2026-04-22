@@ -20,6 +20,7 @@ leaderboard.json
 deaths.json
 .env
 emote_cache/*
+playlists/*
 
 # Editor directories and files
 .vscode/*

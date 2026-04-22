@@ -53,6 +53,7 @@ const SETTINGS_FILE = path.join(baseDir, "settings.json");
 const BOTS_FILE = path.join(baseDir, "excludedBots.json");
 const COMMANDS_FILE = path.join(baseDir, "customcommands.json");
 const DEATH_LOG = path.join(baseDir, "deaths.json");
+const PLAYLISTS_DIR = path.join(baseDir, "playlists");
 const versionFile = path.join(baseDir, "version.txt");
 
 app.use(bodyParser.json());
@@ -271,6 +272,76 @@ function loadSettings() {
 
 function saveSettings(settings) {
   fs.writeFileSync(SETTINGS_FILE, JSON.stringify(settings, null, 2));
+}
+
+function ensurePlaylistsDir() {
+  if (!fs.existsSync(PLAYLISTS_DIR)) {
+    fs.mkdirSync(PLAYLISTS_DIR, { recursive: true });
+  }
+}
+
+function sanitizePlaylistFileName(name) {
+  const safe = String(name || "")
+    .trim()
+    .replace(/[^a-zA-Z0-9_-]/g, "_");
+  return safe || `playlist_${Date.now()}`;
+}
+
+function loadPlaylistsFromDisk() {
+  ensurePlaylistsDir();
+  const files = fs
+    .readdirSync(PLAYLISTS_DIR)
+    .filter((file) => file.toLowerCase().endsWith(".json"));
+
+  const playlists = files
+    .map((file) => {
+      try {
+        const filePath = path.join(PLAYLISTS_DIR, file);
+        const raw = fs.readFileSync(filePath, "utf8");
+        const parsed = JSON.parse(raw);
+        if (!parsed || typeof parsed !== "object") return null;
+        if (!Array.isArray(parsed.items)) parsed.items = [];
+        if (!parsed.id) parsed.id = path.basename(file, ".json");
+        return parsed;
+      } catch (err) {
+        console.error(`[Playlists] Failed to read ${file}:`, err);
+        return null;
+      }
+    })
+    .filter(Boolean);
+
+  return playlists;
+}
+
+function savePlaylistsToDisk(playlists) {
+  ensurePlaylistsDir();
+  const list = Array.isArray(playlists) ? playlists : [];
+  const desiredFiles = new Set();
+
+  list.forEach((playlist, index) => {
+    const withDefaults = {
+      id: playlist?.id || `playlist_${index + 1}`,
+      name: playlist?.name || `Playlist ${index + 1}`,
+      sourceType: playlist?.sourceType || "manual",
+      sourceId: playlist?.sourceId || null,
+      isPrimary: !!playlist?.isPrimary,
+      items: Array.isArray(playlist?.items) ? playlist.items : [],
+    };
+
+    const fileName = `${sanitizePlaylistFileName(withDefaults.id)}.json`;
+    desiredFiles.add(fileName);
+    const targetPath = path.join(PLAYLISTS_DIR, fileName);
+    fs.writeFileSync(targetPath, JSON.stringify(withDefaults, null, 2), "utf8");
+  });
+
+  const existingFiles = fs
+    .readdirSync(PLAYLISTS_DIR)
+    .filter((file) => file.toLowerCase().endsWith(".json"));
+  existingFiles.forEach((file) => {
+    if (!desiredFiles.has(file)) {
+      fs.unlinkSync(path.join(PLAYLISTS_DIR, file));
+    }
+  });
 }
 
 function getCurrentVersion() {
@@ -515,6 +586,33 @@ app.post("/api/commands", (req, res) => {
 app.get("/api/commands", (req, res) => {
   const cmds = loadCustomCommands();
   res.json(cmds);
+});
+
+app.get("/api/music/playlists", (req, res) => {
+  try {
+    const playlists = loadPlaylistsFromDisk();
+    res.json(playlists);
+  } catch (err) {
+    console.error("[Playlists] Failed to load playlists:", err);
+    res.status(500).json({ error: "Failed to load playlists" });
+  }
+});
+
+app.post("/api/music/playlists", (req, res) => {
+  try {
+    const playlists = Array.isArray(req.body?.playlists)
+      ? req.body.playlists
+      : req.body;
+    if (!Array.isArray(playlists)) {
+      return res.status(400).json({ error: "Expected playlists array" });
+    }
+
+    savePlaylistsToDisk(playlists);
+    res.json({ success: true, count: playlists.length });
+  } catch (err) {
+    console.error("[Playlists] Failed to save playlists:", err);
+    res.status(500).json({ error: "Failed to save playlists" });
+  }
 });
 
 // POST update one or more settings (partial update)

@@ -1,10 +1,56 @@
 // src/utils/youtube.js
 const cache = new Map();
+const API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
+
+export async function fetchPlaylistData(playlistId) {
+  if (!API_KEY) {
+    console.error("Missing VITE_YOUTUBE_API_KEY");
+    return { title: "Error: No API Key", items: [] };
+  }
+
+  try {
+    // 1. Get Playlist Metadata (Title/Owner)
+    const metaRes = await fetch(
+      `https://www.googleapis.com/youtube/v3/playlists?id=${playlistId}&part=snippet&key=${API_KEY}`,
+    );
+    if (!metaRes.ok) throw new Error(`Meta fetch failed: ${metaRes.status}`);
+    const metaData = await metaRes.json();
+    const playlistTitle =
+      metaData.items?.[0]?.snippet.title || "Imported Playlist";
+
+    // 2. Fetch all items (handling pagination)
+    let allItems = [];
+    let nextPageToken = "";
+
+    do {
+      const url = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=50&playlistId=${playlistId}&key=${API_KEY}&pageToken=${nextPageToken}`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`Items fetch failed: ${res.status}`);
+
+      const data = await res.json();
+
+      const pageItems = data.items.map((item) => ({
+        videoId: item.snippet.resourceId.videoId,
+        title: item.snippet.title,
+        channel:
+          item.snippet.videoOwnerChannelTitle ||
+          item.snippet.channelTitle ||
+          "Unknown",
+      }));
+
+      allItems = [...allItems, ...pageItems];
+      nextPageToken = data.nextPageToken || "";
+    } while (nextPageToken);
+
+    return { title: playlistTitle, items: allItems };
+  } catch (err) {
+    console.error(`fetchPlaylistData failed for ${playlistId}:`, err);
+    throw err;
+  }
+}
 
 export async function fetchVideoInfo(videoId) {
   if (cache.has(videoId)) return cache.get(videoId);
-
-  const API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
 
   if (!API_KEY) {
     console.error("Missing VITE_YOUTUBE_API_KEY in environment");
