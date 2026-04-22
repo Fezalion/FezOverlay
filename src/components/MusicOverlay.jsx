@@ -162,8 +162,8 @@ export default function Music() {
   }, []);
 
   const handleRedeemSongRequest = useCallback(
-    async (payload) => {
-      console.log(payload);
+    async (payload, localref, channel) => {
+      // Added localref and channel
       if (!payload || typeof payload !== "object") return;
       const messageType = String(payload.type || "").toLowerCase();
       if (messageType !== "redeemsongrequest") return;
@@ -187,6 +187,8 @@ export default function Music() {
         "Viewer";
 
       const info = await fetchVideoInfo(videoId);
+
+      // Add to state
       setQueue((q) => [
         ...q,
         {
@@ -196,9 +198,17 @@ export default function Music() {
           requestedBy,
         },
       ]);
+
+      // Send confirmation to Twitch Chat
+      if (localref && channel) {
+        localref.say(
+          channel,
+          `▶️ Added to queue: "${info.title ?? videoId}" (Requested by ${requestedBy})`,
+        );
+      }
     },
     [extractVideoId],
-  ); // Dependency on extractVideoId
+  );
 
   const songRequestHandlerRef = useRef(handleRedeemSongRequest);
 
@@ -229,7 +239,7 @@ export default function Music() {
         setCurrent(next);
       } else if (playlistRef.current.length > 0) {
         const idx = playlistIndexRef.current % playlistRef.current.length;
-        setCurrent({ ...playlistRef.current[idx], requestedBy: "AutoPlay" });
+        setCurrent({ ...playlistRef.current[idx], requestedBy: null });
         playlistIndexRef.current =
           (playlistIndexRef.current + 1) % playlistRef.current.length;
       }
@@ -315,16 +325,51 @@ export default function Music() {
 
     const handleMessage = (channel, userstate, message, self) => {
       if (self) return;
-      // Use the setting from your useMetadata hook
+
+      const msg = message.trim().toLowerCase();
+      const isMod = userstate.mod || userstate.badges?.broadcaster === "1";
+
+      if (msg === "!currentsong" || msg === "!song") {
+        if (current) {
+          const hasRequester =
+            current.requestedBy &&
+            current.requestedBy !== "AutoPlay" &&
+            current.requestedBy !== "Playlist";
+
+          const response = hasRequester
+            ? `Now playing: ${current.title} (Requested by: ${current.requestedBy})`
+            : `Now playing: ${current.title}`;
+
+          localref.say(channel, response);
+        } else {
+          localref.say(channel, "No song is currently playing.");
+        }
+      }
+
+      // --- COMMAND: !skip (Mod Only) ---
+      if (msg === "!skip") {
+        if (isMod) {
+          skip();
+          localref.say(channel, `Skipping current song...`);
+        } else {
+          // Optional: Tell non-mods they can't skip
+          // localref.say(channel, "Only moderators can skip songs.");
+        }
+      }
+
+      // --- EXISTING: Song Requests ---
       if (userstate["custom-reward-id"] === settings.redeemSongRequest) {
-        // Call the function via the Ref
         songRequestHandlerRef
-          .current({
-            type: "redeemsongrequest",
-            message: message,
-            requestedBy:
-              userstate["display-name"] || userstate["username"] || "Viewer",
-          })
+          .current(
+            {
+              type: "redeemsongrequest",
+              message: message,
+              requestedBy:
+                userstate["display-name"] || userstate["username"] || "Viewer",
+            },
+            localref,
+            channel,
+          )
           .catch((err) => console.error("Song request failed:", err));
       }
     };
@@ -333,7 +378,7 @@ export default function Music() {
     return () => {
       localref.removeListener("message", handleMessage);
     };
-  }, [clientRef, settings.redeemSongRequest]);
+  }, [clientRef, settings.redeemSongRequest, current, skip]); // Added current and skip to dependencies
 
   useEffect(() => {
     playerRef.current?.setVolume(volume);
@@ -550,7 +595,7 @@ export default function Music() {
     setCurrent(null);
 
     setTimeout(() => {
-      setCurrent({ ...item, requestedBy: "Playlist" });
+      setCurrent({ ...item, requestedBy: null });
       setCurrentTime(0);
       setDuration(0);
       playlistIndexRef.current = index + 1;
@@ -916,18 +961,22 @@ export default function Music() {
                 >
                   {current?.channel ?? "—"}
                 </div>
-                {current?.requestedBy && (
-                  <div
-                    style={{
-                      fontSize: "10px",
-                      color: "rgba(255,255,255,0.6)",
-                      marginTop: "3px",
-                    }}
-                  >
-                    by{" "}
-                    <span style={{ color: accent }}>{current.requestedBy}</span>
-                  </div>
-                )}
+                {current?.requestedBy &&
+                  current.requestedBy !== "AutoPlay" &&
+                  current.requestedBy !== "Playlist" && (
+                    <div
+                      style={{
+                        fontSize: "10px",
+                        color: "rgba(255,255,255,0.6)",
+                        marginTop: "3px",
+                      }}
+                    >
+                      by{" "}
+                      <span style={{ color: accent }}>
+                        {current.requestedBy}
+                      </span>
+                    </div>
+                  )}
               </div>
             </div>
 
