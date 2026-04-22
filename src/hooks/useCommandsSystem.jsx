@@ -142,6 +142,31 @@ export function useCommandsSystem(client) {
         }
       }
 
+      // Forward song request redeems to the music overlay websocket consumer.
+      if (
+        rewardId &&
+        settings.redeemSongRequest &&
+        rewardId === settings.redeemSongRequest
+      ) {
+        const payload = {
+          type: "redeemsongrequest",
+          message,
+          requestedBy:
+            userstate["display-name"] || userstate.username || userstate.name,
+        };
+
+        if (
+          wsRef.current &&
+          wsRef.current.readyState === WebSocket.OPEN
+        ) {
+          wsRef.current.send(JSON.stringify(payload));
+        } else {
+          console.warn(
+            "[Song Request] WebSocket unavailable, redeem was not forwarded.",
+          );
+        }
+      }
+
       const [cmdName, ...args] = message.slice(1).split(" ");
 
       if (
