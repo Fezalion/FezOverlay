@@ -32,6 +32,58 @@ function reloadEnv() {
   console.log("[API] Reloaded environment variables.");
 }
 
+function upsertEnvVar(key, value) {
+  const envLine = `${key}=${value}`;
+  let envData = "";
+  if (fs.existsSync(envPath)) {
+    envData = fs.readFileSync(envPath, "utf8");
+  }
+  const lines = envData.split(/\r?\n/).filter(Boolean);
+  let found = false;
+  const updated = lines.map((line) => {
+    if (line.startsWith(`${key}=`)) {
+      found = true;
+      return envLine;
+    }
+    return line;
+  });
+  if (!found) updated.push(envLine);
+  fs.writeFileSync(envPath, updated.join("\n") + "\n", "utf8");
+}
+
+function validateYoutubeApiKey(apiKey) {
+  return new Promise((resolve) => {
+    const testUrl = `https://www.googleapis.com/youtube/v3/videos?id=dQw4w9WgXcQ&part=id&key=${apiKey}`;
+    https
+      .get(testUrl, (response) => {
+        let body = "";
+        response.on("data", (chunk) => {
+          body += chunk;
+        });
+        response.on("end", () => {
+          try {
+            const parsed = JSON.parse(body || "{}");
+            if (response.statusCode >= 200 && response.statusCode < 300) {
+              return resolve({ ok: true });
+            }
+            const reason =
+              parsed?.error?.message ||
+              `YouTube API validation failed (${response.statusCode})`;
+            resolve({ ok: false, error: reason });
+          } catch {
+            resolve({
+              ok: false,
+              error: "Invalid response while validating YouTube API key",
+            });
+          }
+        });
+      })
+      .on("error", (err) => {
+        resolve({ ok: false, error: err.message || "Network error" });
+      });
+  });
+}
+
 function broadcast(msg) {
   wss.clients.forEach((client) => {
     if (client.readyState === 1) {
@@ -411,6 +463,39 @@ app.get("/api/twitch", (req, res) => {
     auth: val,
     client: "pro83yr2qxpqs1qwy85uqkp17w5wpl",
   });
+});
+
+app.get("/api/youtube/apikey/status", (req, res) => {
+  res.json({ configured: Boolean(process.env.VITE_YOUTUBE_API_KEY) });
+});
+
+app.post("/api/youtube/apikey", async (req, res) => {
+  try {
+    const apiKey = String(req.body?.apiKey || "").trim();
+    if (!apiKey) {
+      return res.status(400).json({ success: false, error: "Missing apiKey" });
+    }
+    if (!/^[A-Za-z0-9_-]{20,}$/.test(apiKey)) {
+      return res.status(400).json({
+        success: false,
+        error: "API key format looks invalid",
+      });
+    }
+
+    const validation = await validateYoutubeApiKey(apiKey);
+    if (!validation.ok) {
+      return res
+        .status(400)
+        .json({ success: false, error: validation.error || "Invalid API key" });
+    }
+
+    upsertEnvVar("VITE_YOUTUBE_API_KEY", apiKey);
+    reloadEnv();
+    res.json({ success: true });
+  } catch (err) {
+    console.error("[YouTube API] Failed to save key:", err);
+    res.status(500).json({ success: false, error: "Failed to save API key" });
+  }
 });
 
 // Simple emote proxy & cache to avoid client-side CORS issues when fetching blobs

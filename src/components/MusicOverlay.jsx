@@ -146,6 +146,12 @@ export default function Music() {
   const [playlistLoading, setPlaylistLoading] = useState(false);
   const [playlistImportInput, setPlaylistImportInput] = useState("");
   const [playlistImportLoading, setPlaylistImportLoading] = useState(false);
+  const [youtubeApiKeyReady, setYoutubeApiKeyReady] = useState(hasYoutubeApiKey);
+  const [showApiKeyModal, setShowApiKeyModal] = useState(false);
+  const [youtubeApiKeyInput, setYoutubeApiKeyInput] = useState("");
+  const [youtubeApiKeySaving, setYoutubeApiKeySaving] = useState(false);
+  const [youtubeApiKeyError, setYoutubeApiKeyError] = useState("");
+  const [youtubeApiKeySuccess, setYoutubeApiKeySuccess] = useState("");
   const [wsConnected, setWsConnected] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -227,6 +233,24 @@ export default function Music() {
       }
     };
     loadSavedPlaylists();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchYoutubeApiStatus = async () => {
+      try {
+        const res = await fetch("/api/youtube/apikey/status");
+        if (!res.ok) return;
+        const data = await res.json();
+        if (isMounted && data?.configured) setYoutubeApiKeyReady(true);
+      } catch {
+        // keep default state when endpoint is unavailable
+      }
+    };
+    fetchYoutubeApiStatus();
     return () => {
       isMounted = false;
     };
@@ -417,8 +441,43 @@ export default function Music() {
     });
   };
 
+  const saveYoutubeApiKey = async () => {
+    const apiKey = youtubeApiKeyInput.trim();
+    if (!apiKey) {
+      setYoutubeApiKeyError("Please paste an API key.");
+      setYoutubeApiKeySuccess("");
+      return;
+    }
+
+    setYoutubeApiKeySaving(true);
+    setYoutubeApiKeyError("");
+    setYoutubeApiKeySuccess("");
+    try {
+      const res = await fetch("/api/youtube/apikey", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ apiKey }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data?.success === false) {
+        setYoutubeApiKeyError(data?.error || "Failed to validate API key.");
+        return;
+      }
+
+      setYoutubeApiKeyReady(true);
+      setYoutubeApiKeyInput("");
+      setYoutubeApiKeySuccess(
+        "API key saved to .env. Restart the app/dev server to fully apply.",
+      );
+    } catch {
+      setYoutubeApiKeyError("Network error while saving API key.");
+    } finally {
+      setYoutubeApiKeySaving(false);
+    }
+  };
+
   const addToPlaylist = async () => {
-    if (!hasYoutubeApiKey) return;
+    if (!youtubeApiKeyReady) return;
     const input = playlistInput.trim();
     if (!input) return;
 
@@ -473,7 +532,7 @@ export default function Music() {
   };
 
   const importYoutubePlaylist = async () => {
-    if (!hasYoutubeApiKey) return;
+    if (!youtubeApiKeyReady) return;
     const input = playlistImportInput.trim();
     if (!input) return;
     const playlistId = extractPlaylistId(input);
@@ -624,27 +683,128 @@ export default function Music() {
         >
           Test WS
         </button>
-        {!hasYoutubeApiKey && (
-          <a
-            href={YOUTUBE_API_SETUP_URL}
-            target="_blank"
-            rel="noreferrer"
+        {!youtubeApiKeyReady && (
+          <button
+            onClick={() => setShowApiKeyModal(true)}
             style={{
               fontSize: "10px",
               color: "#feca57",
-              textDecoration: "none",
               border: "1px solid rgba(254,202,87,0.4)",
               borderRadius: "8px",
               padding: "6px 10px",
               background: "rgba(254,202,87,0.08)",
+              cursor: "pointer",
+              fontFamily: "inherit",
             }}
-            title="Create a Google/YouTube API key"
+            title="Configure Google/YouTube API key"
           >
             Missing Google API Key
-          </a>
+          </button>
         )}
         <WsStatus connected={wsConnected} />
       </div>
+
+      {showApiKeyModal && (
+        <div
+          onClick={() => setShowApiKeyModal(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.65)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 50,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "min(560px, 92vw)",
+              background: "#111118",
+              border: "1px solid rgba(255,255,255,0.12)",
+              borderRadius: "12px",
+              padding: "18px",
+              display: "flex",
+              flexDirection: "column",
+              gap: "10px",
+            }}
+          >
+            <div style={{ fontSize: "14px", fontWeight: 700 }}>
+              Configure Google / YouTube API Key
+            </div>
+            <div style={{ fontSize: "11px", color: "rgba(255,255,255,0.7)" }}>
+              Create a key in{" "}
+              <a
+                href={YOUTUBE_API_SETUP_URL}
+                target="_blank"
+                rel="noreferrer"
+                style={{ color: "#feca57" }}
+              >
+                Google Cloud Console
+              </a>{" "}
+              and paste it below. The server validates it before writing to `.env`.
+            </div>
+            <input
+              value={youtubeApiKeyInput}
+              onChange={(e) => setYoutubeApiKeyInput(e.target.value)}
+              placeholder="AIza..."
+              style={{
+                background: "rgba(255,255,255,0.05)",
+                border: "1px solid rgba(255,255,255,0.16)",
+                borderRadius: "8px",
+                padding: "10px 12px",
+                color: "#fff",
+                fontFamily: "inherit",
+                fontSize: "12px",
+                outline: "none",
+              }}
+            />
+            {youtubeApiKeyError && (
+              <div style={{ fontSize: "11px", color: "#ff6b6b" }}>
+                {youtubeApiKeyError}
+              </div>
+            )}
+            {youtubeApiKeySuccess && (
+              <div style={{ fontSize: "11px", color: "#55efc4" }}>
+                {youtubeApiKeySuccess}
+              </div>
+            )}
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px" }}>
+              <button
+                onClick={() => setShowApiKeyModal(false)}
+                style={{
+                  padding: "8px 12px",
+                  background: "rgba(255,255,255,0.05)",
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  borderRadius: "8px",
+                  color: "rgba(255,255,255,0.8)",
+                  fontFamily: "inherit",
+                  cursor: "pointer",
+                }}
+              >
+                Close
+              </button>
+              <button
+                onClick={saveYoutubeApiKey}
+                disabled={youtubeApiKeySaving}
+                style={{
+                  padding: "8px 12px",
+                  background: `${accent}22`,
+                  border: `1px solid ${accent}66`,
+                  borderRadius: "8px",
+                  color: accent,
+                  fontFamily: "inherit",
+                  cursor: "pointer",
+                  opacity: youtubeApiKeySaving ? 0.5 : 1,
+                }}
+              >
+                {youtubeApiKeySaving ? "Saving..." : "Validate & Save"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── MAIN LAYOUT ── */}
       <div style={{ flex: 1, display: "flex", overflow: "hidden", minHeight: 0 }}>
@@ -1259,7 +1419,7 @@ export default function Music() {
                   gap: "10px",
                 }}
               >
-                {!hasYoutubeApiKey && (
+                {!youtubeApiKeyReady && (
                   <div
                     style={{
                       width: "100%",
@@ -1289,7 +1449,7 @@ export default function Music() {
                   onChange={(e) => setPlaylistInput(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && addToPlaylist()}
                   placeholder="YouTube URL or video ID..."
-                  disabled={!hasYoutubeApiKey}
+                  disabled={!youtubeApiKeyReady}
                   style={{
                     flex: 1,
                     background: "rgba(255,255,255,0.05)",
@@ -1304,7 +1464,7 @@ export default function Music() {
                 />
                 <button
                   onClick={addToPlaylist}
-                  disabled={playlistLoading || !hasYoutubeApiKey}
+                  disabled={playlistLoading || !youtubeApiKeyReady}
                   style={{
                     padding: "8px 16px",
                     background: `${accent}22`,
@@ -1315,7 +1475,7 @@ export default function Music() {
                     cursor: "pointer",
                     fontFamily: "inherit",
                     letterSpacing: "0.5px",
-                    opacity: playlistLoading || !hasYoutubeApiKey ? 0.5 : 1,
+                    opacity: playlistLoading || !youtubeApiKeyReady ? 0.5 : 1,
                     transition: "all 0.15s",
                   }}
                 >
@@ -1553,7 +1713,7 @@ export default function Music() {
                   gap: "10px",
                 }}
               >
-                {!hasYoutubeApiKey && (
+                {!youtubeApiKeyReady && (
                   <div
                     style={{
                       width: "100%",
@@ -1585,7 +1745,7 @@ export default function Music() {
                     e.key === "Enter" && !playlistImportLoading && importYoutubePlaylist()
                   }
                   placeholder="YouTube playlist URL or playlist ID..."
-                  disabled={!hasYoutubeApiKey}
+                  disabled={!youtubeApiKeyReady}
                   style={{
                     flex: 1,
                     background: "rgba(255,255,255,0.05)",
@@ -1600,7 +1760,7 @@ export default function Music() {
                 />
                 <button
                   onClick={importYoutubePlaylist}
-                  disabled={playlistImportLoading || !hasYoutubeApiKey}
+                  disabled={playlistImportLoading || !youtubeApiKeyReady}
                   style={{
                     padding: "8px 16px",
                     background: `${accent}22`,
@@ -1611,7 +1771,7 @@ export default function Music() {
                     cursor: "pointer",
                     fontFamily: "inherit",
                     letterSpacing: "0.5px",
-                    opacity: playlistImportLoading || !hasYoutubeApiKey ? 0.5 : 1,
+                    opacity: playlistImportLoading || !youtubeApiKeyReady ? 0.5 : 1,
                     transition: "all 0.15s",
                   }}
                 >
