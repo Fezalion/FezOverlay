@@ -6,9 +6,9 @@ import {
   hasYoutubeApiKey,
   YOUTUBE_API_SETUP_URL,
 } from "../utils/youtube";
-
+import { useTwitchClient } from "../hooks/useTwitchClient";
+import { useMetadata } from "../hooks/useMetadata";
 // ============================================================
-const WS_URL = "ws://localhost:48000";
 const ACCENT_COLORS = [
   "#ff6b6b",
   "#feca57",
@@ -58,31 +58,6 @@ function WaveformBars({ color, small, isPlaying }) {
           }}
         />
       ))}
-    </div>
-  );
-}
-
-function WsStatus({ connected }) {
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-      <div
-        style={{
-          width: "6px",
-          height: "6px",
-          borderRadius: "50%",
-          background: connected ? "#55efc4" : "#ff6b6b",
-          animation: connected ? "pulse 2s infinite" : "none",
-        }}
-      />
-      <span
-        style={{
-          fontSize: "10px",
-          color: "rgba(255,255,255,0.3)",
-          letterSpacing: "1px",
-        }}
-      >
-        {connected ? "LIVE" : "DISCONNECTED"}
-      </span>
     </div>
   );
 }
@@ -146,13 +121,13 @@ export default function Music() {
   const [playlistLoading, setPlaylistLoading] = useState(false);
   const [playlistImportInput, setPlaylistImportInput] = useState("");
   const [playlistImportLoading, setPlaylistImportLoading] = useState(false);
-  const [youtubeApiKeyReady, setYoutubeApiKeyReady] = useState(hasYoutubeApiKey);
+  const [youtubeApiKeyReady, setYoutubeApiKeyReady] =
+    useState(hasYoutubeApiKey);
   const [showApiKeyModal, setShowApiKeyModal] = useState(false);
   const [youtubeApiKeyInput, setYoutubeApiKeyInput] = useState("");
   const [youtubeApiKeySaving, setYoutubeApiKeySaving] = useState(false);
   const [youtubeApiKeyError, setYoutubeApiKeyError] = useState("");
   const [youtubeApiKeySuccess, setYoutubeApiKeySuccess] = useState("");
-  const [wsConnected, setWsConnected] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(25);
@@ -171,8 +146,61 @@ export default function Music() {
   const isTransitioningRef = useRef(false);
   const playlistIndexRef = useRef(0);
 
+  const { settings } = useMetadata();
+  const clientRef = useTwitchClient(settings.twitchName);
+
   const primaryPlaylist = playlists.find((entry) => entry.isPrimary) ?? null;
   const playlist = primaryPlaylist?.items ?? [];
+
+  const extractVideoId = useCallback((input) => {
+    const source = String(input || "").trim();
+    if (!source) return null;
+    const match = source.match(
+      /(?:v=|youtu\.be\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/,
+    );
+    return match ? match[1] : source.length === 11 ? source : null;
+  }, []);
+
+  const handleRedeemSongRequest = useCallback(
+    async (payload) => {
+      console.log(payload);
+      if (!payload || typeof payload !== "object") return;
+      const messageType = String(payload.type || "").toLowerCase();
+      if (messageType !== "redeemsongrequest") return;
+
+      const rawInput =
+        payload.songUrl ||
+        payload.url ||
+        payload.videoUrl ||
+        payload.videoId ||
+        payload.song ||
+        payload.message ||
+        "";
+      const videoId = extractVideoId(rawInput);
+      if (!videoId) return;
+
+      const requestedBy =
+        payload.requestedBy ||
+        payload.user ||
+        payload.username ||
+        payload.displayName ||
+        "Viewer";
+
+      const info = await fetchVideoInfo(videoId);
+      setQueue((q) => [
+        ...q,
+        {
+          videoId,
+          title: info.title ?? videoId,
+          channel: info.channel ?? "Unknown",
+          requestedBy,
+        },
+      ]);
+    },
+    [extractVideoId],
+  ); // Dependency on extractVideoId
+
+  const songRequestHandlerRef = useRef(handleRedeemSongRequest);
 
   useEffect(() => {
     queueRef.current = queue;
@@ -180,6 +208,10 @@ export default function Music() {
   useEffect(() => {
     playlistRef.current = playlist;
   }, [playlist]);
+
+  useEffect(() => {
+    songRequestHandlerRef.current = handleRedeemSongRequest;
+  }, [handleRedeemSongRequest]);
 
   const playNext = useCallback(async () => {
     if (isTransitioningRef.current) return;
@@ -277,32 +309,31 @@ export default function Music() {
   }, []);
 
   useEffect(() => {
-    let ws;
-    let reconnectTimeout;
-    const connect = () => {
-      ws = new WebSocket(WS_URL);
-      ws.onopen = () => setWsConnected(true);
-      ws.onclose = () => {
-        setWsConnected(false);
-        reconnectTimeout = setTimeout(connect, 3000);
-      };
-      ws.onerror = () => ws.close();
-      ws.onmessage = async (event) => {
-        try {
-          const parsed =
-            typeof event.data === "string" ? JSON.parse(event.data) : event.data;
-          await handleRedeemSongRequest(parsed);
-        } catch {
-          // Ignore non-JSON websocket payloads (e.g. legacy "refresh" string)
-        }
-      };
+    if (!clientRef.current) return;
+
+    const localref = clientRef.current;
+
+    const handleMessage = (channel, userstate, message, self) => {
+      if (self) return;
+      // Use the setting from your useMetadata hook
+      if (userstate["custom-reward-id"] === settings.redeemSongRequest) {
+        // Call the function via the Ref
+        songRequestHandlerRef
+          .current({
+            type: "redeemsongrequest",
+            message: message,
+            requestedBy:
+              userstate["display-name"] || userstate["username"] || "Viewer",
+          })
+          .catch((err) => console.error("Song request failed:", err));
+      }
     };
-    connect();
+
+    localref.on("message", handleMessage);
     return () => {
-      ws?.close();
-      clearTimeout(reconnectTimeout);
+      localref.removeListener("message", handleMessage);
     };
-  }, [playNext]);
+  }, [clientRef, settings.redeemSongRequest]);
 
   useEffect(() => {
     playerRef.current?.setVolume(volume);
@@ -378,67 +409,17 @@ export default function Music() {
   const updatePrimaryPlaylistItems = (updater) => {
     setPlaylists((prev) =>
       prev.map((entry) =>
-        entry.isPrimary ? { ...entry, items: updater(entry.items ?? []) } : entry,
+        entry.isPrimary
+          ? { ...entry, items: updater(entry.items ?? []) }
+          : entry,
       ),
     );
   };
-
-  const extractVideoId = useCallback((input) => {
-    const source = String(input || "").trim();
-    if (!source) return null;
-    const match = source.match(
-      /(?:v=|youtu\.be\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/,
-    );
-    return match ? match[1] : source.length === 11 ? source : null;
-  }, []);
 
   const extractPlaylistId = (input) => {
     const playlistMatch = input.match(/[?&]list=([a-zA-Z0-9_-]+)/);
     if (playlistMatch?.[1]) return playlistMatch[1];
     return /^[a-zA-Z0-9_-]+$/.test(input) ? input : null;
-  };
-
-  async function handleRedeemSongRequest(payload) {
-    if (!payload || typeof payload !== "object") return;
-    const messageType = String(payload.type || "").toLowerCase();
-    if (messageType !== "redeemsongrequest") return;
-
-    const rawInput =
-      payload.songUrl ||
-      payload.url ||
-      payload.videoUrl ||
-      payload.videoId ||
-      payload.song ||
-      payload.message ||
-      "";
-    const videoId = extractVideoId(rawInput);
-    if (!videoId) return;
-
-    const requestedBy =
-      payload.requestedBy ||
-      payload.user ||
-      payload.username ||
-      payload.displayName ||
-      "Viewer";
-
-    const info = await fetchVideoInfo(videoId);
-    setQueue((q) => [
-      ...q,
-      {
-        videoId,
-        title: info.title ?? videoId,
-        channel: info.channel ?? "Unknown",
-        requestedBy,
-      },
-    ]);
-  }
-
-  const triggerSongRequestDebug = async () => {
-    await handleRedeemSongRequest({
-      type: "redeemsongrequest",
-      videoId: "dQw4w9WgXcQ",
-      requestedBy: "DebugButton",
-    });
   };
 
   const saveYoutubeApiKey = async () => {
@@ -665,24 +646,6 @@ export default function Music() {
           FezOverlay<span style={{ color: accent }}>Music.</span>
         </div>
         <div style={{ flex: 1 }} />
-        <button
-          onClick={triggerSongRequestDebug}
-          style={{
-            background: "rgba(255,255,255,0.06)",
-            border: "1px solid rgba(255,255,255,0.14)",
-            borderRadius: "8px",
-            color: "rgba(255,255,255,0.75)",
-            fontFamily: "inherit",
-            fontSize: "10px",
-            letterSpacing: "0.8px",
-            textTransform: "uppercase",
-            cursor: "pointer",
-            padding: "6px 10px",
-          }}
-          title="Simulate redeemsongrequest websocket payload"
-        >
-          Test WS
-        </button>
         {!youtubeApiKeyReady && (
           <button
             onClick={() => setShowApiKeyModal(true)}
@@ -701,7 +664,6 @@ export default function Music() {
             Missing Google API Key
           </button>
         )}
-        <WsStatus connected={wsConnected} />
       </div>
 
       {showApiKeyModal && (
@@ -743,7 +705,8 @@ export default function Music() {
               >
                 Google Cloud Console
               </a>{" "}
-              and paste it below. The server validates it before writing to `.env`.
+              and paste it below. The server validates it before writing to
+              `.env`.
             </div>
             <input
               value={youtubeApiKeyInput}
@@ -770,7 +733,13 @@ export default function Music() {
                 {youtubeApiKeySuccess}
               </div>
             )}
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px" }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: "8px",
+              }}
+            >
               <button
                 onClick={() => setShowApiKeyModal(false)}
                 style={{
@@ -807,7 +776,9 @@ export default function Music() {
       )}
 
       {/* ── MAIN LAYOUT ── */}
-      <div style={{ flex: 1, display: "flex", overflow: "hidden", minHeight: 0 }}>
+      <div
+        style={{ flex: 1, display: "flex", overflow: "hidden", minHeight: 0 }}
+      >
         {/* ── LEFT: NOW PLAYING ── */}
         <div
           style={{
@@ -1725,8 +1696,8 @@ export default function Music() {
                       padding: "10px 12px",
                     }}
                   >
-                    YouTube playlist import is disabled until a Google API key is
-                    configured. Create one at{" "}
+                    YouTube playlist import is disabled until a Google API key
+                    is configured. Create one at{" "}
                     <a
                       href={YOUTUBE_API_SETUP_URL}
                       target="_blank"
@@ -1742,7 +1713,9 @@ export default function Music() {
                   value={playlistImportInput}
                   onChange={(e) => setPlaylistImportInput(e.target.value)}
                   onKeyDown={(e) =>
-                    e.key === "Enter" && !playlistImportLoading && importYoutubePlaylist()
+                    e.key === "Enter" &&
+                    !playlistImportLoading &&
+                    importYoutubePlaylist()
                   }
                   placeholder="YouTube playlist URL or playlist ID..."
                   disabled={!youtubeApiKeyReady}
@@ -1771,7 +1744,8 @@ export default function Music() {
                     cursor: "pointer",
                     fontFamily: "inherit",
                     letterSpacing: "0.5px",
-                    opacity: playlistImportLoading || !youtubeApiKeyReady ? 0.5 : 1,
+                    opacity:
+                      playlistImportLoading || !youtubeApiKeyReady ? 0.5 : 1,
                     transition: "all 0.15s",
                   }}
                 >
@@ -1793,7 +1767,10 @@ export default function Music() {
                   >
                     <div style={{ fontSize: "28px", opacity: 0.2 }}>♫</div>
                     <div
-                      style={{ fontSize: "12px", color: "rgba(255,255,255,0.6)" }}
+                      style={{
+                        fontSize: "12px",
+                        color: "rgba(255,255,255,0.6)",
+                      }}
                     >
                       No playlists imported
                     </div>
@@ -1806,22 +1783,24 @@ export default function Music() {
                           borderBottom: "1px solid rgba(255,255,255,0.06)",
                         }}
                       >
-                        {["Name", "Source", "Tracks", "Primary", ""].map((h, i) => (
-                          <th
-                            key={i}
-                            style={{
-                              padding: "10px 16px",
-                              textAlign: "left",
-                              fontSize: "9px",
-                              color: "rgba(255,255,255,0.6)",
-                              letterSpacing: "2px",
-                              textTransform: "uppercase",
-                              fontWeight: "400",
-                            }}
-                          >
-                            {h}
-                          </th>
-                        ))}
+                        {["Name", "Source", "Tracks", "Primary", ""].map(
+                          (h, i) => (
+                            <th
+                              key={i}
+                              style={{
+                                padding: "10px 16px",
+                                textAlign: "left",
+                                fontSize: "9px",
+                                color: "rgba(255,255,255,0.6)",
+                                letterSpacing: "2px",
+                                textTransform: "uppercase",
+                                fontWeight: "400",
+                              }}
+                            >
+                              {h}
+                            </th>
+                          ),
+                        )}
                       </tr>
                     </thead>
                     <tbody>
@@ -1835,17 +1814,35 @@ export default function Music() {
                           }}
                         >
                           <td style={{ padding: "12px 16px" }}>
-                            <div style={{ fontSize: "13px", color: "#fff", fontWeight: 500 }}>
+                            <div
+                              style={{
+                                fontSize: "13px",
+                                color: "#fff",
+                                fontWeight: 500,
+                              }}
+                            >
                               {entry.name}
                             </div>
                           </td>
                           <td style={{ padding: "12px 16px" }}>
-                            <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.6)" }}>
-                              {entry.sourceType === "youtube" ? "YouTube" : "Manual"}
+                            <span
+                              style={{
+                                fontSize: "11px",
+                                color: "rgba(255,255,255,0.6)",
+                              }}
+                            >
+                              {entry.sourceType === "youtube"
+                                ? "YouTube"
+                                : "Manual"}
                             </span>
                           </td>
                           <td style={{ padding: "12px 16px" }}>
-                            <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.6)" }}>
+                            <span
+                              style={{
+                                fontSize: "11px",
+                                color: "rgba(255,255,255,0.6)",
+                              }}
+                            >
                               {entry.items?.length ?? 0}
                             </span>
                           </td>
@@ -1870,8 +1867,14 @@ export default function Music() {
                               </button>
                             )}
                           </td>
-                          <td style={{ padding: "12px 16px", textAlign: "right" }}>
-                            <IconBtn onClick={() => deletePlaylist(entry.id)} title="Delete" danger>
+                          <td
+                            style={{ padding: "12px 16px", textAlign: "right" }}
+                          >
+                            <IconBtn
+                              onClick={() => deletePlaylist(entry.id)}
+                              title="Delete"
+                              danger
+                            >
                               ✕
                             </IconBtn>
                           </td>
