@@ -1,6 +1,11 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import YouTubePlayer from "../components/YouTubePlayer";
-import { fetchPlaylistData, fetchVideoInfo } from "../utils/youtube";
+import {
+  fetchPlaylistData,
+  fetchVideoInfo,
+  hasYoutubeApiKey,
+  YOUTUBE_API_SETUP_URL,
+} from "../utils/youtube";
 
 // ============================================================
 const WS_URL = "ws://localhost:48000";
@@ -413,6 +418,7 @@ export default function Music() {
   };
 
   const addToPlaylist = async () => {
+    if (!hasYoutubeApiKey) return;
     const input = playlistInput.trim();
     if (!input) return;
 
@@ -467,6 +473,7 @@ export default function Music() {
   };
 
   const importYoutubePlaylist = async () => {
+    if (!hasYoutubeApiKey) return;
     const input = playlistImportInput.trim();
     if (!input) return;
     const playlistId = extractPlaylistId(input);
@@ -617,6 +624,25 @@ export default function Music() {
         >
           Test WS
         </button>
+        {!hasYoutubeApiKey && (
+          <a
+            href={YOUTUBE_API_SETUP_URL}
+            target="_blank"
+            rel="noreferrer"
+            style={{
+              fontSize: "10px",
+              color: "#feca57",
+              textDecoration: "none",
+              border: "1px solid rgba(254,202,87,0.4)",
+              borderRadius: "8px",
+              padding: "6px 10px",
+              background: "rgba(254,202,87,0.08)",
+            }}
+            title="Create a Google/YouTube API key"
+          >
+            Missing Google API Key
+          </a>
+        )}
         <WsStatus connected={wsConnected} />
       </div>
 
@@ -1233,11 +1259,37 @@ export default function Music() {
                   gap: "10px",
                 }}
               >
+                {!hasYoutubeApiKey && (
+                  <div
+                    style={{
+                      width: "100%",
+                      fontSize: "11px",
+                      color: "#feca57",
+                      background: "rgba(254,202,87,0.08)",
+                      border: "1px solid rgba(254,202,87,0.35)",
+                      borderRadius: "8px",
+                      padding: "10px 12px",
+                    }}
+                  >
+                    Missing `VITE_YOUTUBE_API_KEY`. Add it to your `.env`, then
+                    create one at{" "}
+                    <a
+                      href={YOUTUBE_API_SETUP_URL}
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{ color: "#feca57" }}
+                    >
+                      Google Cloud Console
+                    </a>
+                    .
+                  </div>
+                )}
                 <input
                   value={playlistInput}
                   onChange={(e) => setPlaylistInput(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && addToPlaylist()}
                   placeholder="YouTube URL or video ID..."
+                  disabled={!hasYoutubeApiKey}
                   style={{
                     flex: 1,
                     background: "rgba(255,255,255,0.05)",
@@ -1252,7 +1304,7 @@ export default function Music() {
                 />
                 <button
                   onClick={addToPlaylist}
-                  disabled={playlistLoading}
+                  disabled={playlistLoading || !hasYoutubeApiKey}
                   style={{
                     padding: "8px 16px",
                     background: `${accent}22`,
@@ -1263,7 +1315,7 @@ export default function Music() {
                     cursor: "pointer",
                     fontFamily: "inherit",
                     letterSpacing: "0.5px",
-                    opacity: playlistLoading ? 0.5 : 1,
+                    opacity: playlistLoading || !hasYoutubeApiKey ? 0.5 : 1,
                     transition: "all 0.15s",
                   }}
                 >
@@ -1501,6 +1553,31 @@ export default function Music() {
                   gap: "10px",
                 }}
               >
+                {!hasYoutubeApiKey && (
+                  <div
+                    style={{
+                      width: "100%",
+                      fontSize: "11px",
+                      color: "#feca57",
+                      background: "rgba(254,202,87,0.08)",
+                      border: "1px solid rgba(254,202,87,0.35)",
+                      borderRadius: "8px",
+                      padding: "10px 12px",
+                    }}
+                  >
+                    YouTube playlist import is disabled until a Google API key is
+                    configured. Create one at{" "}
+                    <a
+                      href={YOUTUBE_API_SETUP_URL}
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{ color: "#feca57" }}
+                    >
+                      Google Cloud Console
+                    </a>
+                    .
+                  </div>
+                )}
                 <input
                   value={playlistImportInput}
                   onChange={(e) => setPlaylistImportInput(e.target.value)}
@@ -1508,6 +1585,7 @@ export default function Music() {
                     e.key === "Enter" && !playlistImportLoading && importYoutubePlaylist()
                   }
                   placeholder="YouTube playlist URL or playlist ID..."
+                  disabled={!hasYoutubeApiKey}
                   style={{
                     flex: 1,
                     background: "rgba(255,255,255,0.05)",
@@ -1522,7 +1600,7 @@ export default function Music() {
                 />
                 <button
                   onClick={importYoutubePlaylist}
-                  disabled={playlistImportLoading}
+                  disabled={playlistImportLoading || !hasYoutubeApiKey}
                   style={{
                     padding: "8px 16px",
                     background: `${accent}22`,
@@ -1533,7 +1611,7 @@ export default function Music() {
                     cursor: "pointer",
                     fontFamily: "inherit",
                     letterSpacing: "0.5px",
-                    opacity: playlistImportLoading ? 0.5 : 1,
+                    opacity: playlistImportLoading || !hasYoutubeApiKey ? 0.5 : 1,
                     transition: "all 0.15s",
                   }}
                 >

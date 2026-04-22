@@ -1,6 +1,9 @@
 // src/utils/youtube.js
 const cache = new Map();
 const API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
+export const YOUTUBE_API_SETUP_URL =
+  "https://console.cloud.google.com/apis/credentials";
+export const hasYoutubeApiKey = Boolean(API_KEY);
 
 export async function fetchPlaylistData(playlistId) {
   if (!API_KEY) {
