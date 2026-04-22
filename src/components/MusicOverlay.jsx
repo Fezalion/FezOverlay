@@ -202,10 +202,6 @@ export default function Music() {
   }, [playlist, primaryPlaylist?.id]);
 
   useEffect(() => {
-    playNext();
-  }, []);
-
-  useEffect(() => {
     return () => clearInterval(timerRef.current); // cleanup on unmount
   }, []);
 
@@ -319,6 +315,23 @@ export default function Music() {
   };
 
   const skip = () => playNext();
+
+  const playQueueItem = (index) => {
+    if (isTransitioningRef.current) return;
+    const item = queue[index];
+    if (!item) return;
+
+    isTransitioningRef.current = true;
+    setCurrent(null);
+
+    setTimeout(() => {
+      setQueue((q) => q.filter((_, i) => i !== index));
+      setCurrent({ ...item, requestedBy: item.requestedBy ?? "Queue" });
+      setCurrentTime(0);
+      setDuration(0);
+      isTransitioningRef.current = false;
+    }, 10);
+  };
 
   const removeFromQueue = (index) => {
     setQueue((q) => q.filter((_, i) => i !== index));
@@ -1094,7 +1107,7 @@ export default function Music() {
                           key={item.videoId}
                           className="row-hover"
                           draggable
-                          onDoubleClick={() => playPlaylistItem(i)}
+                          onDoubleClick={() => playQueueItem(i)}
                           onDragStart={() => setDragIndex(i)}
                           onDragOver={(e) => e.preventDefault()}
                           onDrop={() => {
