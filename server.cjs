@@ -137,7 +137,8 @@ const DEATH_LOG = path.join(baseDir, "deaths.json");
 const PLAYLISTS_DIR = path.join(baseDir, "playlists");
 const versionFile = path.join(baseDir, "version.txt");
 
-app.use(bodyParser.json());
+app.use(bodyParser.json({ limit: "10mb" }));
+app.use(bodyParser.urlencoded({ extended: true, limit: "10mb" }));
 app.use(express.static(distRoot));
 
 const LASTFM_API_KEY = process.env.LASTFM_API_KEY;
