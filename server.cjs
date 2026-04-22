@@ -84,6 +84,35 @@ function validateYoutubeApiKey(apiKey) {
   });
 }
 
+function fetchJson(url) {
+  return new Promise((resolve, reject) => {
+    https
+      .get(url, (response) => {
+        let body = "";
+        response.on("data", (chunk) => {
+          body += chunk;
+        });
+        response.on("end", () => {
+          try {
+            const parsed = JSON.parse(body || "{}");
+            if (response.statusCode >= 200 && response.statusCode < 300) {
+              return resolve(parsed);
+            }
+            const reason =
+              parsed?.error?.message ||
+              `Request failed with status ${response.statusCode}`;
+            reject(new Error(reason));
+          } catch {
+            reject(new Error("Failed to parse API response"));
+          }
+        });
+      })
+      .on("error", (err) => {
+        reject(err);
+      });
+  });
+}
+
 function broadcast(msg) {
   wss.clients.forEach((client) => {
     if (client.readyState === 1) {
@@ -467,6 +496,82 @@ app.get("/api/twitch", (req, res) => {
 
 app.get("/api/youtube/apikey/status", (req, res) => {
   res.json({ configured: Boolean(process.env.VITE_YOUTUBE_API_KEY) });
+});
+
+app.get("/api/youtube/video/:videoId", async (req, res) => {
+  try {
+    const apiKey = String(process.env.VITE_YOUTUBE_API_KEY || "").trim();
+    if (!apiKey) {
+      return res.status(500).json({ error: "YouTube API key not configured" });
+    }
+
+    const videoId = String(req.params?.videoId || "").trim();
+    if (!videoId || !/^[a-zA-Z0-9_-]{11}$/.test(videoId)) {
+      return res.status(400).json({ error: "Invalid video ID" });
+    }
+
+    const url = `https://www.googleapis.com/youtube/v3/videos?id=${videoId}&part=snippet&key=${apiKey}`;
+    const data = await fetchJson(url);
+    const item = data?.items?.[0];
+    if (!item?.snippet) {
+      return res.status(404).json({ error: "Video not found" });
+    }
+
+    res.json({
+      videoId,
+      title: item.snippet.title,
+      channel: item.snippet.channelTitle || "Unknown channel",
+    });
+  } catch (err) {
+    console.error("[YouTube API] Failed to fetch video info:", err);
+    res
+      .status(502)
+      .json({ error: err?.message || "Failed to fetch YouTube video info" });
+  }
+});
+
+app.get("/api/youtube/playlist/:playlistId", async (req, res) => {
+  try {
+    const apiKey = String(process.env.VITE_YOUTUBE_API_KEY || "").trim();
+    if (!apiKey) {
+      return res.status(500).json({ error: "YouTube API key not configured" });
+    }
+
+    const playlistId = String(req.params?.playlistId || "").trim();
+    if (!playlistId || !/^[a-zA-Z0-9_-]+$/.test(playlistId)) {
+      return res.status(400).json({ error: "Invalid playlist ID" });
+    }
+
+    const metaUrl = `https://www.googleapis.com/youtube/v3/playlists?id=${playlistId}&part=snippet&key=${apiKey}`;
+    const metaData = await fetchJson(metaUrl);
+    const title = metaData?.items?.[0]?.snippet?.title || "Imported Playlist";
+
+    let nextPageToken = "";
+    const allItems = [];
+    do {
+      const itemsUrl = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=50&playlistId=${playlistId}&key=${apiKey}&pageToken=${nextPageToken}`;
+      const pageData = await fetchJson(itemsUrl);
+      const mapped = (pageData?.items || [])
+        .map((item) => ({
+          videoId: item?.snippet?.resourceId?.videoId,
+          title: item?.snippet?.title,
+          channel:
+            item?.snippet?.videoOwnerChannelTitle ||
+            item?.snippet?.channelTitle ||
+            "Unknown",
+        }))
+        .filter((item) => item.videoId);
+      allItems.push(...mapped);
+      nextPageToken = pageData?.nextPageToken || "";
+    } while (nextPageToken);
+
+    res.json({ title, items: allItems });
+  } catch (err) {
+    console.error("[YouTube API] Failed to fetch playlist:", err);
+    res
+      .status(502)
+      .json({ error: err?.message || "Failed to fetch YouTube playlist" });
+  }
 });
 
 app.post("/api/youtube/apikey", async (req, res) => {
