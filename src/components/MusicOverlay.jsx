@@ -233,22 +233,36 @@ export default function Music() {
     // 2. Wait for the next tick so React finishes the unmount
     setTimeout(() => {
       const q = queueRef.current;
+      let nextSong = null;
+
       if (q.length > 0) {
         const [next, ...rest] = q;
         setQueue(rest);
-        setCurrent(next);
+        nextSong = next;
       } else if (playlistRef.current.length > 0) {
         const idx = playlistIndexRef.current % playlistRef.current.length;
-        setCurrent({ ...playlistRef.current[idx], requestedBy: null });
+        nextSong = { ...playlistRef.current[idx], requestedBy: null };
         playlistIndexRef.current =
           (playlistIndexRef.current + 1) % playlistRef.current.length;
+      }
+
+      if (nextSong) {
+        setCurrent(nextSong);
+
+        if (nextSong.requestedBy && clientRef.current && settings.twitchName) {
+          const channel = `#${settings.twitchName.toLowerCase()}`;
+          clientRef.current.say(
+            channel,
+            `🎵 Now Playing: "${nextSong.title}" (Requested by ${nextSong.requestedBy})`,
+          );
+        }
       }
 
       setCurrentTime(0);
       setDuration(0);
       isTransitioningRef.current = false;
-    }, 50); // 50ms is enough to let the DOM breathe
-  }, []);
+    }, 50);
+  }, [settings.twitchName, clientRef]); // Ensure dependencies are included
 
   useEffect(() => {
     playlistIndexRef.current = 0;
@@ -419,7 +433,7 @@ export default function Music() {
     }
   };
 
-  const skip = () => playNext();
+  const skip = useCallback(() => playNext(), [playNext]);
 
   const playQueueItem = (index) => {
     if (isTransitioningRef.current) return;
@@ -432,6 +446,15 @@ export default function Music() {
     setTimeout(() => {
       setQueue((q) => q.filter((_, i) => i !== index));
       setCurrent({ ...item, requestedBy: item.requestedBy ?? "Queue" });
+
+      if (item.requestedBy && clientRef.current && settings.twitchName) {
+        const channel = `#${settings.twitchName.toLowerCase()}`;
+        clientRef.current.say(
+          channel,
+          `▶️ Now Playing: "${item.title}" (Requested by ${item.requestedBy})`,
+        );
+      }
+
       setCurrentTime(0);
       setDuration(0);
       isTransitioningRef.current = false;
