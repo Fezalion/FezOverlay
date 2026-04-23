@@ -363,7 +363,7 @@ export default function Music() {
       // --- COMMAND: !skip (Mod Only) ---
       if (msg === "!skip") {
         if (isMod) {
-          skip();
+          playNext();
           localref.say(channel, `Skipping current song...`);
         } else {
           // Optional: Tell non-mods they can't skip
@@ -392,7 +392,7 @@ export default function Music() {
     return () => {
       localref.removeListener("message", handleMessage);
     };
-  }, [clientRef, settings.redeemSongRequest, current, skip]); // Added current and skip to dependencies
+  }, [clientRef, settings.redeemSongRequest, current, playNext]); // Added current and skip to dependencies
 
   useEffect(() => {
     playerRef.current?.setVolume(volume);
@@ -432,8 +432,6 @@ export default function Music() {
       playerRef.current.playVideo();
     }
   };
-
-  const skip = useCallback(() => playNext(), [playNext]);
 
   const playQueueItem = (index) => {
     if (isTransitioningRef.current) return;
@@ -1046,7 +1044,7 @@ export default function Music() {
               </button>
 
               {/* NEXT */}
-              <button onClick={skip} style={controlBtnStyle} title="Next">
+              <button onClick={playNext} style={controlBtnStyle} title="Next">
                 ⏭
               </button>
             </div>
