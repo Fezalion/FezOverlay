@@ -145,6 +145,7 @@ export default function Music() {
   const hasLoadedPlaylistsRef = useRef(false);
   const isTransitioningRef = useRef(false);
   const playlistIndexRef = useRef(0);
+  const playNextRef = useRef(playNext);
 
   const { settings } = useMetadata();
   const clientRef = useTwitchClient(settings.twitchName);
@@ -265,6 +266,10 @@ export default function Music() {
   }, [settings.twitchName, clientRef]); // Ensure dependencies are included
 
   useEffect(() => {
+    playNextRef.current = playNext;
+  }, [playNext]);
+
+  useEffect(() => {
     playlistIndexRef.current = 0;
   }, [playlist, primaryPlaylist?.id]);
 
@@ -363,7 +368,7 @@ export default function Music() {
       // --- COMMAND: !skip (Mod Only) ---
       if (msg === "!skip") {
         if (isMod) {
-          playNext();
+          playNextRef.current();
           localref.say(channel, `Skipping current song...`);
         } else {
           // Optional: Tell non-mods they can't skip
