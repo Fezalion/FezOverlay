@@ -397,7 +397,7 @@ export default function Music() {
     return () => {
       localref.removeListener("message", handleMessage);
     };
-  }, [clientRef, settings.redeemSongRequest]); // Added current and skip to dependencies
+  }, [clientRef, settings.redeemSongRequest, current]); // Added current and skip to dependencies
 
   useEffect(() => {
     playerRef.current?.setVolume(volume);
