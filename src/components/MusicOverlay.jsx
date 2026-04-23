@@ -145,7 +145,7 @@ export default function Music() {
   const hasLoadedPlaylistsRef = useRef(false);
   const isTransitioningRef = useRef(false);
   const playlistIndexRef = useRef(0);
-  const playNextRef = useRef(playNext);
+  const playNextRef = useRef(null);
 
   const { settings } = useMetadata();
   const clientRef = useTwitchClient(settings.twitchName);
