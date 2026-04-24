@@ -11,13 +11,11 @@ import fih_swim_1 from "../utils/fih/fih_still_frame_03.png";
 import fih_swim_2 from "../utils/fih/fih_still_frame_04.png";
 import fih_feed from "../utils/fih/feed.png";
 
-// ─── Size / Hunger constants ───────────────────────────────────────────────
-const BASE_RADIUS = 40; // physics body radius at size 1
-const SIZE_PER_EAT = 0.18; // how much fih grows each meal
-const MAX_SIZE = 2.2; // cap on size multiplier
-const DECAY_START_MS = 15000; // ms after last meal before shrinking begins
-const DECAY_RATE = 0.00003; // shrink per ms while decaying (per-frame)
-// ──────────────────────────────────────────────────────────────────────────
+const BASE_RADIUS = 40;
+const SIZE_PER_EAT = 0.18;
+const MAX_SIZE = 2.2;
+const DECAY_START_MS = 15000;
+const DECAY_RATE = 0.00003;
 
 export default function FihOverlay() {
   const sceneRef = useRef(null);
@@ -27,12 +25,14 @@ export default function FihOverlay() {
   const subBodies = useRef(new Map());
   const wallsRef = useRef([]);
   const facingRightRef = useRef(false);
-  const gulpScaleRef = useRef(1); // for gulp effect on custom canvas
+  const gulpScaleRef = useRef(1);
 
-  // ── size state ────────────────────────────────────────────────────────────
-  const fishSizeRef = useRef(1); // current visual + physics scale
-  const lastEatTimeRef = useRef(null); // timestamp of last meal (null = never)
-  // ─────────────────────────────────────────────────────────────────────────
+  const fishSizeRef = useRef(1);
+  const lastEatTimeRef = useRef(null);
+
+  // --- New: Bubble tracking ---
+  const bubblesRef = useRef([]);
+  const bubbleSpawnTimerRef = useRef(0);
 
   const [isDebug, setIsDebug] = useState(false);
   const [activeSubs, setActiveSubs] = useState([]);
@@ -46,60 +46,44 @@ export default function FihOverlay() {
     y: Math.random() * window.innerHeight,
   });
 
-  //Feed redeem
+  // (Effect: Feed redeem - no changes)
   useEffect(() => {
     if (!clientRef.current) return;
-
     let localref = clientRef.current;
     const handleMessage = (channel, userstate, message, self) => {
       if (self) return;
-      console.log("1a");
       if (userstate["custom-reward-id"] === settings.redeemFeed) {
         const tracker = subscriberTrackerRef.current;
         if (!tracker) return;
-
         const available = tracker.getSubscriberCount();
         const spawnCount = Math.min(available, 5);
-        console.log(`spawncount ${spawnCount}`);
-
         if (spawnCount > 0) {
           const selectedSubscribers = tracker.getRandomSubscribers(spawnCount);
-
           selectedSubscribers.forEach((sub, index) => {
-            console.log(`spawning ${sub.name}`);
             setTimeout(() => {
               const name = sub.name || sub.displayName;
               spawnSubBubble(name);
             }, index * 1000);
           });
-
           nextSpawnTime.current =
             Date.now() + randomBetween(1000 * 10, 1000 * 120);
         }
       }
     };
-
     localref.on("message", handleMessage);
-    return () => {
-      localref.removeListener("message", handleMessage);
-    };
+    return () => localref.removeListener("message", handleMessage);
   }, [settings, clientRef]);
 
   // Debug toggle
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (e.key === " " || e.code === "Space") {
-        setIsDebug((prev) => !prev);
-      }
-      if (e.key === "a" || e.code === "a") {
-        spawnSubBubble("fih");
-      }
+      if (e.key === " " || e.code === "Space") setIsDebug((prev) => !prev);
+      if (e.key === "a" || e.code === "a") spawnSubBubble("fih");
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  // Keep subscriberTracker in a ref
   const subscriberTrackerRef = useRef(subscriberTracker);
   useEffect(() => {
     subscriberTrackerRef.current = subscriberTracker;
@@ -113,12 +97,10 @@ export default function FihOverlay() {
     Date.now() + randomBetween(1000 * 10, 1000 * 120),
   );
 
-  // Subscriber spawn interval
   useEffect(() => {
     const interval = setInterval(() => {
       const now = Date.now();
       if (now < nextSpawnTime.current) return;
-
       const available = subscriberTrackerRef.current.getSubscriberCount();
       if (available >= 1) {
         const selected = subscriberTrackerRef.current.getRandomSubscribers(1);
@@ -138,14 +120,11 @@ export default function FihOverlay() {
     const padding = 100;
     const minDistance = 400;
     const fish = fishRef.current;
-
     let x, y, dist;
     let attempts = 0;
-
     do {
       x = Math.random() * (window.innerWidth - padding * 2) + padding;
       y = Math.random() * (window.innerHeight - padding * 2) + padding;
-
       if (fish) {
         const dx = x - fish.position.x;
         const dy = y - fish.position.y;
@@ -159,36 +138,25 @@ export default function FihOverlay() {
     const newSub = Bodies.circle(x, y, 20, {
       label: "sub",
       restitution: 0.8,
-      render: {
-        sprite: {
-          texture: fih_feed,
-          xScale: 1,
-          yScale: 1,
-        },
-      },
+      render: { sprite: { texture: fih_feed, xScale: 1, yScale: 1 } },
     });
-
     newSub.subscriberName = name;
     subBodies.current.set(newSub.id, newSub);
     Composite.add(engineRef.current.world, newSub);
   };
 
-  // Idle target movement
   useEffect(() => {
     const moveIdlePoint = () => {
       const padding = 0.2;
       const minDistance = 300;
       const fish = fishRef.current;
-
       let newX, newY, dist;
       let attempts = 0;
-
       do {
         newX =
           (Math.random() * (1 - padding * 2) + padding) * window.innerWidth;
         newY =
           (Math.random() * (1 - padding * 2) + padding) * window.innerHeight;
-
         if (fish) {
           const dx = newX - fish.position.x;
           const dy = newY - fish.position.y;
@@ -198,15 +166,12 @@ export default function FihOverlay() {
         }
         attempts++;
       } while (dist < minDistance && attempts < 10);
-
       idleTarget.current = { x: newX, y: newY };
     };
-
     const interval = setInterval(moveIdlePoint, 15000);
     return () => clearInterval(interval);
   }, []);
 
-  // Matter.js Main Loop
   useEffect(() => {
     const { Engine, Render, Runner, Bodies, Composite, Body, Events } = Matter;
     const engine = engineRef.current;
@@ -227,13 +192,7 @@ export default function FihOverlay() {
       Math.random() * window.innerWidth,
       Math.random() * window.innerHeight,
       BASE_RADIUS,
-      {
-        label: "fish",
-        frictionAir: 0.03,
-        render: {
-          opacity: 0,
-        },
-      },
+      { label: "fish", frictionAir: 0.03, render: { opacity: 0 } },
     );
     fishRef.current = fish;
     Composite.add(engine.world, [fish]);
@@ -272,9 +231,6 @@ export default function FihOverlay() {
 
     const fishCanvas = fishCanvasRef.current;
     const fishCtx = fishCanvas.getContext("2d");
-    fishCanvas.width = window.innerWidth;
-    fishCanvas.height = window.innerHeight;
-
     const fishFrameSrcs = [fih_idle, fih_swim_0, fih_swim_1, fih_swim_2];
     const fishImages = fishFrameSrcs.map((src) => {
       const img = new Image();
@@ -290,25 +246,20 @@ export default function FihOverlay() {
       updateWalls();
     };
     window.addEventListener("resize", handleResize);
+    handleResize();
 
     const runner = Runner.create();
     Runner.run(runner, engine);
     Render.run(render);
 
-    // ── Helper: resize physics circle to match new size ──────────────────
-    // Matter.js doesn't support resizing circles natively, so we scale the
-    // vertices and update circleRadius ourselves.
     const applyPhysicsSize = (body, newSize) => {
       const targetRadius = BASE_RADIUS * newSize;
       const currentRadius = body.circleRadius || BASE_RADIUS;
       const scaleFactor = targetRadius / currentRadius;
       Body.scale(body, scaleFactor, scaleFactor);
-      // Body.scale updates circleRadius automatically in recent Matter versions,
-      // but set it explicitly just in case:
       body.circleRadius = targetRadius;
     };
 
-    // Custom fish draw loop
     let animFrame;
     let lastFrameTime = performance.now();
 
@@ -320,9 +271,9 @@ export default function FihOverlay() {
       const fish = fishRef.current;
       fishCtx.clearRect(0, 0, fishCanvas.width, fishCanvas.height);
 
-      // ── Size decay logic (runs every frame) ────────────────────────────
+      // --- Size decay & Bubble spawning logic ---
       const lastEat = lastEatTimeRef.current;
-      if (lastEat !== null) {
+      if (lastEat !== null && fish) {
         const msSinceEat = Date.now() - lastEat;
         if (msSinceEat > DECAY_START_MS && fishSizeRef.current > 1) {
           const prevSize = fishSizeRef.current;
@@ -331,48 +282,70 @@ export default function FihOverlay() {
             fishSizeRef.current - DECAY_RATE * dtMs,
           );
 
-          // Keep physics body in sync with visual size
-          if (fish && Math.abs(prevSize - fishSizeRef.current) > 0.001) {
+          if (Math.abs(prevSize - fishSizeRef.current) > 0.001) {
             applyPhysicsSize(fish, fishSizeRef.current);
           }
 
-          // When fully back to base size, wipe any sluggish leftover velocity
-          // so the chase force can spin up cleanly from rest.
-          if (fishSizeRef.current === 1 && fish) {
+          bubbleSpawnTimerRef.current += dtMs;
+          if (bubbleSpawnTimerRef.current > 200) {
+            bubbleSpawnTimerRef.current = 0;
+
+            const angle = fish.angle;
+            const spawnDist = BASE_RADIUS * fishSizeRef.current * 0.9;
+            const directionMod = facingRightRef.current ? -1 : 1;
+
+            bubblesRef.current.push({
+              x: fish.position.x + Math.cos(angle) * spawnDist * directionMod,
+              y: fish.position.y + Math.sin(angle) * spawnDist,
+              text: Math.random() > 0.5 ? "o" : "O",
+              opacity: 1,
+              vx: (Math.random() - 0.5) * 0.4,
+              vy: -Math.random() * 1.2 - 0.5,
+              size: 12 + Math.random() * 8,
+            });
+          }
+
+          if (fishSizeRef.current === 1) {
             Matter.Body.setVelocity(fish, { x: 0, y: 0 });
           }
         }
       }
-      // ───────────────────────────────────────────────────────────────────
 
+      // --- Render Bubbles ---
+      bubblesRef.current.forEach((b, i) => {
+        b.x += b.vx;
+        b.y += b.vy;
+        b.opacity -= 0.005;
+
+        fishCtx.save();
+        fishCtx.globalAlpha = Math.max(0, b.opacity);
+        fishCtx.fillStyle = "white";
+        fishCtx.font = `bold ${b.size}px monospace`;
+        fishCtx.fillText(b.text, b.x, b.y);
+        fishCtx.restore();
+      });
+      bubblesRef.current = bubblesRef.current.filter((b) => b.opacity > 0);
+
+      // --- Draw the Fish ---
       if (fish) {
         const speed = Math.sqrt(fish.velocity.x ** 2 + fish.velocity.y ** 2);
         const isMoving = speed > 0.3;
         const time = performance.now();
-
         let frameIndex = 0;
         if (isMoving) frameIndex = 1 + (Math.floor(time / 150) % 3);
         const img = fishImages[frameIndex];
-
         const baseW = img.naturalWidth || 80;
         const baseH = img.naturalHeight || 80;
-
-        // Apply both size scale and gulp scale to the visual
         const visualScale = fishSizeRef.current * gulpScaleRef.current;
         const w = baseW * visualScale;
         const h = baseH * visualScale;
-
         const { x, y } = fish.position;
         const angle = fish.angle;
 
         fishCtx.save();
         fishCtx.translate(x, y);
         fishCtx.rotate(angle);
-
-        if (facingRightRef.current) {
-          fishCtx.scale(-1, 1);
-        }
-
+        if (facingRightRef.current) fishCtx.scale(-1, 1);
         fishCtx.drawImage(img, -w / 2, -h / 2, w, h);
         fishCtx.restore();
       }
@@ -396,31 +369,22 @@ export default function FihOverlay() {
     Events.on(engine, "beforeUpdate", (event) => {
       const fish = fishRef.current;
       if (!fish) return;
-
       const size = fishSizeRef.current;
-
-      const slugFactor = (size - 1) / (MAX_SIZE - 1); // 0 → 1
+      const slugFactor = (size - 1) / (MAX_SIZE - 1);
       fish.frictionAir = 0.03 + slugFactor * 0.09;
-
       const chasing = subBodies.current.size > 0;
       const target = chasing
         ? subBodies.current.values().next().value.position
         : idleTarget.current;
-
       const dx = target.x - fish.position.x;
       const dy = target.y - fish.position.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
 
-      if (fish.velocity.x > 0.1) {
-        facingRightRef.current = true;
-      } else if (fish.velocity.x < -0.1) {
-        facingRightRef.current = false;
-      }
+      if (fish.velocity.x > 0.1) facingRightRef.current = true;
+      else if (fish.velocity.x < -0.1) facingRightRef.current = false;
 
       const speed = Math.sqrt(fish.velocity.x ** 2 + fish.velocity.y ** 2);
-      const isMoving = speed > 0.3;
-
-      if (dist > 30 && isMoving) {
+      if (dist > 30 && speed > 0.3) {
         const tiltAngle = Math.atan2(dy, Math.abs(dx)) * 0.4;
         const clampedAngle = Math.max(Math.min(tiltAngle, 0.4), -0.4);
         Matter.Body.setAngle(
@@ -432,19 +396,14 @@ export default function FihOverlay() {
       }
 
       Matter.Body.setAngularVelocity(fish, 0);
-
       const time = event.source.timing.timestamp;
-
       if (dist > 20) {
-        // frictionAir alone governs sluggishness — force stays constant so
-        // fih accelerates normally again as soon as he shrinks back down.
         const force = chasing ? 0.006 : 0.0008;
         Matter.Body.applyForce(fish, fish.position, {
           x: (dx / dist) * force,
           y: (dy / dist) * force,
         });
       }
-
       if (!chasing) {
         const sway = Math.sin(time * 0.002) * 0.0004;
         Matter.Body.applyForce(fish, fish.position, { x: 0, y: sway });
@@ -455,7 +414,6 @@ export default function FihOverlay() {
       }
     });
 
-    // Collision
     Events.on(engine, "collisionStart", (event) => {
       event.pairs.forEach((pair) => {
         const sub =
@@ -464,25 +422,19 @@ export default function FihOverlay() {
             : pair.bodyB.label === "sub"
               ? pair.bodyB
               : null;
-
         if (
           sub &&
           (pair.bodyA.label === "fish" || pair.bodyB.label === "fish")
         ) {
           Composite.remove(engine.world, sub);
           subBodies.current.delete(sub.id);
-
-          // ── Grow fih ──────────────────────────────────────────────────
-          const prevSize = fishSizeRef.current;
-          fishSizeRef.current = Math.min(MAX_SIZE, prevSize + SIZE_PER_EAT);
+          fishSizeRef.current = Math.min(
+            MAX_SIZE,
+            fishSizeRef.current + SIZE_PER_EAT,
+          );
           lastEatTimeRef.current = Date.now();
-
-          // Resize the physics body to match new size
-          const fish = fishRef.current;
-          if (fish) applyPhysicsSize(fish, fishSizeRef.current);
-          // ─────────────────────────────────────────────────────────────
-
-          // Gulp effect (brief vertical squish-stretch)
+          if (fishRef.current)
+            applyPhysicsSize(fishRef.current, fishSizeRef.current);
           gulpScaleRef.current = 1.25;
           setTimeout(() => {
             gulpScaleRef.current = 1;
@@ -510,7 +462,6 @@ export default function FihOverlay() {
         overflow: "hidden",
       }}
     >
-      {/* Matter.js canvas — renders sub bubbles only */}
       <div
         ref={sceneRef}
         style={{
@@ -521,17 +472,10 @@ export default function FihOverlay() {
           backgroundColor: isDebug ? "rgba(0, 0, 0, 0.12)" : "transparent",
         }}
       />
-
-      {/* Custom canvas — renders fish with proper flip */}
       <canvas
         ref={fishCanvasRef}
-        style={{
-          position: "absolute",
-          inset: 0,
-          pointerEvents: "none",
-        }}
+        style={{ position: "absolute", inset: 0, pointerEvents: "none" }}
       />
-
       {activeSubs.map((sub) => (
         <div
           key={sub.id}
