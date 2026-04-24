@@ -24,7 +24,9 @@ export async function fetchVideoInfo(videoId) {
   if (cache.has(videoId)) return cache.get(videoId);
 
   try {
-    const res = await fetch(`/api/youtube/video/${encodeURIComponent(videoId)}`);
+    const res = await fetch(
+      `/api/youtube/video/${encodeURIComponent(videoId)}`,
+    );
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
       throw new Error(data?.error || `YouTube API error: ${res.status}`);
@@ -35,12 +37,18 @@ export async function fetchVideoInfo(videoId) {
       videoId,
       title: data?.title || "Unknown title",
       channel: data?.channel || "Unknown channel",
+      duration: data?.duration ?? 0,
     };
 
     cache.set(videoId, info);
     return info;
   } catch (err) {
     console.error(`fetchVideoInfo failed for ${videoId}:`, err);
-    return { videoId, title: "Unknown title", channel: "Unknown channel" };
+    return {
+      videoId,
+      title: "Unknown title",
+      channel: "Unknown channel",
+      duration: 0,
+    };
   }
 }

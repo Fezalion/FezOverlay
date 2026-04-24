@@ -197,18 +197,33 @@ export default function Music() {
           title: info.title ?? videoId,
           channel: info.channel ?? "Unknown",
           requestedBy,
+          duration: info.duration ?? 0,
         },
       ]);
+
+      // Calculate Total Wait Time
+      // 1. Time left in current song
+      const currentRemaining = playerRef.current
+        ? Math.max(0, duration - currentTime)
+        : 0;
+
+      // 2. Sum of all songs already in the queue (before this one was added)
+      const queueWait = queueRef.current.reduce(
+        (acc, song) => acc + (song.duration || 0),
+        0,
+      );
+
+      const totalWait = currentRemaining + queueWait;
 
       // Send confirmation to Twitch Chat
       if (localref && channel) {
         localref.say(
           channel,
-          `▶️ Added to queue: "${info.title ?? videoId}" (Requested by ${requestedBy})`,
+          `▶️ Added to queue: "${info.title ?? videoId}" (ETA: ${formatTime(totalWait)})`,
         );
       }
     },
-    [extractVideoId],
+    [extractVideoId, currentTime, duration],
   );
 
   const songRequestHandlerRef = useRef(handleRedeemSongRequest);
@@ -249,7 +264,7 @@ export default function Music() {
 
       if (nextSong) {
         setCurrent(nextSong);
-
+        setDuration(nextSong.duration || 0);
         if (nextSong.requestedBy && clientRef.current && settings.twitchName) {
           const channel = `#${settings.twitchName.toLowerCase()}`;
           clientRef.current.say(
@@ -365,7 +380,6 @@ export default function Music() {
         }
       }
 
-      // --- COMMAND: !skip (Mod Only) ---
       if (msg === "!skip") {
         if (isMod) {
           playNextRef.current();
@@ -376,7 +390,6 @@ export default function Music() {
         }
       }
 
-      // --- EXISTING: Song Requests ---
       if (userstate["custom-reward-id"] === settings.redeemSongRequest) {
         songRequestHandlerRef
           .current(
@@ -397,7 +410,7 @@ export default function Music() {
     return () => {
       localref.removeListener("message", handleMessage);
     };
-  }, [clientRef, settings.redeemSongRequest, current]); // Added current and skip to dependencies
+  }, [clientRef, settings.redeemSongRequest, current]);
 
   useEffect(() => {
     playerRef.current?.setVolume(volume);
