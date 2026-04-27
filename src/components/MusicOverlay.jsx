@@ -139,7 +139,7 @@ export default function Music() {
 
   const isDraggingRef = useRef(false);
   const [isDraggingState, setIsDraggingState] = useState(false);
-  const progressBarRef = useRef(null); // Attach this to your progress container
+  const progressBarRef = useRef(null);
 
   const playerRef = useRef(null);
   const queueRef = useRef(queue);
@@ -150,6 +150,9 @@ export default function Music() {
   const isTransitioningRef = useRef(false);
   const playlistIndexRef = useRef(0);
   const playNextRef = useRef(null);
+
+  const [shuffleMode, setShuffleMode] = useState("off");
+  const historyRef = useRef([]);
 
   const { settings } = useMetadata();
   const clientRef = useTwitchClient(settings.twitchName);
@@ -168,7 +171,6 @@ export default function Music() {
 
   const handleRedeemSongRequest = useCallback(
     async (payload, localref, channel) => {
-      // Added localref and channel
       if (!payload || typeof payload !== "object") return;
       const messageType = String(payload.type || "").toLowerCase();
       if (messageType !== "redeemsongrequest") return;
@@ -193,7 +195,6 @@ export default function Music() {
 
       const info = await fetchVideoInfo(videoId);
 
-      // Add to state
       setQueue((q) => [
         ...q,
         {
@@ -205,13 +206,10 @@ export default function Music() {
         },
       ]);
 
-      // Calculate Total Wait Time
-      // 1. Time left in current song
       const currentRemaining = playerRef.current
         ? Math.max(0, duration - currentTime)
         : 0;
 
-      // 2. Sum of all songs already in the queue (before this one was added)
       const queueWait = queueRef.current.reduce(
         (acc, song) => acc + (song.duration || 0),
         0,
@@ -219,7 +217,6 @@ export default function Music() {
 
       const totalWait = currentRemaining + queueWait;
 
-      // Send confirmation to Twitch Chat
       if (localref && channel) {
         localref.say(
           channel,
@@ -239,7 +236,7 @@ export default function Music() {
 
   const handleMouseDown = (e) => {
     isDraggingRef.current = true;
-    setIsDraggingState(true); // For UI scaling
+    setIsDraggingState(true);
     const newTime = calculateTimeFromEvent(e);
     setCurrentTime(newTime);
   };
@@ -257,7 +254,6 @@ export default function Music() {
       const finalTime = calculateTimeFromEvent(e);
       playerRef.current?.seekTo(finalTime, true);
 
-      // Release the gate
       isDraggingRef.current = false;
       setIsDraggingState(false);
     };
@@ -282,28 +278,55 @@ export default function Music() {
   useEffect(() => {
     songRequestHandlerRef.current = handleRedeemSongRequest;
   }, [handleRedeemSongRequest]);
-
   const playNext = useCallback(async () => {
     if (isTransitioningRef.current) return;
     isTransitioningRef.current = true;
 
-    // 1. Clear the current song to force the Player to unmount
     setCurrent(null);
 
-    // 2. Wait for the next tick so React finishes the unmount
     setTimeout(() => {
       const q = queueRef.current;
       let nextSong = null;
 
+      // 1. Queue always takes priority (unshuffled)
       if (q.length > 0) {
         const [next, ...rest] = q;
         setQueue(rest);
         nextSong = next;
-      } else if (playlistRef.current.length > 0) {
-        const idx = playlistIndexRef.current % playlistRef.current.length;
-        nextSong = { ...playlistRef.current[idx], requestedBy: null };
-        playlistIndexRef.current =
-          (playlistIndexRef.current + 1) % playlistRef.current.length;
+      }
+      // 2. Playlist Logic
+      else if (playlistRef.current.length > 0) {
+        const playlist = playlistRef.current;
+        let nextIdx;
+
+        if (shuffleMode === "random") {
+          nextIdx = Math.floor(Math.random() * playlist.length);
+        } else if (shuffleMode === "memory") {
+          const limit = Math.min(30, playlist.length - 1);
+          const restrictedIds = historyRef.current.slice(-limit);
+          const pool = playlist
+            .map((_, i) => i)
+            .filter((i) => !restrictedIds.includes(playlist[i].videoId));
+
+          nextIdx =
+            pool.length > 0
+              ? pool[Math.floor(Math.random() * pool.length)]
+              : Math.floor(Math.random() * playlist.length);
+        } else {
+          // Original Sequential Logic
+          nextIdx = playlistIndexRef.current % playlist.length;
+          playlistIndexRef.current =
+            (playlistIndexRef.current + 1) % playlist.length;
+        }
+
+        nextSong = { ...playlist[nextIdx], requestedBy: null };
+
+        // Update history for memory mode
+        if (nextSong.videoId) {
+          historyRef.current = [...historyRef.current, nextSong.videoId].slice(
+            -30,
+          );
+        }
       }
 
       if (nextSong) {
@@ -319,10 +342,9 @@ export default function Music() {
       }
 
       setCurrentTime(0);
-      setDuration(0);
       isTransitioningRef.current = false;
     }, 50);
-  }, [settings.twitchName, clientRef]); // Ensure dependencies are included
+  }, [settings.twitchName, clientRef, shuffleMode]);
 
   useEffect(() => {
     playNextRef.current = playNext;
@@ -333,7 +355,7 @@ export default function Music() {
   }, [playlist, primaryPlaylist?.id]);
 
   useEffect(() => {
-    return () => clearInterval(timerRef.current); // cleanup on unmount
+    return () => clearInterval(timerRef.current);
   }, []);
 
   useEffect(() => {
@@ -470,7 +492,6 @@ export default function Music() {
   const startProgressTimer = useCallback(() => {
     stopProgressTimer();
     timerRef.current = setInterval(() => {
-      // 🛑 The Gate: If holding the mouse, do nothing
       if (isDraggingRef.current) return;
 
       const player = playerRef.current;
@@ -682,9 +703,8 @@ export default function Music() {
     const item = playlist[index];
     if (!item || isTransitioningRef.current) return; // Prevent double-triggers
 
-    isTransitioningRef.current = true; // Lock the transition
+    isTransitioningRef.current = true;
 
-    // Clear the current state first to force a clean unmount of the player
     setCurrent(null);
 
     setTimeout(() => {
@@ -693,7 +713,7 @@ export default function Music() {
       setDuration(0);
       playlistIndexRef.current = index + 1;
       isTransitioningRef.current = false;
-    }, 10); // A tiny delay allows React to flush the unmount
+    }, 10);
   };
 
   const removeFromPlaylist = (index) => {
@@ -1088,7 +1108,7 @@ export default function Music() {
                 cursor: "pointer",
                 marginBottom: "12px",
                 display: "flex",
-                alignItems: "center", // Centers the circle vertically
+                alignItems: "center",
               }}
             >
               {/* Progress Fill */}
@@ -1106,7 +1126,7 @@ export default function Music() {
               <div
                 style={{
                   position: "absolute",
-                  left: `calc(${progress}% - 6px)`, // Offset by half the circle width
+                  left: `calc(${progress}% - 6px)`,
                   width: "12px",
                   height: "12px",
                   borderRadius: "50%",
@@ -1128,6 +1148,20 @@ export default function Music() {
                 marginTop: "14px",
               }}
             >
+              <button
+                onClick={() =>
+                  setShuffleMode((m) =>
+                    m === "off" ? "random" : m === "random" ? "memory" : "off",
+                  )
+                }
+                style={{
+                  ...controlBtnStyle,
+                }}
+              >
+                {shuffleMode === "off" && "➡️"}
+                {shuffleMode === "random" && "🎲"}
+                {shuffleMode === "memory" && "🧠"}
+              </button>
               {/* PLAY / PAUSE */}
               <button
                 onClick={togglePlay}
@@ -1688,7 +1722,7 @@ export default function Music() {
                             onDoubleClick={() => playPlaylistItem(i)}
                             onDragStart={() => setDragPlaylistIndex(i)}
                             onDragOver={(e) => {
-                              e.preventDefault(); // Required to allow drop
+                              e.preventDefault();
                               if (dropTargetIndex !== i) setDropTargetIndex(i);
                             }}
                             onDragLeave={() => setDropTargetIndex(null)}
@@ -1703,7 +1737,6 @@ export default function Music() {
                                     dragPlaylistIndex,
                                     1,
                                   );
-                                  // If dragging down, the index shifts, so we adjust
                                   const targetIdx = i;
                                   arr.splice(targetIdx, 0, moved);
                                   return arr;
@@ -1721,7 +1754,6 @@ export default function Music() {
                                   : isCurrentSong
                                     ? `${accent}1f`
                                     : "transparent",
-                              // Visual indicator: Thick top border when hovering during a drag
                               borderTop: isDropTarget
                                 ? `2px solid ${accent}`
                                 : "2px solid transparent",
@@ -1810,7 +1842,7 @@ export default function Music() {
                             updatePrimaryPlaylistItems((prev) => {
                               const arr = [...prev];
                               const [moved] = arr.splice(dragPlaylistIndex, 1);
-                              arr.push(moved); // Put at the absolute end
+                              arr.push(moved);
                               return arr;
                             });
                           }
