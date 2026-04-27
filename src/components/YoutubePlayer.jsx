@@ -76,6 +76,8 @@ export default function YouTubePlayer({
           controls: 0,
           modestbranding: 1,
           rel: 0,
+          mute: 0,
+          origin: window.location.origin,
         },
         events: {
           onReady: (e) => {
@@ -84,7 +86,8 @@ export default function YouTubePlayer({
           },
           onStateChange: (e) => {
             onStateChangedRef.current?.(e);
-            if (e.data === window.YT.PlayerState.ENDED) {
+            // Explicitly check for the ENDED state (0)
+            if (e.data === 0 || e.data === window.YT.PlayerState.ENDED) {
               onEndRef.current?.();
             }
           },

@@ -137,6 +137,10 @@ export default function Music() {
   const [dragPlaylistIndex, setDragPlaylistIndex] = useState(null);
   const [dropTargetIndex, setDropTargetIndex] = useState(null);
 
+  const isDraggingRef = useRef(false);
+  const [isDraggingState, setIsDraggingState] = useState(false);
+  const progressBarRef = useRef(null); // Attach this to your progress container
+
   const playerRef = useRef(null);
   const queueRef = useRef(queue);
   const playlistRef = useRef([]);
@@ -225,6 +229,46 @@ export default function Music() {
     },
     [extractVideoId, currentTime, duration],
   );
+  const calculateTimeFromEvent = (e) => {
+    if (!progressBarRef.current || duration <= 0) return 0;
+    const rect = progressBarRef.current.getBoundingClientRect();
+    const x = (e.clientX || e.touches?.[0]?.clientX) - rect.left;
+    const percent = Math.max(0, Math.min(1, x / rect.width));
+    return percent * duration;
+  };
+
+  const handleMouseDown = (e) => {
+    isDraggingRef.current = true;
+    setIsDraggingState(true); // For UI scaling
+    const newTime = calculateTimeFromEvent(e);
+    setCurrentTime(newTime);
+  };
+
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      if (!isDraggingRef.current) return;
+      const newTime = calculateTimeFromEvent(e);
+      setCurrentTime(newTime);
+    };
+
+    const handleMouseUp = (e) => {
+      if (!isDraggingRef.current) return;
+
+      const finalTime = calculateTimeFromEvent(e);
+      playerRef.current?.seekTo(finalTime, true);
+
+      // Release the gate
+      isDraggingRef.current = false;
+      setIsDraggingState(false);
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [duration]);
 
   const songRequestHandlerRef = useRef(handleRedeemSongRequest);
 
@@ -426,12 +470,22 @@ export default function Music() {
   const startProgressTimer = useCallback(() => {
     stopProgressTimer();
     timerRef.current = setInterval(() => {
+      // 🛑 The Gate: If holding the mouse, do nothing
+      if (isDraggingRef.current) return;
+
       const player = playerRef.current;
-      if (!player) return;
-      const time = Number(player.getCurrentTime?.() ?? 0);
-      const total = Number(player.getDuration?.() ?? 0);
-      setCurrentTime(time);
-      setDuration(total);
+      // Check if the player is actually ready and has the API methods
+      if (!player || typeof player.getCurrentTime !== "function") return;
+
+      try {
+        const time = player.getCurrentTime();
+        const total = player.getDuration();
+
+        if (typeof time === "number") setCurrentTime(time);
+        if (typeof total === "number" && total > 0) setDuration(total);
+      } catch (e) {
+        console.error("Timer error:", e);
+      }
     }, 250);
   }, [stopProgressTimer]);
 
@@ -674,7 +728,8 @@ export default function Music() {
     transition: "all 0.15s",
   };
 
-  const progress = duration ? (currentTime / duration) * 100 : 0;
+  const progress =
+    duration > 0 && currentTime > 0 ? (currentTime / duration) * 100 : 0;
   const accent = "#ff6b6b";
 
   return (
@@ -894,17 +949,19 @@ export default function Music() {
                   playerRef.current = player;
                   player.setVolume(volume);
                   setCurrentTime(0);
-                  setDuration(Number(player.getDuration?.() ?? 0));
-                  startProgressTimer();
+                  const duration = Number(player.getDuration?.() ?? 0);
+                  setDuration(duration);
                 }}
                 onStateChange={(e) => {
                   if (e.data === 1) {
                     setIsPlaying(true);
+                    const total = e.target.getDuration();
+                    if (total > 0) setDuration(total);
                     startProgressTimer();
                   }
                   if (e.data === 2 || e.data === 3) {
                     setIsPlaying(false);
-                    stopProgressTimer();
+                    if (e.data === 2) stopProgressTimer();
                   }
                 }}
                 onEnd={playNext}
@@ -1021,20 +1078,43 @@ export default function Music() {
 
             {/* progress */}
             <div
+              ref={progressBarRef}
+              onMouseDown={handleMouseDown}
               style={{
-                height: "3px",
-                background: "rgba(255,255,255,0.08)",
-                borderRadius: "2px",
-                overflow: "hidden",
-                marginBottom: "6px",
+                height: "6px",
+                background: "rgba(255,255,255,0.1)",
+                borderRadius: "3px",
+                position: "relative",
+                cursor: "pointer",
+                marginBottom: "12px",
+                display: "flex",
+                alignItems: "center", // Centers the circle vertically
               }}
             >
+              {/* Progress Fill */}
               <div
                 style={{
                   height: "100%",
                   width: `${progress}%`,
                   background: `linear-gradient(90deg, ${accent}, ${accent}88)`,
-                  transition: "width 0.5s linear",
+                  borderRadius: "3px",
+                  transition: isDraggingState ? "none" : "width 0.25s linear",
+                }}
+              />
+
+              {/* Scrubber Circle */}
+              <div
+                style={{
+                  position: "absolute",
+                  left: `calc(${progress}% - 6px)`, // Offset by half the circle width
+                  width: "12px",
+                  height: "12px",
+                  borderRadius: "50%",
+                  background: "#fff",
+                  boxShadow: "0 0 10px rgba(0,0,0,0.5)",
+                  border: `2px solid ${accent}`,
+                  transition: isDraggingState ? "none" : "left 0.25s linear",
+                  transform: isDraggingState ? "scale(1.2)" : "scale(1)",
                 }}
               />
             </div>
