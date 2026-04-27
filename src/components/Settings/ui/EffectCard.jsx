@@ -1,5 +1,7 @@
 import InputField from "./InputField";
 
+const accent = "#ff6b6b";
+
 export function EffectCard({
   effectKey,
   label,
@@ -18,25 +20,64 @@ export function EffectCard({
   return (
     <div
       key={effectKey}
-      className="bg-gray-900 border border-gray-700 rounded-xl p-4 shadow-md transition hover:shadow-lg"
+      style={{
+        background: "rgba(255,255,255,0.04)",
+        border: "1px solid rgba(255,255,255,0.08)",
+        borderRadius: "8px",
+        padding: "16px",
+        marginBottom: "16px",
+        transition: "all 0.15s",
+      }}
     >
-      <div className="flex justify-between items-center">
-        <label className="font-medium text-white">{label}</label>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: enabled ? "16px" : 0,
+        }}
+      >
+        <label
+          style={{
+            fontWeight: "500",
+            color: "#fff",
+            fontSize: "12px",
+            letterSpacing: "0.5px",
+          }}
+        >
+          {label}
+        </label>
         {/* Toggle Switch */}
         <button
           onClick={toggleEnabled}
-          className={`relative inline-flex items-center h-6 w-12 rounded-full transition-colors duration-300
-            ${enabled ? "bg-rose-500" : "bg-gray-700"}`}
+          style={{
+            width: "48px",
+            height: "24px",
+            borderRadius: "12px",
+            border: "none",
+            background: enabled ? accent : "rgba(255,255,255,0.1)",
+            cursor: "pointer",
+            position: "relative",
+            transition: "all 0.15s",
+          }}
         >
-          <span
-            className={`inline-block w-5 h-5 transform bg-white rounded-full shadow-md transition-transform duration-300
-              ${enabled ? "translate-x-6" : "translate-x-1"}`}
+          <div
+            style={{
+              position: "absolute",
+              width: "20px",
+              height: "20px",
+              borderRadius: "50%",
+              background: "#fff",
+              top: "2px",
+              left: enabled ? "26px" : "2px",
+              transition: "left 0.15s",
+            }}
           />
         </button>
       </div>
 
       {enabled && (
-        <div className="space-y-3 mt-4">
+        <div style={{ marginTop: "16px" }}>
           {fields.map(({ key, label, min, max, step, parser }) => (
             <div key={key}>
               <InputField

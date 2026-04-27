@@ -1,10 +1,11 @@
 import React, { useState } from "react";
 
+const accent = "#ff6b6b";
+
 export default function EmoteInput({ value = [], onChange }) {
   const [inputValue, setInputValue] = useState("");
 
   const handleKeyDown = (e) => {
-    // Add new emote on space or enter
     if (e.key === " " || e.key === "Enter") {
       e.preventDefault();
       if (inputValue.trim()) {
@@ -12,9 +13,7 @@ export default function EmoteInput({ value = [], onChange }) {
         onChange(newEmotes);
         setInputValue("");
       }
-    }
-    // Remove last emote on backspace if input is empty
-    else if (e.key === "Backspace" && !inputValue && value.length > 0) {
+    } else if (e.key === "Backspace" && !inputValue && value.length > 0) {
       const newEmotes = value.slice(0, -1);
       onChange(newEmotes);
     }
@@ -26,44 +25,99 @@ export default function EmoteInput({ value = [], onChange }) {
   };
 
   return (
-    <div className="relative">
-      <div
-        className="min-h-[42px] w-full bg-gray-900 rounded-lg border border-white/10 px-3 py-2 flex flex-wrap gap-2 items-center cursor-text"
-        onClick={() => document.getElementById("emote-input").focus()}
-      >
-        {/* Emote tokens */}
-        {value.map((emote, index) => (
-          <span
-            key={index}
-            className="bg-rose-500/20 border border-rose-500/30 text-rose-300 px-2 py-1 rounded-full text-sm flex items-center gap-2 group"
+    <div
+      style={{
+        position: "relative",
+        minHeight: "42px",
+        width: "100%",
+        background: "rgba(255,255,255,0.05)",
+        borderRadius: "8px",
+        border: "1px solid rgba(255,255,255,0.1)",
+        padding: "8px 12px",
+        display: "flex",
+        flexWrap: "wrap",
+        gap: "8px",
+        alignItems: "center",
+        cursor: "text",
+        transition: "all 0.15s",
+      }}
+      onClick={() => document.getElementById("emote-input")?.focus()}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.background = "rgba(255,255,255,0.08)";
+        e.currentTarget.style.borderColor = `${accent}55`;
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.background = "rgba(255,255,255,0.05)";
+        e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)";
+      }}
+    >
+      {/* Emote tokens */}
+      {value.map((emote, index) => (
+        <span
+          key={index}
+          style={{
+            background: `${accent}22`,
+            border: `1px solid ${accent}44`,
+            color: accent,
+            padding: "4px 8px",
+            borderRadius: "12px",
+            fontSize: "11px",
+            display: "flex",
+            alignItems: "center",
+            gap: "6px",
+            fontWeight: "500",
+          }}
+        >
+          {emote}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              removeEmote(index);
+            }}
+            style={{
+              background: "none",
+              border: "none",
+              color: `${accent}77`,
+              cursor: "pointer",
+              fontSize: "16px",
+              lineHeight: 1,
+              padding: 0,
+              transition: "all 0.15s",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.color = accent;
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.color = `${accent}77`;
+            }}
           >
-            {emote}
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                removeEmote(index);
-              }}
-              className="text-rose-300/50 hover:text-rose-300 transition"
-            >
-              ×
-            </button>
-          </span>
-        ))}
+            ×
+          </button>
+        </span>
+      ))}
 
-        {/* Input field */}
-        <input
-          id="emote-input"
-          type="text"
-          value={inputValue}
-          onChange={(e) => setInputValue(e.target.value)}
-          onKeyDown={handleKeyDown}
-          className="bg-transparent outline-none border-none flex-1 min-w-[60px] text-white"
-          placeholder={
-            value.length === 0 ? "Type emote name and press space..." : ""
-          }
-        />
-      </div>
+      {/* Input field */}
+      <input
+        id="emote-input"
+        type="text"
+        value={inputValue}
+        onChange={(e) => setInputValue(e.target.value)}
+        onKeyDown={handleKeyDown}
+        style={{
+          background: "transparent",
+          outline: "none",
+          border: "none",
+          flex: 1,
+          minWidth: "60px",
+          color: "#fff",
+          fontFamily: "inherit",
+          fontSize: "12px",
+        }}
+        placeholder={
+          value.length === 0 ? "Type emote name and press space..." : ""
+        }
+      />
     </div>
   );
 }

@@ -2,12 +2,31 @@ export default function Modal({ isOpen, onClose, children }) {
   if (!isOpen) return null;
   return (
     <div
-      className="fixed inset-0 bg-black/60 flex items-center justify-center z-50"
       onClick={onClose}
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(0,0,0,0.65)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 50,
+      }}
     >
       <div
-        className="bg-white p-6 rounded-2xl shadow-2xl max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
+        style={{
+          background: "#111118",
+          border: "1px solid rgba(255,255,255,0.12)",
+          borderRadius: "12px",
+          padding: "18px",
+          display: "flex",
+          flexDirection: "column",
+          gap: "10px",
+          maxWidth: "min(560px, 92vw)",
+          maxHeight: "90vh",
+          overflowY: "auto",
+        }}
       >
         {children}
       </div>
