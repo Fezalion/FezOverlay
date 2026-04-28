@@ -81,10 +81,14 @@ export default function YouTubePlayer({
         },
         events: {
           onReady: (e) => {
+            e.target.setPlaybackQuality("medium");
             e.target.playVideo();
             onReadyRef.current?.(e.target);
           },
           onStateChange: (e) => {
+            if (e.data === window.YT.PlayerState.PLAYING) {
+              e.target.setPlaybackQuality("medium");
+            }
             onStateChangedRef.current?.(e);
             // Explicitly check for the ENDED state (0)
             if (e.data === 0 || e.data === window.YT.PlayerState.ENDED) {
