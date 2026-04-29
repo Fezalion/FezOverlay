@@ -885,58 +885,6 @@ app.post("/api/leaderboard/win", (req, res) => {
   }
 });
 
-// POST /api/leaderboard/announce -> broadcast a WS message to show the leaderboard in overlays
-// Implements a simple global cooldown equal to the requested duration (or default 10000ms)
-let lastLeaderboardAnnounce = 0; // timestamp in ms
-app.post("/api/leaderboard/announce", (req, res) => {
-  try {
-    const limit = Math.max(
-      1,
-      parseInt(req.body?.limit || req.query?.limit || "5", 10),
-    );
-    const duration = Number(req.body?.duration || req.query?.duration || 10000);
-
-    const now = Date.now();
-    const cooldownMs = Math.max(1000, Math.floor(duration));
-    if (now - lastLeaderboardAnnounce < cooldownMs) {
-      const retryAfter = Math.ceil(
-        (cooldownMs - (now - lastLeaderboardAnnounce)) / 1000,
-      );
-      res.setHeader("Retry-After", String(retryAfter));
-      return res.status(429).json({
-        error: "Leaderboard announce is on cooldown",
-        retryAfterSeconds: retryAfter,
-      });
-    }
-
-    const data = loadLeaderboard();
-    const entries = Object.entries(data).map(([username, wins]) => ({
-      username,
-      wins: Number(wins) || 0,
-    }));
-    entries.sort(
-      (a, b) => b.wins - a.wins || a.username.localeCompare(b.username),
-    );
-    const top = entries.slice(0, limit);
-
-    // Broadcast to all connected WS clients to display the leaderboard
-    broadcast(
-      JSON.stringify({
-        type: "showLeaderboard",
-        top,
-        duration,
-      }),
-    );
-
-    lastLeaderboardAnnounce = now;
-
-    res.json({ success: true, top });
-  } catch (e) {
-    console.error("Failed to announce leaderboard:", e);
-    res.status(500).json({ error: "Failed to announce leaderboard" });
-  }
-});
-
 //POST refresh overlays from websocket
 app.post("/api/refresh", (req, res) => {
   broadcast(
