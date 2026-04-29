@@ -1,43 +1,80 @@
 export default {
   name: "leaderboard",
-  description: "Show leaderboard text in chat (top 5)",
+  description: "Show leaderboard with an ASCII border and Small Caps",
   execute: async (client, channel) => {
     try {
-      // 1. Check if a battle is active (Optional: remove if text doesn't interfere)
-      const stateRes = await fetch(`/api/battle/state`);
-      if (stateRes.ok) {
-        const st = await stateRes.json();
-        if (st?.active) {
-          client.say(channel, "⚔️ Battle in progress — leaderboard is hidden.");
-          return;
-        }
-      }
-
       const res = await fetch(`/api/leaderboard?limit=5`);
-
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const body = await res.json();
 
-      if (!body || !body.top || body.top.length === 0) {
-        client.say(channel, "The leaderboard is currently empty.");
+      const data = await res.json();
+      if (!Array.isArray(data) || data.length === 0) {
+        client.say(channel, "ᴛʜᴇ ʟᴇᴀᴅᴇʀʙᴏᴀʀᴅ ɪs ᴄᴜʀʀᴇɴᴛʟʏ ᴇᴍᴘᴛʏ.");
         return;
       }
 
-      // 3. Format the text for Twitch chat
-      const medals = ["🥇", "🥈", "🥉", "◽", "◽"];
-      const leaderboardText = body.top
-        .map((user, index) => {
-          const name = user.username || user.name;
-          const safeName = name[0] + "\u200c" + name.slice(1);
-          return `${medals[index] || "◽"} ${index + 1}. ${safeName} (${user.score})`;
-        })
-        .join("  |  ");
+      const toSmallCaps = (text) => {
+        const caps = {
+          a: "ᴀ",
+          b: "ʙ",
+          c: "ᴄ",
+          d: "ᴅ",
+          e: "ᴇ",
+          f: "ꜰ",
+          g: "ɢ",
+          h: "ʜ",
+          i: "ɪ",
+          j: "ᴊ",
+          k: "ᴋ",
+          l: "ʟ",
+          m: "ᴍ",
+          n: "ɴ",
+          o: "ᴏ",
+          p: "ᴘ",
+          q: "ǫ",
+          r: "ʀ",
+          s: "s",
+          t: "ᴛ",
+          u: "ᴜ",
+          v: "ᴠ",
+          w: "ᴡ",
+          x: "x",
+          y: "ʏ",
+          z: "ᴢ",
+          0: "𝟶",
+          1: "𝟷",
+          2: "𝟸",
+          3: "𝟹",
+          4: "𝟺",
+          5: "𝟻",
+          6: "𝟼",
+          7: "𝟽",
+          8: "𝟾",
+          9: "𝟿",
+        };
+        return text
+          .toLowerCase()
+          .split("")
+          .map((char) => caps[char] || char)
+          .join("");
+      };
 
-      // 4. Print the final result
-      client.say(channel, `🏆 TOP 5: ${leaderboardText}`);
+      const entries = data.slice(0, 5).map((user, index) => {
+        const rawName = user.username || "Anon";
+        const wins = (user.wins || 0).toString();
+
+        const namePart = toSmallCaps(rawName);
+        const winPart = toSmallCaps(wins);
+        const rank = toSmallCaps((index + 1).toString());
+
+        return `${rank}. ${namePart} ${winPart}ᴡ`;
+      });
+
+      const message = entries.join(" | ");
+
+      client.say(channel, message);
     } catch (err) {
-      console.error("Failed to fetch leaderboard text:", err);
-      client.say(channel, "❌ Error retrieving leaderboard.");
+      console.error("Leaderboard Error:", err);
+      client.say(channel, "❌ ᴇʀʀᴏʀ ʟᴏᴀᴅɪɴɢ ʟᴇᴀᴅᴇʀʙᴏᴀʀᴅ.");
     }
   },
 };
