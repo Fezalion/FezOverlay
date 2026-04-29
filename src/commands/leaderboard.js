@@ -1,76 +1,43 @@
 export default {
   name: "leaderboard",
-  description: "Show leaderboard on the emote overlay (top 5)",
+  description: "Show leaderboard text in chat (top 5)",
   execute: async (client, channel) => {
     try {
-      // Check server for active battle
-      try {
-        const stateRes = await fetch(`/api/battle/state`);
-        if (stateRes.ok) {
-          const st = await stateRes.json();
-          if (st?.active) {
-            client.say(
-              channel,
-              "⚔️ A battle is currently in progress — leaderboard is disabled until the battle ends."
-            );
-            return;
-          }
+      // 1. Check if a battle is active (Optional: remove if text doesn't interfere)
+      const stateRes = await fetch(`/api/battle/state`);
+      if (stateRes.ok) {
+        const st = await stateRes.json();
+        if (st?.active) {
+          client.say(channel, "⚔️ Battle in progress — leaderboard is hidden.");
+          return;
         }
-      } catch (err) {
-        // If we can't reach the server, fall through and try the announce (conservative)
-        console.debug("Could not verify battle state:", err);
       }
-      const limit = 5;
-      const duration = 10000; // ms
-      const res = await fetch(`/api/leaderboard/announce`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ limit, duration }),
-      });
 
-      if (res.status === 429) {
-        // Cooldown in effect
-        let retrySeconds = null;
-        try {
-          const json = await res.json();
-          retrySeconds = json?.retryAfterSeconds ?? null;
-        } catch {
-          // ignore JSON parse error
-        }
-        if (!retrySeconds) {
-          const h = res.headers.get("Retry-After");
-          retrySeconds = h ? Number(h) : null;
-        }
-        if (retrySeconds) {
-          client.say(
-            channel,
-            `Leaderboard is on cooldown. Try again in ${retrySeconds}s.`
-          );
-        } else {
-          client.say(
-            channel,
-            `Leaderboard is on cooldown. Please try again later.`
-          );
-        }
-        return;
-      }
+      const res = await fetch(`/api/leaderboard?limit=5`);
 
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const body = await res.json();
+
       if (!body || !body.top || body.top.length === 0) {
-        client.say(channel, "Leaderboard is empty.");
+        client.say(channel, "The leaderboard is currently empty.");
         return;
       }
 
-      // Optionally notify chat that the overlay was triggered
-      try {
-        client.say(channel, `⚔️ Showing leaderboard — Top ${body.top.length}`);
-      } catch {
-        // ignore errors from chat notify
-      }
+      // 3. Format the text for Twitch chat
+      const medals = ["🥇", "🥈", "🥉", "◽", "◽"];
+      const leaderboardText = body.top
+        .map((user, index) => {
+          const name = user.username || user.name;
+          const safeName = name[0] + "\u200c" + name.slice(1);
+          return `${medals[index] || "◽"} ${index + 1}. ${safeName} (${user.score})`;
+        })
+        .join("  |  ");
+
+      // 4. Print the final result
+      client.say(channel, `🏆 TOP 5: ${leaderboardText}`);
     } catch (err) {
-      console.error("Failed to announce leaderboard:", err);
-      client.say(channel, "\u274c Could not fetch leaderboard.");
+      console.error("Failed to fetch leaderboard text:", err);
+      client.say(channel, "❌ Error retrieving leaderboard.");
     }
   },
 };
