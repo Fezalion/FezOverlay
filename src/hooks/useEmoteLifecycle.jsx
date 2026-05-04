@@ -1,14 +1,13 @@
 import { useEffect } from "react";
 
 export function useEmoteLifecycle(
-  world, // This is engineRef.current (the Rapier World)
+  world,
   bodiesWithTimers,
   emoteLifetime = 5000,
 ) {
   useEffect(() => {
     if (!world) return;
 
-    // Rapier requires manual lifecycle checks via interval or rAF
     const interval = setInterval(() => {
       const now = Date.now();
 
@@ -18,11 +17,9 @@ export function useEmoteLifecycle(
 
         if (isBattleParticipant || (body && body.isBattleParticipant)) continue;
 
-        // Rapier: use body.translation() instead of body.position
         const pos = body ? body.translation() : { x: 0, y: 0 };
         const age = now - born;
 
-        // Removal conditions: Age or Out of Bounds[cite: 13]
         const isExpired = age >= emoteLifetime;
         const isOutOfBounds = pos.y > window.innerHeight + 300 || pos.y < -300;
 

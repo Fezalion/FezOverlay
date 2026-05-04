@@ -153,7 +153,7 @@ export function useEmoteSpawner(
       let cleanupEffects = [];
 
       bodiesWithTimers.current.push({
-        body, // Now a Rapier RigidBody[cite: 16]
+        body,
         born: Date.now(),
         el,
         sizeX,

@@ -11,7 +11,7 @@ export const kamehameha = ({
   dealDamage,
 }) => ({
   name: "kamehameha",
-  disabled: true,
+  disabled: false,
   effect: (participant) => {
     if (!participant.body) return;
 

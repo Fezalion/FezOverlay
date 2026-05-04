@@ -18,7 +18,7 @@ export const judgmentCut = ({
   restoreEngineTimeScale,
 }) => ({
   name: "judgmentCut",
-  disabled: true,
+  disabled: false,
   effect: (participant) => {
     if (!participant.body) return;
 

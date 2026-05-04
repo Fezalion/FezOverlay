@@ -89,7 +89,6 @@ export function useGlobalEffects(
 
         bodiesWithTimers.current.forEach(({ body }) => {
           if (body && body.handle !== targetRef.handle && !body.isSleeping()) {
-            // Apply high damping to ensure they clump effectively[cite: 1]
             if (!originalDamping.has(body.handle)) {
               originalDamping.set(body.handle, body.linearDamping());
               body.setLinearDamping(8.0);
@@ -115,7 +114,6 @@ export function useGlobalEffects(
         clearInterval(magneticIntervalRef.current);
         magneticEventRef.current = false;
 
-        // Restore original physics settings[cite: 1]
         bodiesWithTimers.current.forEach(({ body }) => {
           if (body && originalDamping.has(body.handle)) {
             body.setLinearDamping(originalDamping.get(body.handle));

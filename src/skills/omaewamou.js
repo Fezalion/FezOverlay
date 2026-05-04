@@ -6,7 +6,7 @@ export const omaewamou = ({
   restoreEngineTimeScale,
 }) => ({
   name: "Omae wa mou shindeiru",
-  disabled: true,
+  disabled: false,
   effect: (participant) => {
     setEngineTimeScale(0.1);
 

@@ -393,7 +393,7 @@ export default function FihOverlay() {
         b.opacity -= 0.005;
         fishCtx.save();
         fishCtx.globalAlpha = Math.max(0, b.opacity);
-        fishCtx.fillStyle = "red";
+        fishCtx.fillStyle = "white";
         fishCtx.font = `bold ${b.size}px monospace`;
         fishCtx.fillText(b.text, b.x, b.y);
         fishCtx.restore();
@@ -426,10 +426,9 @@ export default function FihOverlay() {
 
       subBodies.current.forEach((body) => {
         const pos = body.translation();
-        const radius = 20; // Matches ColliderDesc.ball(20)
+        const radius = 20;
 
         fishCtx.save();
-        // Centering the image on the physics body position[cite: 5]
         fishCtx.drawImage(
           feedImg,
           pos.x - radius,
