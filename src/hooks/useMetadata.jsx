@@ -5,15 +5,12 @@ export function useMetadata() {
   const [settings, setSettings] = useState({
     // UI Settings
     bgColor: "linear-gradient(90deg, rgba(0, 0, 0, 0) 0%, rgba(0,0,0,1) 100%)",
-    scaleSize: 1.0,
-    maxWidth: 700,
-    padding: 10,
+    scaleSize: 2.0,
     fontFamily: "Arial, sans-serif",
     fontColor: "#ffffff",
     textStroke: false,
     textStrokeSize: 0,
     textStrokeColor: "rgba(0, 0, 0, 1)",
-    playerLocationCoords: { x: 0, y: 0 },
     playerAlignment: "right",
     scrollSpeed: 25,
     hideOnNothing: false,
@@ -169,18 +166,12 @@ export function useMetadata() {
         bgColor:
           data.bgColor ||
           "linear-gradient(90deg, rgba(0, 0, 0, 0) 0%, rgba(0,0,0,1) 100%)",
-        scaleSize: toNumber(data.scaleSize, 1.0),
-        maxWidth: toNumber(data.maxWidth, 700),
-        padding: toNumber(data.padding, 10),
+        scaleSize: toNumber(data.scaleSize, 2.0),
         fontFamily: data.fontFamily || "Arial, sans-serif",
         fontColor: data.fontColor || "#ffffff",
         textStroke: Boolean(data.textStroke),
         textStrokeSize: toNumber(data.textStrokeSize, 0),
         textStrokeColor: data.textStrokeColor || "rgba(0, 0, 0, 1)",
-        playerLocationCoords: {
-          x: toNumber(data.playerLocationX, 0),
-          y: toNumber(data.playerLocationY, 0),
-        },
         playerAlignment: data.playerAlignment || "right",
         scrollSpeed: data.scrollSpeed || 25,
         hideOnNothing: data.hideOnNothing || false,

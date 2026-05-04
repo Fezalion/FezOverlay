@@ -1,45 +1,31 @@
 # FezOverlay
 
-A React-based overlay application for streaming with Last.fm integration and customizable settings.
+A React-based overlay application for streaming fun features.
 
 ## Features
 
-- **Last.fm Integration**: Display currently playing tracks from Last.fm
+- **Music Overlay**: Play your own youtube playlists and get song requests from your twitch chat.
 - **Customizable UI**: Adjust background color, scale, padding, and more
 - **Auto-Update System**: Automatically downloads and updates from the latest GitHub release
-- **Emote Overlay**: Show the emotes sent in chat in a fun way in your stream
-
-## Demo
-
-https://www.youtube.com/watch?v=nzPYJCWTqC8
+- **Emote Overlay**: Show the emotes sent in chat in a fun way in your stream, and battle events
+- **Chat Overlay**: Show your twitch chat in your stream with customizable events
+- **Yap Meter**: Show how much you yap and get punished for it
 
 ## Usage
 
 ### Overlay Usage
 
 1. **Running:**
-
    - Run `updater.exe` to update and install the files, after update is done launch `fezoverlay.exe`
 
 2. **Twitch Auth:**
-
    - Click the link in the terminal window to authenticate with Twitch API.
 
-3. **Environment Variables:**
-
-   - Create or open the `.env` file in the root directory and add:
-
-     ```
-     LASTFM_API_KEY=your_lastfm_api_key_here
-     ```
-
-4. **Open the Settings Page:**
-
+3. **Open the Settings Page:**
    - Go to [http://localhost:48000/](http://localhost:48000/) in your browser.
    - Here you can customize the overlay's color, font, padding, and more.
 
-5. **Add the Overlays to OBS:**
-
+4. **Add the Overlays to OBS:**
    - In OBS, add a new **Browser Source**s for the widgets you want to use.
    - Set the URL for widgets and make the resolution same as your screen:  
       `http://localhost:48000/playing`
@@ -48,14 +34,13 @@ https://www.youtube.com/watch?v=nzPYJCWTqC8
      `http://localhost:48000/commands`
      `http://localhost:48000/yapmeter`
      `http://localhost:48000/deaths`
-   - Set your LastFM user name in the settings page mentioned above.
+     `http://localhost:48000/fih`
    - Set your twitch username and 7tv emoteset IDs in the settings page mentioned above.
 
-6. **Position the Overlay:**
-
+5. **Position the Overlay:**
    - You should have the overlays be the same size of your Scene, you can move the NowPlaying/chat widgets by either pressing interact in obs then using (Shift +) Arrow Keys, or the same in your browser.
 
-7. **Edit Overlay Appearance:**
+6. **Edit Overlay Appearance:**
    - To change the overlay's appearance, open [http://localhost:48000/](http://localhost:48000/) in your browser again.
    - Adjust the settings as desired.
 

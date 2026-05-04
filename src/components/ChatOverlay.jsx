@@ -37,7 +37,7 @@ export default function ChatOverlay() {
 
     ws.addEventListener("message", handleMessage);
     ws.addEventListener("error", (err) =>
-      console.error("WebSocket error:", err)
+      console.error("WebSocket error:", err),
     );
     ws.addEventListener("close", () => console.log("WebSocket closed"));
 
@@ -49,7 +49,7 @@ export default function ChatOverlay() {
 
   const stableKey = useMemo(
     () => `chat-${settings.twitchName}-${settings.emoteSetId}`,
-    [settings.twitchName, settings.emoteSetId]
+    [settings.twitchName, settings.emoteSetId],
   );
 
   return (
@@ -104,7 +104,7 @@ const getScatterInAnimation = (i) => {
 /* Merge helpers -> produce animate + transition objects for motion props */
 const buildMotionProps = (
   i,
-  { rainbow = false, jumping = false, scatter = false } = {}
+  { rainbow = false, jumping = false, scatter = false } = {},
 ) => {
   const animate = {};
   const transition = {};
@@ -173,7 +173,7 @@ function ChatOverlayCore({ settings }) {
               "Client-ID": cid,
               Authorization: `Bearer ${auth}`,
             },
-          }
+          },
         );
         const userJson = await userRes.json();
         const channelInfo = userJson.data?.[0];
@@ -188,7 +188,7 @@ function ChatOverlayCore({ settings }) {
               "Client-ID": cid,
               Authorization: `Bearer ${auth}`,
             },
-          }
+          },
         );
         const globalBadgesJson = await globalBadgesRes.json();
 
@@ -200,7 +200,7 @@ function ChatOverlayCore({ settings }) {
               "Client-ID": cid,
               Authorization: `Bearer ${auth}`,
             },
-          }
+          },
         );
         const channelBadgesJson = await channelBadgesRes.json();
 
@@ -284,14 +284,14 @@ function ChatOverlayCore({ settings }) {
         setTimeout(() => {
           setMessages((prev) =>
             prev.map((msg) =>
-              msg.id === chatMessage.id ? { ...msg, opacity: 0 } : msg
-            )
+              msg.id === chatMessage.id ? { ...msg, opacity: 0 } : msg,
+            ),
           );
         }, fadeStartTime);
 
         setTimeout(() => {
           setMessages((prev) =>
-            prev.filter((msg) => msg.id !== chatMessage.id)
+            prev.filter((msg) => msg.id !== chatMessage.id),
           );
         }, fadeDuration);
       }
@@ -350,7 +350,7 @@ function ChatOverlayCore({ settings }) {
     settings,
     doRainbow,
     doJump,
-    doScatter
+    doScatter,
   ) => {
     // Helper to render a single character (with possible motion props)
     const renderChar = (ch, globalIndex, charIndex) => {
@@ -407,7 +407,7 @@ function ChatOverlayCore({ settings }) {
               verticalAlign: "middle",
               margin: "0 2px",
             }}
-          />
+          />,
         );
         // treat emote as one "character" for staggering
         runningIndex += 1;
@@ -422,7 +422,7 @@ function ChatOverlayCore({ settings }) {
             style={{ display: "inline" }}
           >
             {chars}
-          </span>
+          </span>,
         );
         runningIndex += word.length;
       }
@@ -450,7 +450,7 @@ function ChatOverlayCore({ settings }) {
         fontFamily: settings.chatFont || "Inter, system-ui, sans-serif",
       },
     }),
-    [settings.chatBackgroundColor, settings.chatFontSize, settings.chatFont]
+    [settings.chatBackgroundColor, settings.chatFontSize, settings.chatFont],
   );
 
   if (!clientRef.current) {
@@ -549,7 +549,7 @@ function ChatMessage({
               settings,
               msg.doRainbow,
               msg.doJump,
-              msg.doScatter
+              msg.doScatter,
             )}
           </span>
         </div>

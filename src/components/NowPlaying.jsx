@@ -1,80 +1,99 @@
 import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { useMetadata } from "../hooks/useMetadata";
 
-// Constants
-const POLL_RATE = 3000;
-const MOVE_AMOUNT = 1;
 const SPACE = "\u00A0\u00A0";
 const NOTHING_PLAYING = "Nothing is playing...";
 const WS_URL = "ws://localhost:48000";
-const MOVEMENT_DEBOUNCE_MS = 1000;
-const OPACITY_TRANSITION_MS = 300; // Increased for smoother song transitions
+const OPACITY_TRANSITION_MS = 300;
 
-const useTrackPolling = (lastfmName, refreshToken) => {
+const GLOBAL_STYLE = `
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { font-size: 24px; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: transparent; }
+  #root { width: 100%; height: 100%; display: flex; align-items: stretch; }
+`;
+
+function useGlobalStyle() {
+  useEffect(() => {
+    const tag = document.createElement("style");
+    tag.dataset.nowplaying = "1";
+    tag.textContent = GLOBAL_STYLE;
+    document.head.appendChild(tag);
+    return () => tag.remove();
+  }, []);
+}
+
+// useNowPlaying: listens for nowPlaying track updates AND settings refresh
+// events over the same WS connection. onRefresh is called when the server
+// broadcasts a refresh so the component re-reads its settings immediately.
+const useNowPlaying = (onRefresh) => {
   const [track, setTrack] = useState(null);
-  const lastValidTrackRef = useRef(null);
-  const debounceTimeout = useRef(null);
+  const wsRef = useRef(null);
+  const reconnectTimer = useRef(null);
+  const onRefreshRef = useRef(onRefresh);
+  useEffect(() => {
+    onRefreshRef.current = onRefresh;
+  }, [onRefresh]);
+
+  const applyTrack = useCallback((data) => {
+    if (data && data.title && data.title.trim()) {
+      setTrack({
+        name: data.title.trim(),
+        artist: data.channel ? data.channel.trim() : "",
+        requestedBy: data.requestedBy || null,
+      });
+    } else {
+      setTrack(null);
+    }
+  }, []);
+
+  const fetchCurrent = useCallback(async () => {
+    try {
+      const res = await fetch("/api/music/nowplaying");
+      if (!res.ok) return;
+      const data = await res.json();
+      applyTrack(data);
+    } catch {}
+  }, [applyTrack]);
 
   useEffect(() => {
-    if (!lastfmName) return;
+    let destroyed = false;
 
-    const fetchTrack = async () => {
-      try {
-        const response = await fetch(`/api/lastfm/latest/${lastfmName}`);
-        const data = await response.json();
+    const connect = () => {
+      if (destroyed) return;
+      const ws = new WebSocket(WS_URL);
+      wsRef.current = ws;
 
-        // Validate track data
-        const valid =
-          data &&
-          !data.error &&
-          data.track &&
-          typeof data.track.name === "string" &&
-          data.track.name.trim() !== "" &&
-          typeof data.track.artist === "string" &&
-          data.track.artist.trim() !== "";
+      ws.onopen = () => fetchCurrent();
 
-        if (!valid) {
-          // Only set to null if we previously had a track
-          if (lastValidTrackRef.current !== null) {
-            setTrack(null);
-            lastValidTrackRef.current = null;
+      ws.onmessage = (event) => {
+        try {
+          const msg = JSON.parse(event.data);
+          if (msg.type === "nowPlaying") {
+            applyTrack(msg.track);
+          } else if (
+            msg.type === "refresh" &&
+            (msg.target === "all" || msg.target === "song")
+          ) {
+            onRefreshRef.current?.();
           }
-          return;
-        }
+        } catch {}
+      };
 
-        const newTrack = {
-          name: data.track.name,
-          artist: data.track.artist,
-        };
-
-        // Only update if different from last valid
-        if (
-          !lastValidTrackRef.current ||
-          lastValidTrackRef.current.name !== newTrack.name ||
-          lastValidTrackRef.current.artist !== newTrack.artist
-        ) {
-          // Debounce rapid changes
-          if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
-          debounceTimeout.current = setTimeout(() => {
-            setTrack(newTrack);
-            lastValidTrackRef.current = newTrack;
-          }, 150); // 150ms debounce
-        }
-      } catch (error) {
-        console.error("Failed to fetch track:", error);
-        setTrack(null);
-        lastValidTrackRef.current = null;
-      }
+      ws.onerror = () => {};
+      ws.onclose = () => {
+        if (destroyed) return;
+        reconnectTimer.current = setTimeout(connect, 3000);
+      };
     };
 
-    fetchTrack();
-    const interval = setInterval(fetchTrack, POLL_RATE);
-
+    connect();
     return () => {
-      clearInterval(interval);
-      if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
+      destroyed = true;
+      clearTimeout(reconnectTimer.current);
+      wsRef.current?.close();
     };
-  }, [lastfmName, refreshToken]);
+  }, [applyTrack, fetchCurrent]);
 
   return track;
 };
@@ -90,24 +109,15 @@ const useOpacityAnimation = (displayText, shouldHide) => {
     const hideStateChanged = shouldHide !== previousHideRef.current;
 
     if (textChanged || hideStateChanged) {
-      // Fade out
       setOpacity(0);
-
-      // After fade out completes, update text and fade in (unless we're hiding)
       const timeout = setTimeout(() => {
         setCurrentText(displayText);
         previousTextRef.current = displayText;
         previousHideRef.current = shouldHide;
-
-        // Only fade back in if we're not hiding
-        if (!shouldHide) {
-          setOpacity(1);
-        }
+        if (!shouldHide) setOpacity(1);
       }, OPACITY_TRANSITION_MS);
-
       return () => clearTimeout(timeout);
     } else if (currentText !== displayText) {
-      // Handle initial load or when currentText hasn't been set yet
       setCurrentText(displayText);
       previousTextRef.current = displayText;
       previousHideRef.current = shouldHide;
@@ -120,160 +130,42 @@ const useOpacityAnimation = (displayText, shouldHide) => {
 const useScrollAnimation = (
   displayText,
   scrollSpeed,
-  maxWidth,
   fontFamily,
   scaleSize,
-  padding
 ) => {
   const [shouldAnimate, setShouldAnimate] = useState(false);
   const [scrollDuration, setScrollDuration] = useState(0);
-
   const wrapperRef = useRef(null);
   const trackRef = useRef(null);
 
   useEffect(() => {
     setShouldAnimate(false);
-
-    if (displayText === NOTHING_PLAYING) {
-      return;
-    }
+    if (displayText === NOTHING_PLAYING) return;
 
     const calculateAnimation = () => {
       const wrapper = wrapperRef.current;
       const track = trackRef.current;
-
-      if (!wrapper || !track) {
-        return;
-      }
-
+      if (!wrapper || !track) return;
       const wrapperWidth = wrapper.offsetWidth;
       const textWidth = track.scrollWidth;
-
-      console.log("Calculating animation:", {
-        text: displayText,
-        wrapperWidth,
-        textWidth,
-        shouldAnimate: textWidth > wrapperWidth,
-        scrollSpeed,
-        maxWidth,
-        fontFamily,
-        scaleSize,
-      });
-
       if (textWidth > wrapperWidth && textWidth > 0) {
-        const duration = textWidth / scrollSpeed;
-        setScrollDuration(duration);
+        setScrollDuration(textWidth / scrollSpeed);
         setShouldAnimate(true);
       }
     };
 
-    // Use a small delay to ensure DOM has updated after settings change
-    const timeoutId = setTimeout(() => {
-      requestAnimationFrame(calculateAnimation);
-    }, 50);
-
+    const timeoutId = setTimeout(
+      () => requestAnimationFrame(calculateAnimation),
+      50,
+    );
     return () => clearTimeout(timeoutId);
-  }, [displayText, scrollSpeed, maxWidth, fontFamily, scaleSize, padding]);
+  }, [displayText, scrollSpeed, fontFamily, scaleSize]);
 
-  return {
-    shouldAnimate,
-    scrollDuration,
-    wrapperRef,
-    trackRef,
-  };
+  return { shouldAnimate, scrollDuration, wrapperRef, trackRef };
 };
 
-const useKeyboardMovement = (
-  playerLocationCoords,
-  setLocalSetting,
-  updateSettings
-) => {
-  const movementTimeoutRef = useRef(null);
-  const currentPositionRef = useRef({ x: 0, y: 0 });
-
-  // Sync ref with props
-  useEffect(() => {
-    currentPositionRef.current = {
-      x: playerLocationCoords.x,
-      y: playerLocationCoords.y,
-    };
-  }, [playerLocationCoords]);
-
-  const handleMovement = useCallback(
-    (newPosition) => {
-      currentPositionRef.current = newPosition;
-
-      if (setLocalSetting) {
-        setLocalSetting("playerLocationCoords", newPosition);
-      }
-
-      // Debounce server updates
-      if (movementTimeoutRef.current) {
-        clearTimeout(movementTimeoutRef.current);
-      }
-
-      movementTimeoutRef.current = setTimeout(() => {
-        updateSettings({
-          playerLocationX: newPosition.x,
-          playerLocationY: newPosition.y,
-        });
-      }, MOVEMENT_DEBOUNCE_MS);
-    },
-    [setLocalSetting, updateSettings]
-  );
-
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      const moveBy = e.shiftKey ? MOVE_AMOUNT * 5 : MOVE_AMOUNT;
-      let newPosition = { ...currentPositionRef.current };
-      let moved = false;
-
-      switch (e.key) {
-        case "ArrowUp":
-          newPosition.y -= moveBy;
-          moved = true;
-          break;
-        case "ArrowDown":
-          newPosition.y += moveBy;
-          moved = true;
-          break;
-        case "ArrowLeft":
-          newPosition.x -= moveBy;
-          moved = true;
-          break;
-        case "ArrowRight":
-          newPosition.x += moveBy;
-          moved = true;
-          break;
-        case " ":
-          newPosition = { x: 0, y: 0 };
-          moved = true;
-          break;
-        default:
-          return;
-      }
-
-      if (moved) {
-        e.preventDefault();
-        handleMovement(newPosition);
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-      if (movementTimeoutRef.current) {
-        clearTimeout(movementTimeoutRef.current);
-      }
-    };
-  }, [handleMovement]);
-};
-
-// Utility functions
 const createTextShadow = (isEnabled, width, color) => {
   if (!isEnabled || width <= 0) return "none";
-
   const shadows = [];
   for (let dx = -width; dx <= width; dx++) {
     for (let dy = -width; dy <= width; dy++) {
@@ -281,138 +173,81 @@ const createTextShadow = (isEnabled, width, color) => {
       shadows.push(`${dx}px ${dy}px 0 ${color}`);
     }
   }
-
   return shadows.join(", ");
 };
 
-const getPositionStyles = (coords, alignment) => {
-  const baseStyles = {
-    bottom: coords.y * -1,
-  };
-
-  switch (alignment) {
-    case "left":
-      return { ...baseStyles, left: coords.x };
-    case "right":
-      return { ...baseStyles, right: coords.x * -1 };
-    default:
-      return baseStyles;
-  }
-};
-
-// Main component
 export function NowPlaying() {
-  const [refreshToken, setRefreshToken] = useState(0);
-  const { settings, refreshSettings, updateSettings, setLocalSetting } =
-    useMetadata();
+  useGlobalStyle();
+
+  const { settings, refreshSettings } = useMetadata();
+
+  const handleRefresh = useCallback(() => {
+    refreshSettings();
+  }, [refreshSettings]);
+
+  const latestTrack = useNowPlaying(handleRefresh);
 
   const {
     bgColor,
     scrollSpeed,
     scaleSize,
-    maxWidth,
-    padding,
     fontFamily,
     fontColor,
     textStroke,
     textStrokeSize,
     textStrokeColor,
-    lastfmName,
-    playerLocationCoords,
     playerAlignment,
     hideOnNothing,
   } = settings;
 
-  // Custom hooks
-  const handleRefresh = useCallback(() => {
-    console.log("🔄 NowPlaying refreshing");
-    setRefreshToken((prev) => prev + 1);
-  }, []);
-
-  const wsRef = useRef(null);
-
-  useEffect(() => {
-    const wsUrl = "ws://localhost:48000";
-    const ws = new WebSocket(wsUrl);
-    wsRef.current = ws;
-
-    ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      if (
-        data.type === "refresh" &&
-        (data.target === "all" || data.target === "song")
-      ) {
-        handleRefresh();
-      }
-    };
-
-    ws.onerror = (err) => console.error("WebSocket error:", err);
-    ws.onclose = () => console.log("WebSocket closed");
-
-    return () => ws.close();
-  }, [handleRefresh]);
-
-  useEffect(() => {
-    refreshSettings();
-  }, [refreshToken, refreshSettings]);
-
-  const latestTrack = useTrackPolling(lastfmName, refreshToken);
-
   const displayText = latestTrack
-    ? `${latestTrack.artist} - ${latestTrack.name}`
+    ? latestTrack.artist
+      ? `${latestTrack.artist} - ${latestTrack.name}`
+      : latestTrack.name
     : NOTHING_PLAYING;
 
-  // Hide component if hideOnNothing is true and nothing is playing
   const shouldHide = hideOnNothing && !latestTrack;
 
-  // Use opacity animation hook (pass shouldHide to trigger animation on hide state changes)
   const { opacity, currentText } = useOpacityAnimation(displayText, shouldHide);
 
-  // Force re-render when settings change that affect layout
   const layoutKey = useMemo(
-    () =>
-      `${maxWidth}-${fontFamily}-${scaleSize}-${padding}-${scrollSpeed}-${currentText}`,
-    [maxWidth, fontFamily, scaleSize, padding, scrollSpeed, currentText]
+    () => `${fontFamily}-${scaleSize}-${scrollSpeed}-${currentText}`,
+    [fontFamily, scaleSize, scrollSpeed, currentText],
   );
 
   const { shouldAnimate, scrollDuration, wrapperRef, trackRef } =
-    useScrollAnimation(
-      currentText,
-      scrollSpeed,
-      maxWidth,
-      fontFamily,
-      scaleSize,
-      padding
-    );
+    useScrollAnimation(currentText, scrollSpeed, fontFamily, scaleSize);
 
-  useKeyboardMovement(playerLocationCoords, setLocalSetting, updateSettings);
+  useEffect(() => {
+    refreshSettings();
+  }, [refreshSettings]);
 
-  // Memoized styles
   const containerStyles = useMemo(
     () => ({
-      ...getPositionStyles(playerLocationCoords, playerAlignment),
+      display: "flex",
+      alignItems: "center",
+      width: "100%",
+      height: "100%",
+      background: "transparent",
+      overflow: "hidden",
+    }),
+    [],
+  );
+
+  const barStyles = useMemo(
+    () => ({
+      display: "inline-flex",
+      alignItems: "center",
+      width: "100%",
+      height: "100%",
       background: bgColor,
       color: fontColor,
-      padding,
-      transform: `scale(${scaleSize})`,
       fontFamily,
-      maxWidth,
-      transformOrigin: `center ${playerAlignment}`,
+      overflow: "hidden",
       transition: `opacity ${OPACITY_TRANSITION_MS / 1000}s ease`,
       opacity: shouldHide ? 0 : opacity,
     }),
-    [
-      playerLocationCoords,
-      playerAlignment,
-      bgColor,
-      fontColor,
-      padding,
-      scaleSize,
-      fontFamily,
-      maxWidth,
-      opacity,
-      shouldHide,
-    ]
+    [bgColor, fontColor, fontFamily, opacity, shouldHide],
   );
 
   const animationStyles = useMemo(
@@ -424,13 +259,16 @@ export function NowPlaying() {
       animationTimingFunction: "linear",
       animationIterationCount: "infinite",
       animationFillMode: "none",
+      whiteSpace: "nowrap",
+      display: "inline-block",
+      fontSize: `${scaleSize}rem`,
     }),
-    [scrollDuration, shouldAnimate, playerAlignment]
+    [scrollDuration, shouldAnimate, playerAlignment, scaleSize],
   );
 
   const textShadow = useMemo(
     () => createTextShadow(textStroke, textStrokeSize, textStrokeColor),
-    [textStroke, textStrokeSize, textStrokeColor]
+    [textStroke, textStrokeSize, textStrokeColor],
   );
 
   const renderText = (text, withShadow = true) => (
@@ -438,19 +276,37 @@ export function NowPlaying() {
   );
 
   return (
-    <span className="songPanel" style={containerStyles}>
-      <div className="marqueeWrapper" ref={wrapperRef} key={layoutKey}>
-        <div className="marqueeTrack" ref={trackRef} style={animationStyles}>
-          {shouldAnimate ? (
-            <>
-              {renderText(currentText)}
-              {renderText(currentText)}
-            </>
-          ) : (
-            renderText(currentText)
-          )}
+    <div className="songPanel" style={containerStyles}>
+      <div style={barStyles}>
+        <div
+          className="marqueeWrapper"
+          ref={wrapperRef}
+          key={layoutKey}
+          style={{
+            overflow: "hidden",
+            width: "100%",
+            textAlign: shouldAnimate ? "initial" : playerAlignment,
+          }}
+        >
+          <div
+            className="marqueeTrack"
+            ref={trackRef}
+            style={{
+              ...animationStyles,
+              display: shouldAnimate ? "inline-block" : "block",
+            }}
+          >
+            {shouldAnimate ? (
+              <>
+                {renderText(currentText)}
+                {renderText(currentText)}
+              </>
+            ) : (
+              renderText(currentText)
+            )}
+          </div>
         </div>
       </div>
-    </span>
+    </div>
   );
 }

@@ -1,14 +1,254 @@
-import { useState, useMemo } from "react";
+import { useMemo, useEffect } from "react";
 import ColorPicker from "react-best-gradient-color-picker";
 import InputField from "./ui/InputField";
-import Modal from "./ui/Modal";
 import { hexToRgb, getStrokeTextShadow } from "../../utils";
 
 const accent = "#ff6b6b";
 
+// Inject CSS once to restyle the picker's internals to match the dark UI
+const PICKER_CSS = `
+  /* Picker container */
+  .rbgcp-wrapper {
+    background: transparent !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    width: 100% !important;
+  }
+
+  /* Solid / Gradient toggle buttons */
+  .rbgcp-control-btn-wrap {
+    background: rgba(255,255,255,0.05) !important;
+    border: 1px solid rgba(255,255,255,0.08) !important;
+    border-radius: 8px !important;
+    padding: 3px !important;
+    margin-bottom: 10px !important;
+  }
+  .rbgcp-control-btn {
+    border-radius: 6px !important;
+    font-size: 11px !important;
+    font-weight: 500 !important;
+    letter-spacing: 0.5px !important;
+    color: rgba(255,255,255,0.5) !important;
+    transition: all 0.15s !important;
+  }
+  .rbgcp-control-btn-active {
+    background: rgba(255,255,255,0.1) !important;
+    color: #fff !important;
+  }
+
+  /* Hex input */
+  .rbgcp-hex-input {
+    background: rgba(255,255,255,0.06) !important;
+    border: 1px solid rgba(255,255,255,0.1) !important;
+    border-radius: 7px !important;
+    color: #fff !important;
+    font-size: 12px !important;
+    font-family: "JetBrains Mono", "Fira Code", monospace !important;
+  }
+  .rbgcp-hex-input:focus {
+    border-color: ${accent}88 !important;
+    outline: none !important;
+  }
+
+  /* RGBA channel inputs */
+  .rbgcp-rgba-input {
+    background: rgba(255,255,255,0.06) !important;
+    border: 1px solid rgba(255,255,255,0.1) !important;
+    border-radius: 7px !important;
+    color: #fff !important;
+    font-size: 11px !important;
+    font-family: "JetBrains Mono", "Fira Code", monospace !important;
+  }
+  .rbgcp-rgba-input:focus {
+    border-color: ${accent}88 !important;
+    outline: none !important;
+  }
+  .rbgcp-rgba-label {
+    color: rgba(255,255,255,0.4) !important;
+    font-size: 10px !important;
+    letter-spacing: 0.5px !important;
+  }
+
+  /* Gradient degree input */
+  .rbgcp-gradient-degrees-input {
+    background: rgba(255,255,255,0.06) !important;
+    border: 1px solid rgba(255,255,255,0.1) !important;
+    border-radius: 7px !important;
+    color: #fff !important;
+    font-size: 11px !important;
+  }
+
+  /* Preset swatches row */
+  .rbgcp-preset-wrap {
+    margin-top: 10px !important;
+  }
+  .rbgcp-swatch {
+    border-radius: 5px !important;
+    border: 1px solid rgba(255,255,255,0.12) !important;
+    transition: transform 0.1s, box-shadow 0.1s !important;
+  }
+  .rbgcp-swatch:hover {
+    transform: scale(1.15) !important;
+    box-shadow: 0 0 0 2px ${accent}66 !important;
+  }
+
+  /* Gradient stop handles */
+  .rbgcp-gradient-handle {
+    border: 2px solid rgba(255,255,255,0.8) !important;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.4) !important;
+  }
+
+  /* Eye-dropper & advanced icon buttons */
+  .rbgcp-eyedropper-wrap,
+  .rbgcp-advanced-btn {
+    background: rgba(255,255,255,0.06) !important;
+    border: 1px solid rgba(255,255,255,0.08) !important;
+    border-radius: 7px !important;
+    color: rgba(255,255,255,0.6) !important;
+    transition: all 0.15s !important;
+  }
+  .rbgcp-eyedropper-wrap:hover,
+  .rbgcp-advanced-btn:hover {
+    background: rgba(255,255,255,0.1) !important;
+    color: #fff !important;
+  }
+`;
+
+function usePickerStyles() {
+  useEffect(() => {
+    const id = "song-overlay-picker-styles";
+    if (document.getElementById(id)) return;
+    const el = document.createElement("style");
+    el.id = id;
+    el.textContent = PICKER_CSS;
+    document.head.appendChild(el);
+    return () => el.remove();
+  }, []);
+}
+
+/** Wraps ColorPicker with a consistent dark-themed container */
+function StyledPicker({ disabled, ...props }) {
+  return (
+    <div
+      style={{
+        opacity: disabled ? 0.4 : 1,
+        pointerEvents: disabled ? "none" : "auto",
+        transition: "opacity 0.15s",
+      }}
+    >
+      <ColorPicker {...props} />
+    </div>
+  );
+}
+
+const sectionStyle = {
+  background: "rgba(255,255,255,0.04)",
+  border: "1px solid rgba(255,255,255,0.08)",
+  borderRadius: "8px",
+  padding: "16px",
+  position: "relative",
+};
+
+const labelStyle = {
+  fontSize: "11px",
+  letterSpacing: "1px",
+  color: "rgba(255,255,255,0.7)",
+  textTransform: "uppercase",
+  marginBottom: "12px",
+  display: "block",
+  fontWeight: "500",
+};
+
+const inputStyle = {
+  background: "rgba(255,255,255,0.05)",
+  border: "1px solid rgba(255,255,255,0.1)",
+  borderRadius: "8px",
+  padding: "8px 12px",
+  color: "#fff",
+  fontFamily: "inherit",
+  fontSize: "12px",
+  outline: "none",
+  width: "100%",
+  marginBottom: "16px",
+  transition: "all 0.15s",
+};
+
+const resetButtonStyle = {
+  position: "absolute",
+  top: "12px",
+  right: "12px",
+  padding: "6px 10px",
+  fontSize: "10px",
+  fontWeight: "500",
+  color: "rgba(255,255,255,0.6)",
+  background: "rgba(255,255,255,0.05)",
+  border: "1px solid rgba(255,255,255,0.1)",
+  borderRadius: "6px",
+  cursor: "pointer",
+  fontFamily: "inherit",
+  transition: "all 0.15s",
+};
+
+const sectionHeadingStyle = {
+  fontSize: "13px",
+  fontWeight: "600",
+  marginBottom: "16px",
+  color: "#fff",
+  textTransform: "uppercase",
+  letterSpacing: "1px",
+};
+
+function ResetButton({ onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      style={resetButtonStyle}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.background = "rgba(255,255,255,0.08)";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.background = "rgba(255,255,255,0.05)";
+      }}
+    >
+      Reset
+    </button>
+  );
+}
+
+function ToggleButton({ value, onChange }) {
+  return (
+    <button
+      onClick={onChange}
+      style={{
+        width: "48px",
+        height: "24px",
+        borderRadius: "12px",
+        border: "none",
+        background: value ? accent : "rgba(255,255,255,0.1)",
+        cursor: "pointer",
+        position: "relative",
+        transition: "all 0.15s",
+        flexShrink: 0,
+      }}
+    >
+      <div
+        style={{
+          position: "absolute",
+          width: "20px",
+          height: "20px",
+          borderRadius: "50%",
+          background: "#fff",
+          top: "2px",
+          left: value ? "26px" : "2px",
+          transition: "left 0.15s",
+        }}
+      />
+    </button>
+  );
+}
+
 export default function SongOverlaySettings({ settings, updateSetting }) {
-  const [showPicker, setShowPicker] = useState(false);
-  const [showOutlinePicker, setShowOutlinePicker] = useState(false);
+  usePickerStyles();
 
   const textShadow = useMemo(
     () =>
@@ -16,418 +256,217 @@ export default function SongOverlaySettings({ settings, updateSetting }) {
     [settings.textStrokeSize, settings.textStrokeColor],
   );
 
-  const sectionStyle = {
-    background: "rgba(255,255,255,0.04)",
-    border: "1px solid rgba(255,255,255,0.08)",
-    borderRadius: "8px",
-    padding: "16px",
-    marginBottom: "16px",
-  };
-
-  const labelStyle = {
-    fontSize: "11px",
-    letterSpacing: "1px",
-    color: "rgba(255,255,255,0.7)",
-    textTransform: "uppercase",
-    marginBottom: "12px",
-    display: "block",
-    fontWeight: "500",
-  };
-
-  const inputStyle = {
-    background: "rgba(255,255,255,0.05)",
-    border: "1px solid rgba(255,255,255,0.1)",
-    borderRadius: "8px",
-    padding: "8px 12px",
-    color: "#fff",
-    fontFamily: "inherit",
-    fontSize: "12px",
-    outline: "none",
-    width: "100%",
-    marginBottom: "16px",
-    transition: "all 0.15s",
-  };
-
-  const buttonStyle = {
-    background: `${accent}22`,
-    border: `1px solid ${accent}55`,
-    borderRadius: "8px",
-    color: accent,
-    fontSize: "11px",
-    cursor: "pointer",
-    fontFamily: "inherit",
-    letterSpacing: "0.5px",
-    opacity: 1,
-    padding: "8px 12px",
-    transition: "all 0.15s",
-    fontWeight: "500",
-  };
-
-  const resetButtonStyle = {
-    position: "absolute",
-    top: "12px",
-    right: "12px",
-    padding: "6px 10px",
-    fontSize: "10px",
-    fontWeight: "500",
-    color: "rgba(255,255,255,0.6)",
-    background: "rgba(255,255,255,0.05)",
-    border: "1px solid rgba(255,255,255,0.1)",
+  const previewStyle = {
+    marginTop: "12px",
+    padding: `12px`,
+    fontFamily: settings.fontFamily,
+    color: `rgb(${hexToRgb(settings.fontColor)})`,
+    background: settings.bgColor,
+    textAlign: settings.playerAlignment,
+    textShadow: settings.textStroke ? textShadow : "none",
     borderRadius: "6px",
-    cursor: "pointer",
-    fontFamily: "inherit",
-    transition: "all 0.15s",
+    fontSize: "12px",
   };
 
   return (
-    <>
-      <div style={{ maxWidth: "600px" }}>
-        {/* Account Settings */}
-        <div style={sectionStyle}>
-          <h3
+    <div
+      style={{
+        maxWidth: "900px",
+        display: "grid",
+        gridTemplateColumns: "1fr 1fr",
+        gap: "16px",
+        alignItems: "start",
+      }}
+    >
+      {/* General Settings */}
+      <div style={sectionStyle}>
+        <h3 style={sectionHeadingStyle}>General</h3>
+        <ResetButton
+          onClick={() => {
+            [
+              ["playerAlignment", "right"],
+              ["bgColor", "#800080"],
+            ].forEach(([k, v]) => updateSetting(k, v));
+          }}
+        />
+
+        <label style={labelStyle}>Alignment</label>
+        <select
+          value={settings.playerAlignment}
+          onChange={(e) => updateSetting("playerAlignment", e.target.value)}
+          style={inputStyle}
+        >
+          <option value="right">Right</option>
+          <option value="left">Left</option>
+        </select>
+
+        <label style={labelStyle}>Background Color</label>
+        <StyledPicker
+          value={settings.bgColor}
+          onChange={(color) => updateSetting("bgColor", color)}
+        />
+        <div style={previewStyle}>Example Artist - Example Track</div>
+      </div>
+
+      {/* Font Settings */}
+      <div style={sectionStyle}>
+        <h3 style={sectionHeadingStyle}>Font</h3>
+        <ResetButton
+          onClick={() => {
+            [
+              ["fontColor", "#ffffff"],
+              ["textStroke", false],
+              ["textStrokeSize", 0],
+              ["textStrokeColor", "#ffffff"],
+            ].forEach(([k, v]) => updateSetting(k, v));
+          }}
+        />
+
+        <label style={labelStyle}>Font Color</label>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            marginBottom: "16px",
+            background: "rgba(0,0,0,0.2)",
+            border: "1px solid rgba(255,255,255,0.08)",
+            borderRadius: "10px",
+            padding: "8px 12px",
+          }}
+        >
+          <div
             style={{
-              fontSize: "13px",
-              fontWeight: "600",
-              marginBottom: "16px",
-              color: "#fff",
-              textTransform: "uppercase",
-              letterSpacing: "1px",
+              width: "28px",
+              height: "28px",
+              borderRadius: "6px",
+              background: settings.fontColor,
+              border: "1px solid rgba(255,255,255,0.15)",
+              flexShrink: 0,
+              position: "relative",
+              overflow: "hidden",
+              cursor: "pointer",
             }}
           >
-            Account
-          </h3>
-          <label style={labelStyle}>Lastfm Username</label>
+            <input
+              type="color"
+              value={settings.fontColor}
+              onChange={(e) => updateSetting("fontColor", e.target.value)}
+              style={{
+                position: "absolute",
+                inset: 0,
+                opacity: 0,
+                cursor: "pointer",
+                width: "100%",
+                height: "100%",
+              }}
+            />
+          </div>
           <input
             type="text"
-            value={settings.lastfmName}
-            onChange={(e) => updateSetting("lastfmName", e.target.value)}
-            placeholder="Enter your Lastfm username"
-            style={inputStyle}
-          />
-        </div>
-
-        {/* General Settings */}
-        <div style={{ ...sectionStyle, position: "relative" }}>
-          <h3
-            style={{
-              fontSize: "13px",
-              fontWeight: "600",
-              marginBottom: "16px",
-              color: "#fff",
-              textTransform: "uppercase",
-              letterSpacing: "1px",
-            }}
-          >
-            General
-          </h3>
-          <button
-            onClick={() => {
-              const defaultSubEffects = {
-                playerAlignment: "right",
-                bgColor: "#800080",
-              };
-              Object.entries(defaultSubEffects).forEach(([key, val]) =>
-                updateSetting(key, val),
-              );
-            }}
-            style={resetButtonStyle}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = "rgba(255,255,255,0.08)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = "rgba(255,255,255,0.05)";
-            }}
-          >
-            Reset
-          </button>
-
-          <label style={labelStyle}>Alignment</label>
-          <select
-            value={settings.playerAlignment}
-            onChange={(e) => updateSetting("playerAlignment", e.target.value)}
-            style={inputStyle}
-          >
-            <option value="right">Right</option>
-            <option value="left">Left</option>
-          </select>
-
-          <label style={labelStyle}>Background Color</label>
-          <button
-            onClick={() => setShowPicker(true)}
-            style={{
-              ...buttonStyle,
-              width: "100%",
-              marginBottom: "16px",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = `${accent}44`;
-              e.currentTarget.style.borderColor = `${accent}77`;
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = `${accent}22`;
-              e.currentTarget.style.borderColor = `${accent}55`;
-            }}
-          >
-            Pick Background
-          </button>
-
-          <Modal isOpen={showPicker} onClose={() => setShowPicker(false)}>
-            <ColorPicker
-              value={settings.bgColor}
-              onChange={(color) => updateSetting("bgColor", color)}
-              disableDarkMode
-            />
-            <div
-              style={{
-                marginTop: "16px",
-                padding: `${settings.padding}px`,
-                fontFamily: settings.fontFamily,
-                color: `rgb(${hexToRgb(settings.fontColor)})`,
-                background: settings.bgColor,
-                textAlign: settings.playerAlignment,
-                textShadow: settings.textStroke ? textShadow : "none",
-              }}
-            >
-              Example Artist - Example Track
-            </div>
-          </Modal>
-        </div>
-
-        {/* Font Settings */}
-        <div style={{ ...sectionStyle, position: "relative" }}>
-          <h3
-            style={{
-              fontSize: "13px",
-              fontWeight: "600",
-              marginBottom: "16px",
-              color: "#fff",
-              textTransform: "uppercase",
-              letterSpacing: "1px",
-            }}
-          >
-            Font
-          </h3>
-          <button
-            onClick={() => {
-              const defaultSubEffects = {
-                fontColor: "#ffffff",
-                textStroke: false,
-                textStrokeSize: 0,
-                textStrokeColor: "#ffffff",
-              };
-              Object.entries(defaultSubEffects).forEach(([key, val]) =>
-                updateSetting(key, val),
-              );
-            }}
-            style={resetButtonStyle}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = "rgba(255,255,255,0.08)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = "rgba(255,255,255,0.05)";
-            }}
-          >
-            Reset
-          </button>
-
-          <label style={labelStyle}>Font Color</label>
-          <input
-            type="color"
             value={settings.fontColor}
             onChange={(e) => updateSetting("fontColor", e.target.value)}
             style={{
-              ...inputStyle,
-              height: "40px",
-              cursor: "pointer",
-              marginBottom: "16px",
-            }}
-          />
-
-          {/* Outline Toggle */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "12px",
-              marginBottom: "16px",
-            }}
-          >
-            <label style={{ ...labelStyle, marginBottom: 0 }}>
-              Enable Text Outline
-            </label>
-            <button
-              onClick={() => updateSetting("textStroke", !settings.textStroke)}
-              style={{
-                width: "48px",
-                height: "24px",
-                borderRadius: "12px",
-                border: "none",
-                background: settings.textStroke
-                  ? accent
-                  : "rgba(255,255,255,0.1)",
-                cursor: "pointer",
-                position: "relative",
-                transition: "all 0.15s",
-              }}
-            >
-              <div
-                style={{
-                  position: "absolute",
-                  width: "20px",
-                  height: "20px",
-                  borderRadius: "50%",
-                  background: "#fff",
-                  top: "2px",
-                  left: settings.textStroke ? "26px" : "2px",
-                  transition: "left 0.15s",
-                }}
-              />
-            </button>
-          </div>
-
-          <InputField
-            label="Text Stroke Size"
-            type="range"
-            min={0}
-            max={20}
-            step={1}
-            value={settings.textStrokeSize}
-            disabled={!settings.textStroke}
-            onChange={(e) =>
-              updateSetting("textStrokeSize", parseInt(e.target.value))
-            }
-          />
-
-          <button
-            disabled={!settings.textStroke}
-            onClick={() => setShowOutlinePicker(true)}
-            style={{
-              ...buttonStyle,
-              width: "100%",
-              marginBottom: "16px",
-              opacity: !settings.textStroke ? 0.5 : 1,
-            }}
-            onMouseEnter={(e) => {
-              if (!settings.textStroke) return;
-              e.currentTarget.style.background = `${accent}44`;
-              e.currentTarget.style.borderColor = `${accent}77`;
-            }}
-            onMouseLeave={(e) => {
-              if (!settings.textStroke) return;
-              e.currentTarget.style.background = `${accent}22`;
-              e.currentTarget.style.borderColor = `${accent}55`;
-            }}
-          >
-            Pick Outline Color
-          </button>
-
-          <Modal
-            isOpen={showOutlinePicker}
-            onClose={() => setShowOutlinePicker(false)}
-          >
-            <ColorPicker
-              value={settings.textStrokeColor}
-              onChange={(color) => updateSetting("textStrokeColor", color)}
-              hideColorTypeBtns
-              hideGradientTypeBtns
-              hideControls
-              disableDarkMode
-            />
-            <div
-              style={{
-                marginTop: "16px",
-                padding: `${settings.padding}px`,
-                fontFamily: settings.fontFamily,
-                color: `rgb(${hexToRgb(settings.fontColor)})`,
-                background: settings.bgColor,
-                textAlign: settings.playerAlignment,
-                textShadow: settings.textStroke ? textShadow : "none",
-              }}
-            >
-              Example Artist - Example Track
-            </div>
-          </Modal>
-        </div>
-
-        {/* Layout Settings */}
-        <div style={{ ...sectionStyle, position: "relative" }}>
-          <h3
-            style={{
-              fontSize: "13px",
-              fontWeight: "600",
-              marginBottom: "16px",
+              flex: 1,
+              background: "transparent",
+              border: "none",
+              outline: "none",
               color: "#fff",
-              textTransform: "uppercase",
+              fontFamily: '"JetBrains Mono", "Fira Code", monospace',
+              fontSize: "13px",
               letterSpacing: "1px",
             }}
-          >
-            Layout
-          </h3>
-          <button
-            onClick={() => {
-              const defaultSubEffects = {
-                scaleSize: 1.0,
-                padding: 10,
-                maxWidth: 700,
-                scrollSpeed: 25,
-                hideOnNothing: false,
-              };
-              Object.entries(defaultSubEffects).forEach(([key, val]) =>
-                updateSetting(key, val),
-              );
-            }}
-            style={resetButtonStyle}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = "rgba(255,255,255,0.08)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = "rgba(255,255,255,0.05)";
-            }}
-          >
-            Reset
-          </button>
+          />
+        </div>
 
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "12px",
+            marginBottom: "16px",
+          }}
+        >
+          <label style={{ ...labelStyle, marginBottom: 0 }}>
+            Enable Text Outline
+          </label>
+          <ToggleButton
+            value={settings.textStroke}
+            onChange={() => updateSetting("textStroke", !settings.textStroke)}
+          />
+        </div>
+
+        <InputField
+          label="Text Stroke Size"
+          type="range"
+          min={0}
+          max={20}
+          step={1}
+          value={settings.textStrokeSize}
+          disabled={!settings.textStroke}
+          onChange={(e) =>
+            updateSetting("textStrokeSize", parseInt(e.target.value))
+          }
+        />
+
+        <label
+          style={{
+            ...labelStyle,
+            opacity: settings.textStroke ? 1 : 0.4,
+            transition: "opacity 0.15s",
+          }}
+        >
+          Outline Color
+        </label>
+        <StyledPicker
+          disabled={!settings.textStroke}
+          value={settings.textStrokeColor}
+          onChange={(color) => updateSetting("textStrokeColor", color)}
+          hideColorTypeBtns
+          hideGradientTypeBtns
+          hideControls
+        />
+      </div>
+
+      {/* Layout Settings — spans both columns */}
+      <div style={{ ...sectionStyle, gridColumn: "1 / -1" }}>
+        <h3 style={sectionHeadingStyle}>Layout</h3>
+        <ResetButton
+          onClick={() => {
+            [
+              ["scaleSize", 2.0],
+              ["padding", 10],
+              ["scrollSpeed", 25],
+              ["hideOnNothing", false],
+            ].forEach(([k, v]) => updateSetting(k, v));
+          }}
+        />
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: "0 24px",
+          }}
+        >
           <div
             style={{
               display: "flex",
               alignItems: "center",
               gap: "12px",
               marginBottom: "16px",
+              gridColumn: "1 / -1",
             }}
           >
             <label style={{ ...labelStyle, marginBottom: 0 }}>
               Hide when no song is playing
             </label>
-            <button
-              onClick={() =>
+            <ToggleButton
+              value={settings.hideOnNothing}
+              onChange={() =>
                 updateSetting("hideOnNothing", !settings.hideOnNothing)
               }
-              style={{
-                width: "48px",
-                height: "24px",
-                borderRadius: "12px",
-                border: "none",
-                background: settings.hideOnNothing
-                  ? accent
-                  : "rgba(255,255,255,0.1)",
-                cursor: "pointer",
-                position: "relative",
-                transition: "all 0.15s",
-              }}
-            >
-              <div
-                style={{
-                  position: "absolute",
-                  width: "20px",
-                  height: "20px",
-                  borderRadius: "50%",
-                  background: "#fff",
-                  top: "2px",
-                  left: settings.hideOnNothing ? "26px" : "2px",
-                  transition: "left 0.15s",
-                }}
-              />
-            </button>
+            />
           </div>
 
           <InputField
@@ -442,15 +481,6 @@ export default function SongOverlaySettings({ settings, updateSetting }) {
             }
           />
           <InputField
-            label="Padding"
-            type="range"
-            min={0}
-            max={20}
-            step={1}
-            value={settings.padding}
-            onChange={(e) => updateSetting("padding", parseInt(e.target.value))}
-          />
-          <InputField
             label="Scroll Speed"
             type="range"
             min={0}
@@ -461,19 +491,8 @@ export default function SongOverlaySettings({ settings, updateSetting }) {
               updateSetting("scrollSpeed", parseInt(e.target.value))
             }
           />
-          <InputField
-            label="Max Width"
-            type="range"
-            min={100}
-            max={5000}
-            step={10}
-            value={settings.maxWidth}
-            onChange={(e) =>
-              updateSetting("maxWidth", parseInt(e.target.value))
-            }
-          />
         </div>
       </div>
-    </>
+    </div>
   );
 }

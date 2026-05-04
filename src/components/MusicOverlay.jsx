@@ -276,6 +276,23 @@ export default function Music() {
   }, [playlist]);
 
   useEffect(() => {
+    const payload =
+      current && isPlaying
+        ? {
+            title: current.title,
+          }
+        : null;
+
+    fetch("/api/music/nowplaying", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ track: payload }),
+    }).catch((err) =>
+      console.error("[MusicOverlay] Failed to push now-playing:", err),
+    );
+  }, [current, isPlaying]);
+
+  useEffect(() => {
     songRequestHandlerRef.current = handleRedeemSongRequest;
   }, [handleRedeemSongRequest]);
   const playNext = useCallback(async () => {

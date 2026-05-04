@@ -141,7 +141,6 @@ app.use(bodyParser.json({ limit: "10mb" }));
 app.use(bodyParser.urlencoded({ extended: true, limit: "10mb" }));
 app.use(express.static(distRoot));
 
-const LASTFM_API_KEY = process.env.LASTFM_API_KEY;
 const TWITCH_ACCESS_TOKEN = process.env.TWITCH_ACCESS_TOKEN;
 
 function GenerateAccess() {
@@ -276,32 +275,6 @@ if (fs.existsSync(updaterNewPath)) {
     "✗ new Updater does not exist on: (if there is no new updater, this is normal)",
     updaterNewPath,
   );
-}
-
-// --- .env validation and cleaning ---
-if (fs.existsSync(envPath)) {
-  let envContent = fs.readFileSync(envPath, "utf8");
-  let lines = envContent.split(/\r?\n/);
-  let cleanedLines = [];
-  let foundApiKey = false;
-  for (let line of lines) {
-    let trimmed = line.trim();
-    if (!trimmed) continue; // skip empty lines
-    if (trimmed.startsWith("LASTFM_API_KEY=")) {
-      let value = trimmed.split("=")[1] || "";
-      value = value.trim();
-      if (value) foundApiKey = true;
-      cleanedLines.push("LASTFM_API_KEY=" + value);
-    } else {
-      cleanedLines.push(trimmed);
-    }
-  }
-  fs.writeFileSync(envPath, cleanedLines.join("\n") + "\n", "utf8");
-  if (!foundApiKey) {
-    console.warn(
-      "[.env] Warning: LASTFM_API_KEY is missing or empty after cleaning. The Last.fm API will not work.",
-    );
-  }
 }
 
 function loadExcludedBots() {
@@ -779,6 +752,31 @@ app.get("/api/commands", (req, res) => {
   res.json(cmds);
 });
 
+let currentNowPlaying = null;
+
+app.get("/api/music/nowplaying", (req, res) => {
+  res.json(currentNowPlaying ?? {});
+});
+
+app.post("/api/music/nowplaying", (req, res) => {
+  const track = req.body?.track ?? null;
+
+  if (track !== null && (typeof track !== "object" || !track.title)) {
+    return res.status(400).json({ error: "Invalid track payload" });
+  }
+
+  currentNowPlaying = track;
+
+  broadcast(
+    JSON.stringify({
+      type: "nowPlaying",
+      track: currentNowPlaying,
+    }),
+  );
+
+  res.json({ ok: true });
+});
+
 app.get("/api/music/playlists", (req, res) => {
   try {
     const playlists = loadPlaylistsFromDisk();
@@ -908,65 +906,6 @@ app.get("/api/subeffecttypes", (req, res) => {
   res.json(availableSubEffects);
 });
 
-// --- LASTFM API ---
-function parseLatestTrack(data) {
-  const tracks = data?.recenttracks?.track || [];
-  // Find the currently playing track
-  const nowPlayingTrack = tracks.find(
-    (t) => t["@attr"] && t["@attr"].nowplaying === "true",
-  );
-  if (!nowPlayingTrack || !nowPlayingTrack.name || !nowPlayingTrack.artist) {
-    return null;
-  }
-  return {
-    name: nowPlayingTrack.name,
-    artist:
-      nowPlayingTrack.artist["#text"] || nowPlayingTrack.artist.name || "",
-  };
-}
-
-app.get("/api/lastfm/latest/:username", (req, res) => {
-  const username = req.params?.username || "";
-  if (!username) {
-    console.error("[LastFM API] No username provided");
-    return res.status(400).json({ error: "Username is required" });
-  }
-  if (!LASTFM_API_KEY) {
-    console.error("[LastFM API] LASTFM_API_KEY is not set");
-    return res.status(500).json({ error: "LASTFM_API_KEY is not set" });
-  }
-  const url = `https://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks&user=${username}&api_key=${LASTFM_API_KEY}&format=json&limit=1`;
-
-  https
-    .get(url, (response) => {
-      let data = "";
-      response.on("data", (chunk) => {
-        data += chunk;
-      });
-      response.on("end", () => {
-        try {
-          const jsonData = JSON.parse(data);
-          const track = parseLatestTrack(jsonData);
-          if (!track) {
-            console.warn(
-              "[LastFM API] No recent tracks found for user:",
-              username,
-            );
-            return res.status(404).json({ error: "No recent tracks found" });
-          }
-          res.json({ track });
-        } catch (error) {
-          console.error("[LastFM API] Error parsing Last.fm response:", error);
-          res.status(500).json({ error: "Internal server error" });
-        }
-      });
-    })
-    .on("error", (err) => {
-      console.error("[LastFM API] Error fetching from Last.fm:", err);
-      res.status(500).json({ error: "Error fetching from Last.fm" });
-    });
-});
-
 // Backend: receives token from frontend and saves it
 app.post("/auth/twitch/callback", express.json(), (req, res) => {
   const { access_token } = req.body;
@@ -1033,6 +972,16 @@ wss.on("connection", (ws) => {
       target: "all",
     }),
   );
+
+  if (currentNowPlaying !== null) {
+    ws.send(
+      JSON.stringify({
+        type: "nowPlaying",
+        track: currentNowPlaying,
+      }),
+    );
+  }
+
   ws.on("message", (message) => {
     try {
       const data = JSON.parse(message.toString());
