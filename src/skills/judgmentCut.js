@@ -1,158 +1,172 @@
+// ─── constants ────────────────────────────────────────────────────────────────
+const CHARGE_DURATION = 1800; // ms of slow-mo accumulation
+const SLASH_COUNT = 22; // slashes per enemy
+const SLASH_RADIUS = 32; // scatter radius around each enemy
+const SLASH_COLOR = "#3bc9e5";
+const TOTAL_DAMAGE_MUL = 2.8; // multiplier on battleEventDamage spread across all slashes
+const RELEASE_FLASH_MS = 180; // white-out duration on release
+const HOLD_MS = 150; // how long slashes linger after release before vanishing
+
 export const judgmentCut = ({
-  engineRef,
   findFarthestEnemy,
   teleport,
   showText,
-  bodiesWithTimers,
+  battleParticipants,
   battleSettings,
   dealDamage,
+  setEngineTimeScale,
+  restoreEngineTimeScale,
 }) => ({
   name: "judgmentCut",
-  disabled: false,
+  disabled: true,
   effect: (participant) => {
-    const engine = engineRef.current;
-    engine.timing.timeScale = 0; // dramatic slow-mo
+    if (!participant.body) return;
 
     const farEnemy = findFarthestEnemy(participant);
-    if (!farEnemy) return;
-    const chargeDuration = 1800;
-    teleport(participant, farEnemy.body.position.x, farEnemy.body.position.y);
+    if (!farEnemy || !farEnemy.body) return;
 
-    showText(participant, "I am the storm thats aproaching!", "#1d4cf7");
+    // ── teleport caster next to farthest enemy ────────────────────────────────
+    const targetPos = farEnemy.body.translation();
+    teleport(participant, targetPos.x, targetPos.y);
 
-    // --- Step 1: Create Slashes ---
-    const slashes = [];
+    setEngineTimeScale(0.05);
+    showText(participant, "I am the storm that is approaching!", "#1d4cf7");
 
-    // Visual slashes around every enemy
-    const enemies = bodiesWithTimers.current.filter(
-      (p) => p.isAlive && p.id !== participant.id
-    );
     const svg = document.getElementById("effects-layer");
-    const slashCount = 48; // Number of slashes per enemy
-    const slashRadius = 40; // Distance from enemy center
-    const slashLength = 120;
-    const slashColor = "#1d4cf7";
-    const slashFade = 400; // ms
+    if (!svg) return;
+
+    // ── ensure glow filter exists ─────────────────────────────────────────────
+    let defs = svg.querySelector("defs");
+    if (!defs) {
+      defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
+      svg.prepend(defs);
+    }
+    if (!defs.querySelector("#jc-glow")) {
+      defs.insertAdjacentHTML(
+        "beforeend",
+        `<filter id="jc-glow" x="-80%" y="-80%" width="260%" height="260%">
+           <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="blur"/>
+           <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+         </filter>`,
+      );
+    }
+
+    // ── snapshot alive enemies now; we'll re-check body each slash tick ───────
+    const enemies = (battleParticipants.current ?? []).filter(
+      (p) => p.isAlive && p.id !== participant.id,
+    );
+    if (enemies.length === 0) {
+      restoreEngineTimeScale(1.0);
+      return;
+    }
+
+    // ── root group — holds all slash geometry; one remove() cleans everything ─
+    const root = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    svg.appendChild(root);
+
+    // ── accumulate slash elements during charge ───────────────────────────────
+    // Each slash is created at its delay but stays visible (opacity=1) until
+    // the release moment, when they all flash white then vanish together.
+    const allSlashGroups = [];
 
     enemies.forEach((enemy) => {
-      const { x, y } = enemy.body.position;
-      for (let i = 0; i < slashCount; i++) {
-        const delay = Math.floor((i * chargeDuration) / slashCount);
+      const baseDamage =
+        (battleSettings.battleEventDamage * TOTAL_DAMAGE_MUL) / SLASH_COUNT;
+
+      for (let i = 0; i < SLASH_COUNT; i++) {
+        const delay = Math.floor((i / SLASH_COUNT) * CHARGE_DURATION * 0.92);
+
         setTimeout(() => {
-          // Random angle for each slash's position
-          const angle = Math.random() * 2 * Math.PI;
-          const sx = x + Math.cos(angle) * slashRadius;
-          const sy = y + Math.sin(angle) * slashRadius;
+          // Guard: enemy or caster may have died during the charge
+          if (!enemy.isAlive || !enemy.body) return;
+          if (!participant.isAlive) return;
 
-          // Random rotation for the slash itself
-          const slashRotation = Math.random() * 360;
+          // Read position live so slashes follow a moving enemy
+          const { x, y } = enemy.body.translation();
 
-          // We'll animate the length from 0 to slashLength, centered at (sx, sy)
-          // The line will go from (sx - dx, sy - dy) to (sx + dx, sy + dy)
-          const dx =
-            (Math.cos((slashRotation * Math.PI) / 180) * slashLength) / 2;
-          const dy =
-            (Math.sin((slashRotation * Math.PI) / 180) * slashLength) / 2;
+          const scatterAngle = Math.random() * Math.PI * 2;
+          const scatterDist = Math.random() * SLASH_RADIUS;
+          const cx = x + Math.cos(scatterAngle) * scatterDist;
+          const cy = y + Math.sin(scatterAngle) * scatterDist;
 
-          // Create a group to apply rotation
-          const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
-          g.setAttribute("transform", `rotate(${slashRotation}, ${sx}, ${sy})`);
+          // vary slash length — short cuts mixed with long sweeping ones
+          const slashLength = 60 + Math.random() * 110;
+          const slashAngle = Math.random() * Math.PI * 2;
+          const halfDx = Math.cos(slashAngle) * slashLength * 0.5;
+          const halfDy = Math.sin(slashAngle) * slashLength * 0.5;
 
-          // Create SVG polygon for tapered slash (diamond shape)
-          const slash = document.createElementNS(
+          // thin line slash — draws from center outward to both tips
+          const outerG = document.createElementNS(
             "http://www.w3.org/2000/svg",
-            "polygon"
+            "g",
           );
-          slash.setAttribute("fill", slashColor);
-          slash.setAttribute("opacity", "1");
-          slash.setAttribute("filter", "url(#glow)");
-          g.appendChild(slash);
-          svg.appendChild(g);
-          slashes.push(g);
+          const line = document.createElementNS(
+            "http://www.w3.org/2000/svg",
+            "line",
+          );
+          const strokeW = 1.2 + Math.random() * 1.2;
+          line.setAttribute("stroke", SLASH_COLOR);
+          line.setAttribute("stroke-width", strokeW);
+          line.setAttribute("stroke-linecap", "round");
+          line.setAttribute("filter", "url(#jc-glow)");
+          line.setAttribute("opacity", "0.9");
+          line.setAttribute("x1", cx);
+          line.setAttribute("y1", cy);
+          line.setAttribute("x2", cx);
+          line.setAttribute("y2", cy);
+          outerG.appendChild(line);
+          root.appendChild(outerG);
+          allSlashGroups.push(outerG);
 
-          // Animate the slash growing out from center
-          const animDuration = 120; // ms
+          // animate tips extending outward from center
           const startTime = performance.now();
-          function animateSlash(now) {
-            const t = Math.min(1, (now - startTime) / animDuration);
-            // Animate from center to full length
-            const currDx = dx * t;
-            const currDy = dy * t;
-            // Tapered width: thickest at center, thinner at ends
-            const maxWidth = t < 0.2 ? 14 : 8; // flash wider at start
-            const minWidth = 1.5;
-            // Perpendicular vector for width
-            const perpX = -dy / slashLength;
-            const perpY = dx / slashLength;
-            // Four points: tip1, left, tip2, right
-            const tip1x = sx - currDx;
-            const tip1y = sy - currDy;
-            const tip2x = sx + currDx;
-            const tip2y = sy + currDy;
-            // At center, width is maxWidth; at tips, minWidth
-            const leftx = sx - (perpX * maxWidth) / 2;
-            const lefty = sy - (perpY * maxWidth) / 2;
-            const rightx = sx + (perpX * maxWidth) / 2;
-            const righty = sy + (perpY * maxWidth) / 2;
-            // Build diamond shape (tip1, left, tip2, right)
-            const points = [
-              // tip1 (thin)
-              tip1x +
-                (perpX * minWidth) / 2 +
-                "," +
-                (tip1y + (perpY * minWidth) / 2),
-              tip1x -
-                (perpX * minWidth) / 2 +
-                "," +
-                (tip1y - (perpY * minWidth) / 2),
-              // left (thick)
-              leftx + "," + lefty,
-              // tip2 (thin)
-              tip2x -
-                (perpX * minWidth) / 2 +
-                "," +
-                (tip2y - (perpY * minWidth) / 2),
-              tip2x +
-                (perpX * minWidth) / 2 +
-                "," +
-                (tip2y + (perpY * minWidth) / 2),
-              // right (thick)
-              rightx + "," + righty,
-            ].join(" ");
-            slash.setAttribute("points", points);
-            // Optional: flash effect
-            if (t < 0.2) {
-              slash.setAttribute("opacity", String(0.7 + 0.3 * t));
-            } else {
-              slash.setAttribute("opacity", "1");
-            }
-            if (t < 1) {
-              requestAnimationFrame(animateSlash);
-            }
-          }
-          requestAnimationFrame(animateSlash);
+          const animDur = 80 + Math.random() * 40;
+          const tip1x = cx - halfDx;
+          const tip1y = cy - halfDy;
+          const tip2x = cx + halfDx;
+          const tip2y = cy + halfDy;
 
-          // Add randomization to the damage per slash
-          const baseDamage =
-            (battleSettings.battleEventDamage * 2.5) / slashCount;
-          const randomFactor = 0.5 + Math.random() * 0.5; // 0.9 to 1.1
-          const damage = baseDamage * randomFactor;
-          dealDamage(enemy, damage, participant, false);
+          const drawSlash = (now) => {
+            const t = Math.min(1, (now - startTime) / animDur);
+            line.setAttribute("x1", cx + (tip1x - cx) * t);
+            line.setAttribute("y1", cy + (tip1y - cy) * t);
+            line.setAttribute("x2", cx + (tip2x - cx) * t);
+            line.setAttribute("y2", cy + (tip2y - cy) * t);
+            if (t < 1) requestAnimationFrame(drawSlash);
+          };
+          requestAnimationFrame(drawSlash);
 
-          // Animate fade out
-          setTimeout(() => {
-            slash.setAttribute("opacity", "0");
-          }, slashFade - 200);
-          setTimeout(() => {
-            if (g.parentNode) svg.removeChild(g);
-          }, slashFade);
+          // deal damage at slash creation time
+          dealDamage(
+            enemy,
+            baseDamage * (0.6 + Math.random() * 0.8),
+            participant,
+            false,
+          );
         }, delay);
       }
     });
 
-    // --- Step 2: Deal damage ---
+    // ── release — happens at end of charge ────────────────────────────────────
     setTimeout(() => {
-      engine.timing.timeScale = 1;
-    }, chargeDuration);
+      restoreEngineTimeScale(1.0);
+
+      // turn all slashes bright white, then fade and remove
+      allSlashGroups.forEach((g) => {
+        g.querySelectorAll("line").forEach((l) =>
+          l.setAttribute("stroke", "#ffffff"),
+        );
+        setTimeout(() => {
+          g.animate([{ opacity: 1 }, { opacity: 0 }], {
+            duration: HOLD_MS,
+            easing: "ease-in",
+            fill: "forwards",
+          }).onfinish = () => g.remove();
+        }, 60);
+      });
+
+      // clean up root after everything is gone
+      setTimeout(() => root.remove(), HOLD_MS + 200);
+    }, CHARGE_DURATION);
   },
 });

@@ -15,23 +15,6 @@ export function removeAllEmoteElements() {
     }
   });
 }
-export const createEffectsRegistry = (effectSettings) => ({
-  hueShift: (el) => {
-    if (Math.random() * 100 > effectSettings.subEffectHueShiftChance) return;
-
-    let hue = 0;
-    const intervalId = setInterval(() => {
-      if (!document.body.contains(el)) {
-        clearInterval(intervalId);
-        return;
-      }
-      hue = (hue + 30) % 360;
-      el.style.filter = `hue-rotate(${hue}deg)`;
-    }, 100);
-
-    return () => clearInterval(intervalId);
-  },
-});
 
 // In-memory cache for emote image blobs
 const emoteImageCache = new Map(); // url -> blobUrl
@@ -101,7 +84,7 @@ export function createEmoteElement(urlOrArray, sizeX, sizeY, animated = false) {
 
         if (isCrossOrigin) {
           const proxyUrl = `/api/emote-proxy?url=${encodeURIComponent(
-            normalized
+            normalized,
           )}`;
           el.crossOrigin = "anonymous";
           fetch(proxyUrl)
@@ -217,7 +200,7 @@ export function createEmoteElement(urlOrArray, sizeX, sizeY, animated = false) {
         emoteImageCache.set(normalized, normalized);
         setupImg(normalized);
         console.warn(
-          `Proxy failed, using cross-origin direct URL: ${normalized}`
+          `Proxy failed, using cross-origin direct URL: ${normalized}`,
         );
       });
   } else {
@@ -235,7 +218,7 @@ export function createEmoteElement(urlOrArray, sizeX, sizeY, animated = false) {
         emoteImageCache.set(normalized, normalized);
         setupImg(normalized);
         console.warn(
-          `Failed to fetch emote as blob, using direct URL: ${normalized}`
+          `Failed to fetch emote as blob, using direct URL: ${normalized}`,
         );
       });
   }

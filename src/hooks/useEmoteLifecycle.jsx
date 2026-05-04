@@ -1,86 +1,67 @@
 import { useEffect } from "react";
-import Matter from "matter-js";
 
 export function useEmoteLifecycle(
-  engine,
+  world, // This is engineRef.current (the Rapier World)
   bodiesWithTimers,
-  emoteLifetime = 5000
+  emoteLifetime = 5000,
 ) {
   useEffect(() => {
-    if (!engine) return;
+    if (!world) return;
 
-    const lifecycleUpdate = () => {
+    // Rapier requires manual lifecycle checks via interval or rAF
+    const interval = setInterval(() => {
       const now = Date.now();
+
       for (let i = bodiesWithTimers.current.length - 1; i >= 0; i--) {
-        const { body, born, el, cleanupEffects, isBattleParticipant } =
-          bodiesWithTimers.current[i];
+        const item = bodiesWithTimers.current[i];
+        const { body, born, el, cleanupEffects, isBattleParticipant } = item;
 
-        // Skip battle participants - they have their own lifecycle management
-        if (isBattleParticipant || body.isBattleParticipant) {
-          continue;
-        }
+        if (isBattleParticipant || (body && body.isBattleParticipant)) continue;
 
+        // Rapier: use body.translation() instead of body.position
+        const pos = body ? body.translation() : { x: 0, y: 0 };
         const age = now - born;
 
-        if (age >= emoteLifetime) {
-          Matter.World.remove(engine.world, body);
-          el.style.opacity = "0";
+        // Removal conditions: Age or Out of Bounds[cite: 13]
+        const isExpired = age >= emoteLifetime;
+        const isOutOfBounds = pos.y > window.innerHeight + 300 || pos.y < -300;
 
-          setTimeout(() => el.remove(), 500);
-
-          if (cleanupEffects) {
-            cleanupEffects.forEach((fn) => {
-              try {
-                fn();
-              } catch (err) {
-                console.error(err);
-              }
-            });
+        if (isExpired || isOutOfBounds) {
+          if (body) {
+            try {
+              world.removeRigidBody(body);
+            } catch (e) {
+              console.error(e);
+            }
           }
-
+          if (el) {
+            el.style.opacity = "0";
+            setTimeout(() => el.remove(), 500);
+          }
+          if (cleanupEffects) cleanupEffects.forEach((fn) => fn());
           bodiesWithTimers.current.splice(i, 1);
         }
       }
-    };
+    }, 100);
 
-    Matter.Events.on(engine, "beforeUpdate", lifecycleUpdate);
+    return () => clearInterval(interval);
+  }, [world, bodiesWithTimers, emoteLifetime]);
 
-    return () => {
-      Matter.Events.off(engine, "beforeUpdate", lifecycleUpdate);
-    };
-  }, [engine, bodiesWithTimers, emoteLifetime]);
-
-  // Cleanup function for clearing all emotes
-  const clearAllEmotes = () => {
-    bodiesWithTimers.current.forEach(
-      ({ body, el, cleanupEffects, isBattleParticipant }) => {
-        // Skip battle participants during regular cleanup
-        if (isBattleParticipant || body.isBattleParticipant) {
-          return;
+  return {
+    clearAllEmotes: () => {
+      for (let i = bodiesWithTimers.current.length - 1; i >= 0; i--) {
+        const { body, el, cleanupEffects } = bodiesWithTimers.current[i];
+        if (body) {
+          try {
+            world.removeRigidBody(body);
+          } catch {
+            /* already removed */
+          }
         }
-
-        if (engine) {
-          Matter.World.remove(engine.world, body);
-        }
-        el.remove();
-        if (cleanupEffects) {
-          cleanupEffects.forEach((fn) => {
-            try {
-              fn();
-            } catch (err) {
-              console.error(err);
-            }
-          });
-        }
+        if (el) el.remove();
+        if (cleanupEffects) cleanupEffects.forEach((fn) => fn());
       }
-    );
-
-    // Filter out non-battle participants
-    bodiesWithTimers.current = bodiesWithTimers.current.filter(
-      ({ body, isBattleParticipant }) =>
-        isBattleParticipant || body.isBattleParticipant
-    );
+      bodiesWithTimers.current = [];
+    },
   };
-
-  return { clearAllEmotes };
 }

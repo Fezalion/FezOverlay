@@ -1,240 +1,248 @@
 import sword from "../utils/sword.png";
 
+// ─── constants ────────────────────────────────────────────────────────────────
+const RADIUS = 130;
+const DURATION = 4000; // ms total skill duration
+const SPIN_UP = 600; // ms to reach full speed
+const SPIN_DOWN = 700; // ms to decelerate at the end
+const SPEED_MAX = 0.32; // rad/frame at full spin
+const SWORD_COUNT = 3; // swords evenly spaced around the orbit
+const DMG_INTERVAL = 110; // ms between damage ticks
+const DMG_FACTOR = 0.4; // fraction of battleEventDamage per tick
+const KNOCKBACK = 5.5; // impulse strength on hit
+const WIND_PARTICLE_RATE = 40; // ms between wind-ring spawns
+
 export const cyclone = ({
   battleSettings,
   showText,
   dealDamage,
-  bodiesWithTimers,
+  battleParticipants,
 }) => ({
   name: "cyclone",
   disabled: false,
   effect: (participant) => {
-    const radius = 120;
-    const speed = 0.5;
-    let angle = 0;
-    let angle2 = Math.PI;
+    if (!participant.body) return;
 
-    const effectLayer = document.getElementById("effects-layer");
+    const svg = document.getElementById("effects-layer");
+    if (!svg) return;
 
-    // --- Circle aura ---
-    const circle = document.createElementNS(
-      "http://www.w3.org/2000/svg",
-      "circle"
-    );
-    circle.setAttribute("r", radius);
-    circle.setAttribute("fill", "none");
-    circle.setAttribute("stroke", "cyan");
-    circle.setAttribute("stroke-width", "1");
-    circle.setAttribute("opacity", "0.7");
-    effectLayer.appendChild(circle);
-
-    // --- Ensure defs for glow ---
-    let defs = effectLayer.querySelector("defs");
+    // ── ensure the glow filter exists exactly once in the SVG defs ───────────
+    let defs = svg.querySelector("defs");
     if (!defs) {
       defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
-      effectLayer.appendChild(defs);
-
-      const filter = document.createElementNS(
-        "http://www.w3.org/2000/svg",
-        "filter"
+      svg.prepend(defs);
+    }
+    if (!defs.querySelector("#cyclone-glow")) {
+      defs.insertAdjacentHTML(
+        "beforeend",
+        `<filter id="cyclone-glow" x="-60%" y="-60%" width="220%" height="220%">
+           <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur"/>
+           <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+         </filter>`,
       );
-      filter.setAttribute("id", "sword-glow");
-      filter.setAttribute("x", "-50%");
-      filter.setAttribute("y", "-50%");
-      filter.setAttribute("width", "200%");
-      filter.setAttribute("height", "200%");
-
-      const feGaussian = document.createElementNS(
-        "http://www.w3.org/2000/svg",
-        "feGaussianBlur"
-      );
-      feGaussian.setAttribute("in", "SourceAlpha");
-      feGaussian.setAttribute("stdDeviation", "4");
-      feGaussian.setAttribute("result", "blur");
-
-      const feColor = document.createElementNS(
-        "http://www.w3.org/2000/svg",
-        "feFlood"
-      );
-      feColor.setAttribute("flood-color", "cyan");
-      feColor.setAttribute("flood-opacity", "1");
-
-      const feComp = document.createElementNS(
-        "http://www.w3.org/2000/svg",
-        "feComposite"
-      );
-      feComp.setAttribute("in2", "blur");
-      feComp.setAttribute("operator", "in");
-
-      const feMerge = document.createElementNS(
-        "http://www.w3.org/2000/svg",
-        "feMerge"
-      );
-      const feMergeNode1 = document.createElementNS(
-        "http://www.w3.org/2000/svg",
-        "feMergeNode"
-      );
-      const feMergeNode2 = document.createElementNS(
-        "http://www.w3.org/2000/svg",
-        "feMergeNode"
-      );
-      feMergeNode2.setAttribute("in", "SourceGraphic");
-
-      feMerge.appendChild(feMergeNode1);
-      feMerge.appendChild(feMergeNode2);
-
-      filter.appendChild(feGaussian);
-      filter.appendChild(feColor);
-      filter.appendChild(feComp);
-      filter.appendChild(feMerge);
-      defs.appendChild(filter);
     }
 
-    // --- Sword factory helper ---
-    const createSwordGroup = () => {
-      const swordOutline = document.createElementNS(
+    // ── root group — everything lives here so one remove() cleans up ─────────
+    const root = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    svg.appendChild(root);
+
+    // ── subtle orbit ring ─────────────────────────────────────────────────────
+    const ring = document.createElementNS(
+      "http://www.w3.org/2000/svg",
+      "circle",
+    );
+    ring.setAttribute("r", RADIUS);
+    ring.setAttribute("fill", "none");
+    ring.setAttribute("stroke", "rgba(0,220,255,0.25)");
+    ring.setAttribute("stroke-width", "1.5");
+    ring.setAttribute("stroke-dasharray", "6 6");
+    root.appendChild(ring);
+
+    // ── swords ────────────────────────────────────────────────────────────────
+    const sWords = Array.from({ length: SWORD_COUNT }, (_, i) => {
+      const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+      const img = document.createElementNS(
         "http://www.w3.org/2000/svg",
-        "image"
+        "image",
       );
-      swordOutline.setAttribute("href", sword);
-      swordOutline.setAttribute("width", radius * 1.05);
-      swordOutline.setAttribute("height", "50");
-      swordOutline.setAttribute("x", radius * -1.025);
-      swordOutline.setAttribute("y", -25);
-      swordOutline.setAttribute("preserveAspectRatio", "xMidYMid meet");
-      swordOutline.setAttribute("opacity", "0.7");
-      swordOutline.setAttribute(
-        "style",
-        "filter: hue-rotate(0deg) saturate(0%) brightness(0);"
-      );
+      const sW = RADIUS * 0.85;
+      const sH = 38;
+      img.setAttribute("href", sword);
+      img.setAttribute("width", sW);
+      img.setAttribute("height", sH);
+      img.setAttribute("x", -sW); // pivot at right edge (tip toward center)
+      img.setAttribute("y", -sH / 2);
+      img.setAttribute("filter", "url(#cyclone-glow)");
 
-      const swordImg = document.createElementNS(
-        "http://www.w3.org/2000/svg",
-        "image"
-      );
-      swordImg.setAttribute("href", sword);
-      swordImg.setAttribute("width", radius);
-      swordImg.setAttribute("height", "50");
-      swordImg.setAttribute("x", radius * -1);
-      swordImg.setAttribute("y", -25);
-      swordImg.setAttribute("preserveAspectRatio", "xMidYMid meet");
-      swordImg.setAttribute("filter", "url(#sword-glow)");
-
-      const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
-      group.appendChild(swordOutline);
-      group.appendChild(swordImg);
-      effectLayer.appendChild(group);
-
-      return group;
-    };
-
-    const group1 = createSwordGroup();
-    const group2 = createSwordGroup();
-
-    // --- Trail storage ---
-    const maxTrail = 15;
-    const trails = [];
-
-    const addTrail = (x, y) => {
+      // glow trail line behind each sword
       const trail = document.createElementNS(
         "http://www.w3.org/2000/svg",
-        "circle"
+        "line",
       );
-      trail.setAttribute("cx", x);
-      trail.setAttribute("cy", y);
-      trail.setAttribute("r", 6);
-      trail.setAttribute("fill", "cyan");
-      trail.setAttribute("opacity", "0.4");
-      effectLayer.appendChild(trail);
+      trail.setAttribute("x1", 0);
+      trail.setAttribute("y1", 0);
+      trail.setAttribute("x2", -sW * 0.7);
+      trail.setAttribute("y2", 0);
+      trail.setAttribute("stroke", "rgba(0,200,255,0.45)");
+      trail.setAttribute("stroke-width", "4");
+      trail.setAttribute("stroke-linecap", "round");
+      trail.setAttribute("filter", "url(#cyclone-glow)");
 
-      trails.push(trail);
-      if (trails.length > maxTrail) {
-        const old = trails.shift();
-        old.remove();
-      }
+      g.appendChild(trail);
+      g.appendChild(img);
+      root.appendChild(g);
+      return { g, baseAngle: (i / SWORD_COUNT) * Math.PI * 2 };
+    });
 
-      // Fade out
-      setTimeout(() => {
-        trail.setAttribute("opacity", "0");
-        setTimeout(() => trail.remove(), 500);
-      }, 0);
-    };
+    // ── wind particles (spawned on an interval, removed individually) ─────────
+    const windInterval = setInterval(() => {
+      if (!participant.body) return;
+      const { x, y } = participant.body.translation();
 
-    // --- Update loop ---
-    const update = () => {
-      if (!participant.isAlive) {
-        clearInterval(animationLoop);
-        clearInterval(damageLoop);
-        circle.remove();
-        group1.remove();
-        group2.remove();
-        trails.forEach((t) => t.remove());
+      // spawn a ring arc that expands and fades
+      const arc = document.createElementNS(
+        "http://www.w3.org/2000/svg",
+        "circle",
+      );
+      const spawnR = RADIUS * (0.6 + Math.random() * 0.5);
+      arc.setAttribute("cx", x);
+      arc.setAttribute("cy", y);
+      arc.setAttribute("r", spawnR);
+      arc.setAttribute("fill", "none");
+      arc.setAttribute(
+        "stroke",
+        `rgba(0,${(180 + Math.random() * 75) | 0},255,0.5)`,
+      );
+      arc.setAttribute("stroke-width", "1");
+      svg.appendChild(arc);
+
+      arc.animate(
+        [
+          { r: spawnR, opacity: 0.6, strokeWidth: "1.5px" },
+          { r: spawnR + 40, opacity: 0, strokeWidth: "0.3px" },
+        ],
+        { duration: 420, easing: "ease-out" },
+      ).onfinish = () => arc.remove();
+
+      // also a small spark at a random orbit point
+      const sparkAngle = Math.random() * Math.PI * 2;
+      const spark = document.createElementNS(
+        "http://www.w3.org/2000/svg",
+        "circle",
+      );
+      spark.setAttribute("cx", x + Math.cos(sparkAngle) * RADIUS);
+      spark.setAttribute("cy", y + Math.sin(sparkAngle) * RADIUS);
+      spark.setAttribute("r", 2 + Math.random() * 2);
+      spark.setAttribute("fill", "cyan");
+      svg.appendChild(spark);
+      spark.animate(
+        [
+          { opacity: 1, r: "3" },
+          { opacity: 0, r: "0" },
+        ],
+        { duration: 280 + Math.random() * 150, easing: "ease-out" },
+      ).onfinish = () => spark.remove();
+    }, WIND_PARTICLE_RATE);
+
+    // ── animation loop ────────────────────────────────────────────────────────
+    let raf;
+    let angle = 0;
+    const startTime = performance.now();
+    const endTime = startTime + DURATION;
+
+    const tick = (now) => {
+      if (!participant.isAlive || !participant.body) {
+        cleanup();
         return;
       }
-      const { x, y } = participant.body.position;
 
-      circle.setAttribute("cx", x);
-      circle.setAttribute("cy", y);
-
-      // Sword 1
-      const swordX1 = x + Math.cos(angle) * radius;
-      const swordY1 = y + Math.sin(angle) * radius;
-      const rotation1 = (angle * 180) / Math.PI;
-      group1.setAttribute(
-        "transform",
-        `translate(${swordX1},${swordY1}) rotate(${rotation1})`
+      // speed ramp-up at start, ramp-down near end
+      const elapsed = now - startTime;
+      const remaining = endTime - now;
+      const spinFrac = Math.min(
+        elapsed < SPIN_UP ? elapsed / SPIN_UP : 1,
+        remaining < SPIN_DOWN ? remaining / SPIN_DOWN : 1,
       );
-      addTrail(swordX1, swordY1);
+      const speed = SPEED_MAX * spinFrac;
 
-      // Sword 2
-      const swordX2 = x + Math.cos(angle2) * radius;
-      const swordY2 = y + Math.sin(angle2) * radius;
-      const rotation2 = (angle2 * 180) / Math.PI;
-      group2.setAttribute(
-        "transform",
-        `translate(${swordX2},${swordY2}) rotate(${rotation2})`
-      );
-      addTrail(swordX2, swordY2);
+      // scale sword opacity and ring opacity with spin fraction
+      root.setAttribute("opacity", 0.4 + spinFrac * 0.6);
+
+      const { x, y } = participant.body.translation();
+      ring.setAttribute("cx", x);
+      ring.setAttribute("cy", y);
+
+      sWords.forEach(({ g, baseAngle }) => {
+        const a = angle + baseAngle;
+        const sx = x + Math.cos(a) * RADIUS;
+        const sy = y + Math.sin(a) * RADIUS;
+        const deg = (a * 180) / Math.PI;
+        g.setAttribute("transform", `translate(${sx},${sy}) rotate(${deg})`);
+      });
 
       angle += speed;
-      angle2 += speed;
+      raf = requestAnimationFrame(tick);
     };
 
-    const animationLoop = setInterval(update, 16);
+    raf = requestAnimationFrame(tick);
 
-    // --- Damage loop ---
-    const damageLoop = setInterval(() => {
-      if (!participant.isAlive) return;
-      const enemies = bodiesWithTimers.current.filter(
-        (p) => p.isAlive && p.id !== participant.id
-      );
+    // ── damage + knockback ────────────────────────────────────────────────────
+    const dmgInterval = setInterval(() => {
+      if (!participant.isAlive || !participant.body) return;
 
-      enemies.forEach((enemy) => {
-        const dx = enemy.body.position.x - participant.body.position.x;
-        const dy = enemy.body.position.y - participant.body.position.y;
+      const pPos = participant.body.translation();
+      const targets = battleParticipants?.current ?? [];
+
+      targets.forEach((enemy) => {
+        if (
+          !enemy ||
+          enemy.id === participant.id ||
+          !enemy.isAlive ||
+          !enemy.body
+        )
+          return;
+
+        const ePos = enemy.body.translation();
+        const dx = ePos.x - pPos.x;
+        const dy = ePos.y - pPos.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
 
-        if (dist < radius + 20) {
+        if (dist < RADIUS + 35 && dist > 0.5) {
           dealDamage(
             enemy,
-            battleSettings.battleEventDamage * 0.4,
+            (battleSettings?.battleEventDamage ?? 10) * DMG_FACTOR,
             participant,
-            false
+            false,
           );
+
+          // radial knockback — re-check body after dealDamage since it may
+          // have just killed the enemy and nulled their body
+          if (enemy.isAlive && enemy.body) {
+            const nx = dx / dist;
+            const ny = dy / dist;
+            enemy.body.applyImpulse(
+              { x: nx * KNOCKBACK, y: ny * KNOCKBACK },
+              true,
+            );
+          }
         }
       });
-    }, 150);
+    }, DMG_INTERVAL);
 
-    // --- Cleanup ---
-    setTimeout(() => {
-      clearInterval(animationLoop);
-      clearInterval(damageLoop);
-      circle.remove();
-      group1.remove();
-      group2.remove();
-      trails.forEach((t) => t.remove());
-    }, 3000);
+    // ── cleanup ───────────────────────────────────────────────────────────────
+    const cleanup = () => {
+      cancelAnimationFrame(raf);
+      clearInterval(dmgInterval);
+      clearInterval(windInterval);
 
-    showText(participant, "⚔️ Cyclone activated!");
+      // fade root out then remove
+      root.animate(
+        [{ opacity: root.getAttribute("opacity") ?? 1 }, { opacity: 0 }],
+        { duration: 350, easing: "ease-out", fill: "forwards" },
+      ).onfinish = () => root.remove();
+    };
+
+    setTimeout(cleanup, DURATION);
+    showText(participant, "🌀 CYCLONE!");
   },
 });

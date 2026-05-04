@@ -1,14 +1,14 @@
 export const omaewamou = ({
-  engineRef,
   showText,
   findStrongestEnemy,
   dealDamage,
+  setEngineTimeScale,
+  restoreEngineTimeScale,
 }) => ({
   name: "Omae wa mou shindeiru",
-  disabled: false,
+  disabled: true,
   effect: (participant) => {
-    const engine = engineRef.current;
-    engine.timing.timeScale = 0.1;
+    setEngineTimeScale(0.1);
 
     showText(participant, "🫵 OMAE WA MOU SHINDEIRU");
     const randomEnemy = findStrongestEnemy(participant);
@@ -20,7 +20,7 @@ export const omaewamou = ({
     }
 
     setTimeout(() => {
-      engine.timing.timeScale = 1;
+      restoreEngineTimeScale();
       if (!participant.isAlive) return; // Skip if dead
       dealDamage(randomEnemy, randomEnemy.maxHp, participant, false);
     }, 3000);

@@ -1,300 +1,400 @@
 export const kamehameha = ({
-  engineRef,
+  setEngineTimeScale,
+  restoreEngineTimeScale,
+  findNearestEnemy,
   findFarthestEnemy,
   findPopulatedPoint,
   teleport,
   showText,
-  sceneRef,
-  bodiesWithTimers,
+  battleParticipants,
   battleSettings,
   dealDamage,
 }) => ({
   name: "kamehameha",
-  disabled: false,
+  disabled: true,
   effect: (participant) => {
-    const engine = engineRef.current;
-    engine.timing.timeScale = 0.01; // dramatic slow-mo
+    if (!participant.body) return;
 
-    const farEnemy = findFarthestEnemy(participant);
-    const { x: pointX, y: pointY } = findPopulatedPoint(participant);
-    teleport(participant, farEnemy.body.position.x, farEnemy.body.position.y);
+    // ─── 1. SETUP ────────────────────────────────────────────────────────────
 
-    // --- Step 1: Charge orb ---
-    showText(participant, "KA... ME...");
-    const chargeDuration = 1200;
+    setEngineTimeScale(0.08); // deeper slow-mo for dramatic effect
 
-    const orb = document.createElement("div");
-    orb.style.position = "absolute";
-    orb.style.width = "90px";
-    orb.style.height = "90px";
-    orb.style.borderRadius = "50%";
-    orb.style.pointerEvents = "none";
-    orb.style.zIndex = 2000;
-    orb.style.background =
-      "radial-gradient(circle, rgba(0,160,255,1) 0%, rgba(0,160,255,0.7) 40%, transparent 70%)";
-    orb.style.boxShadow =
-      "0 0 40px rgba(0,200,255,0.9), 0 0 80px rgba(0,200,255,0.7)";
-    sceneRef.current.appendChild(orb);
+    // Target nearest enemy for better gameplay feel
+    const target =
+      (typeof findNearestEnemy === "function"
+        ? findNearestEnemy(participant)
+        : null) || findFarthestEnemy(participant);
 
-    // Orb pulse animation
-    const orbPulse = orb.animate(
-      [
-        { transform: "scale(0.8)", opacity: 0.8 },
-        { transform: "scale(1.2)", opacity: 1 },
-        { transform: "scale(0.8)", opacity: 0.8 },
-      ],
-      { duration: 800, iterations: Infinity }
+    const targetPoint = target
+      ? target.body.translation()
+      : findPopulatedPoint(participant);
+
+    const { x: targetX, y: targetY } = targetPoint;
+
+    // Teleport caster 220 units behind them relative to target
+    const dx0 = targetX - participant.body.translation().x;
+    const dy0 = targetY - participant.body.translation().y;
+    const dist0 = Math.hypot(dx0, dy0) || 1;
+    teleport(
+      participant,
+      targetX - (dx0 / dist0) * 220,
+      targetY - (dy0 / dist0) * 4, // slight vertical offset for stance
     );
 
-    const updateOrb = () => {
-      const pos = participant.body.position;
-      orb.style.left = `${pos.x - 45}px`;
-      orb.style.top = `${pos.y - 45}px`;
-    };
-    const orbInterval = setInterval(updateOrb, 16);
+    // Lock caster in place during charge
+    participant.body.setLinvel({ x: 0, y: 0 }, true);
+    participant.body.setBodyType(window.RAPIER.RigidBodyType.Fixed, true);
 
-    // --- Yellow → white → transparent particles ---
-    const spawnParticle = () => {
-      const pos = participant.body.position;
-      const particle = document.createElement("div");
-      const size = Math.random() * 6 + 4;
-      particle.style.position = "absolute";
-      particle.style.width = `${size}px`;
-      particle.style.height = `${size}px`;
-      particle.style.borderRadius = "50%";
-      particle.style.background = "yellow";
-      particle.style.boxShadow = "0 0 8px rgba(255,255,100,0.8)";
-      particle.style.left = `${pos.x + (Math.random() * 60 - 30)}px`;
-      particle.style.top = `${pos.y + (Math.random() * 60 - 30)}px`;
-      particle.style.pointerEvents = "none";
-      particle.style.zIndex = 1999;
-      sceneRef.current.appendChild(particle);
+    showText(participant, "KA... ME... HA... ME...", "#00fbff");
 
-      const rise = Math.random() * 40 + 40;
-      const duration = Math.random() * 600 + 400;
+    const svg = document.getElementById("effects-layer");
+    const CHARGE_DURATION = 2000;
+    const BEAM_DURATION = 2400;
+    const intervals = [];
 
-      particle.animate(
+    // ─── 2. CHARGE VISUALS ───────────────────────────────────────────────────
+
+    // Pulsing energy rings at feet — 3 independent layers at different rates
+    const ringConfigs = [
+      { interval: 280, maxR: 110, color: "cyan", strokeW: 1.5, dur: 560 },
+      { interval: 420, maxR: 160, color: "#00aaff", strokeW: 1, dur: 700 },
+      { interval: 560, maxR: 220, color: "#0055ff", strokeW: 0.8, dur: 900 },
+    ];
+
+    ringConfigs.forEach(({ interval, maxR, color, strokeW, dur }) => {
+      const id = setInterval(() => {
+        if (!participant.body) return;
+        const pos = participant.body.translation();
+        const ring = document.createElementNS(
+          "http://www.w3.org/2000/svg",
+          "circle",
+        );
+        ring.setAttribute("cx", pos.x);
+        ring.setAttribute("cy", pos.y);
+        ring.setAttribute("r", "8");
+        ring.setAttribute("fill", "none");
+        ring.setAttribute("stroke", color);
+        ring.setAttribute("stroke-width", strokeW);
+        svg.appendChild(ring);
+
+        ring.animate(
+          [
+            { r: "8", opacity: 0.9 },
+            { r: `${maxR}`, opacity: 0 },
+          ],
+          { duration: dur, easing: "ease-out" },
+        ).onfinish = () => ring.remove();
+      }, interval);
+      intervals.push(id);
+    });
+
+    // Gathering particle sparks that spiral inward
+    const sparkId = setInterval(() => {
+      if (!participant.body) return;
+      const pos = participant.body.translation();
+      const angle = Math.random() * Math.PI * 2;
+      const spawnR = 60 + Math.random() * 80;
+      const spark = document.createElementNS(
+        "http://www.w3.org/2000/svg",
+        "circle",
+      );
+      spark.setAttribute("cx", pos.x + Math.cos(angle) * spawnR);
+      spark.setAttribute("cy", pos.y + Math.sin(angle) * spawnR);
+      spark.setAttribute("r", 2 + Math.random() * 2);
+      spark.setAttribute("fill", Math.random() > 0.5 ? "#00fbff" : "#ffffff");
+      svg.appendChild(spark);
+
+      spark.animate(
         [
           {
-            transform: "translateY(0px)",
+            cx: pos.x + Math.cos(angle) * spawnR,
+            cy: pos.y + Math.sin(angle) * spawnR,
             opacity: 1,
-            background: "yellow",
-            boxShadow: "0 0 8px rgba(255,255,100,0.8)",
           },
-          {
-            transform: `translateY(-${rise / 2}px)`,
-            opacity: 0.8,
-            background: "white",
-            boxShadow: "0 0 12px rgba(255,255,255,1)",
-          },
-          {
-            transform: `translateY(-${rise}px)`,
-            opacity: 0,
-            background: "rgba(255,255,255,0)",
-            boxShadow: "0 0 4px rgba(255,255,255,0.2)",
-          },
+          { cx: pos.x, cy: pos.y, opacity: 0 },
         ],
-        { duration, easing: "ease-out" }
-      ).onfinish = () => {
-        if (particle.parentNode) particle.parentNode.removeChild(particle);
-      };
-    };
+        { duration: 500 + Math.random() * 400, easing: "ease-in" },
+      ).onfinish = () => spark.remove();
+    }, 60);
+    intervals.push(sparkId);
 
-    // --- Sync particle bursts with orb pulse ---
-    orbPulse.onfinish = () => {
-      orbPulse.play(); // restart pulse
-      for (let i = 0; i < 6; i++) {
-        setTimeout(spawnParticle, i * 60);
-      }
-    };
+    // Charging orb that grows over the charge duration
+    const orb = document.createElementNS(
+      "http://www.w3.org/2000/svg",
+      "circle",
+    );
+    orb.setAttribute("fill", "rgba(0,200,255,0.25)");
+    orb.setAttribute("stroke", "#00fbff");
+    orb.setAttribute("stroke-width", "1.5");
+    svg.appendChild(orb);
 
-    // Stop particles + orb when beam fires
-    setTimeout(() => {
-      clearInterval(orbInterval);
-      orbPulse.cancel();
-      sceneRef.current.removeChild(orb);
-    }, chargeDuration);
-
-    setTimeout(() => {
-      showText(participant, "HAAA!!!");
-    }, chargeDuration);
-    // --- Step 2: Fire beam ---
-    setTimeout(() => {
-      if (!participant.isAlive) {
-        engine.timing.timeScale = 1;
+    const orbAnim = () => {
+      if (!participant.body) {
+        orb.remove();
         return;
-      } // Skip if dead
-      const svg = document.getElementById("effects-layer");
-      const beamWidth = 180;
-      const beamLength = 4000;
-
-      // Ensure defs only once
-      if (!document.getElementById("beamGlow")) {
-        const defs = document.createElementNS(
-          "http://www.w3.org/2000/svg",
-          "defs"
-        );
-
-        const grad = document.createElementNS(
-          "http://www.w3.org/2000/svg",
-          "linearGradient"
-        );
-        grad.setAttribute("id", "kameGradient");
-        grad.setAttribute("x1", "0%");
-        grad.setAttribute("x2", "100%");
-        grad.innerHTML = `
-                  <stop offset="0%" stop-color="rgba(0,160,255,0.6)"/>
-                  <stop offset="50%" stop-color="rgba(200,250,255,1)"/>
-                  <stop offset="100%" stop-color="rgba(0,160,255,0.6)"/>
-                `;
-        defs.appendChild(grad);
-
-        const filter = document.createElementNS(
-          "http://www.w3.org/2000/svg",
-          "filter"
-        );
-        filter.setAttribute("id", "beamGlow");
-        filter.innerHTML = `<feGaussianBlur stdDeviation="6" result="blur"/>`;
-        defs.appendChild(filter);
-
-        svg.appendChild(defs);
       }
+      const pos = participant.body.translation();
+      orb.setAttribute("cx", pos.x);
+      orb.setAttribute("cy", pos.y);
+      orb.setAttribute("r", 6 + Math.random() * 3); // jitter for energy feel
+    };
+    const orbId = setInterval(orbAnim, 40);
+    intervals.push(orbId);
 
-      // Beam polygon
-      const beam = document.createElementNS(
+    // Gradually grow the orb
+    orb.animate([{ r: "8" }, { r: "28" }], {
+      duration: CHARGE_DURATION,
+      fill: "forwards",
+      easing: "ease-in",
+    });
+
+    // ─── 3. FIRE ─────────────────────────────────────────────────────────────
+
+    setTimeout(() => {
+      intervals.forEach(clearInterval);
+      orb.remove();
+
+      restoreEngineTimeScale(1.0);
+      showText(participant, "HA!!!", "#ffffff");
+
+      // Three-layer beam: outer glow → mid energy → white core
+      const outerGlow = document.createElementNS(
         "http://www.w3.org/2000/svg",
-        "polygon"
+        "polygon",
       );
-      beam.setAttribute("fill", "url(#kameGradient)");
-      beam.setAttribute("filter", "url(#beamGlow)");
-      svg.appendChild(beam);
-
-      // Round start (circle overlay)
-      const startCircle = document.createElementNS(
+      const midBeam = document.createElementNS(
         "http://www.w3.org/2000/svg",
-        "circle"
+        "polygon",
       );
-      startCircle.setAttribute("r", beamWidth / 2);
-      startCircle.setAttribute("fill", "url(#kameGradient)");
-      startCircle.setAttribute("filter", "url(#beamGlow)");
-      svg.appendChild(startCircle);
+      const coreBeam = document.createElementNS(
+        "http://www.w3.org/2000/svg",
+        "polygon",
+      );
 
-      // Update beam shape
-      const updateBeam = () => {
-        if (!participant.isAlive) {
-          engine.timing.timeScale = 1;
-          return;
-        } // Skip if dead // Skip if dead
-        const start = participant.body.position;
-        const dx = pointX - start.x;
-        const dy = pointY - start.y;
-        const angleRad = Math.atan2(dy, dx);
-        const angleDeg = angleRad * (180 / Math.PI);
+      outerGlow.setAttribute("fill", "rgba(0,120,255,0.18)");
+      outerGlow.setAttribute("filter", "blur(12px)");
+      midBeam.setAttribute("fill", "rgba(0,210,255,0.55)");
+      coreBeam.setAttribute("fill", "#ffffff");
 
-        const p1x = start.x;
-        const p1y = start.y - beamWidth / 2;
-        const p2x = start.x;
-        const p2y = start.y + beamWidth / 2;
-        const p3x = start.x + beamLength;
-        const p3y = start.y + beamWidth / 2;
-        const p4x = start.x + beamLength;
-        const p4y = start.y - beamWidth / 2;
+      svg.appendChild(outerGlow);
+      svg.appendChild(midBeam);
+      svg.appendChild(coreBeam);
 
-        beam.setAttribute(
-          "points",
-          `${p1x},${p1y} ${p2x},${p2y} ${p3x},${p3y} ${p4x},${p4y}`
-        );
-        beam.setAttribute(
-          "transform",
-          `rotate(${angleDeg}, ${start.x}, ${start.y})`
-        );
+      // Muzzle flash — glowing sphere at emission point
+      const muzzle = document.createElementNS(
+        "http://www.w3.org/2000/svg",
+        "circle",
+      );
+      muzzle.setAttribute("fill", "rgba(180,240,255,0.8)");
+      svg.appendChild(muzzle);
 
-        startCircle.setAttribute("cx", start.x);
-        startCircle.setAttribute("cy", start.y);
+      const BEAM_LENGTH = 4200;
+      let beamAge = 0;
+
+      const buildPolygon = (cx, cy, angle, halfW, length) => {
+        const cos = Math.cos(angle);
+        const sin = Math.sin(angle);
+        const perpX = -sin * halfW;
+        const perpY = cos * halfW;
+        const tipX = cx + cos * length;
+        const tipY = cy + sin * length;
+        return `${cx + perpX},${cy + perpY} ${cx - perpX},${cy - perpY} ${tipX - perpX * 0.1},${tipY - perpY * 0.1} ${tipX + perpX * 0.1},${tipY + perpY * 0.1}`;
       };
-      updateBeam();
-      const beamInterval = setInterval(updateBeam, 16);
 
-      // Damage loop
-      const enemies = bodiesWithTimers.current.filter(
-        (p) => p.isAlive && p.id != participant.id
+      const updateBeams = () => {
+        if (!participant.isAlive || !participant.body) return;
+        beamAge += 16;
+        const fadeIn = Math.min(beamAge / 200, 1); // beam grows into existence
+
+        const pos = participant.body.translation();
+
+        // Always track where the target currently is (dynamic aim)
+        const currentTargetX = target?.body
+          ? target.body.translation().x
+          : targetX;
+        const currentTargetY = target?.body
+          ? target.body.translation().y
+          : targetY;
+
+        const angle = Math.atan2(
+          currentTargetY - pos.y,
+          currentTargetX - pos.x,
+        );
+
+        const jitter = () => (Math.random() - 0.5) * 14;
+
+        outerGlow.setAttribute(
+          "points",
+          buildPolygon(
+            pos.x,
+            pos.y,
+            angle,
+            (170 + jitter()) * fadeIn,
+            BEAM_LENGTH,
+          ),
+        );
+        midBeam.setAttribute(
+          "points",
+          buildPolygon(
+            pos.x,
+            pos.y,
+            angle,
+            (44 + jitter()) * fadeIn,
+            BEAM_LENGTH,
+          ),
+        );
+        coreBeam.setAttribute(
+          "points",
+          buildPolygon(
+            pos.x,
+            pos.y,
+            angle,
+            (10 + jitter()) * fadeIn,
+            BEAM_LENGTH,
+          ),
+        );
+
+        [outerGlow, midBeam, coreBeam].forEach((b) =>
+          b.setAttribute("transform", `rotate(0, ${pos.x}, ${pos.y})`),
+        );
+
+        // Muzzle pulse
+        muzzle.setAttribute("cx", pos.x + Math.cos(angle) * 12);
+        muzzle.setAttribute("cy", pos.y + Math.sin(angle) * 12);
+        muzzle.setAttribute("r", (18 + Math.random() * 8) * fadeIn);
+
+        // Slight recoil — push caster backward
+        if (participant.body && beamAge < 300) {
+          const recoilForce = 0.6;
+          participant.body.applyImpulse(
+            {
+              x: -Math.cos(angle) * recoilForce,
+              y: -Math.sin(angle) * recoilForce,
+            },
+            true,
+          );
+        }
+      };
+
+      const beamInterval = setInterval(updateBeams, 16);
+
+      // ─── 4. DAMAGE + KNOCKBACK ─────────────────────────────────────────────
+
+      let damageRamp = 0; // damage scales up over beam duration
+
+      const enemies = (battleParticipants.current || []).filter(
+        (p) => p.isAlive && p.id !== participant.id,
       );
+
       const damageLoop = setInterval(() => {
-        if (!participant.isAlive) {
-          engine.timing.timeScale = 1;
-          return;
-        } // Skip if dead
-        const start = participant.body.position;
-        const dx = pointX - start.x;
-        const dy = pointY - start.y;
-        const angleRad = Math.atan2(dy, dx);
+        if (!participant.body) return;
+        damageRamp = Math.min(damageRamp + 0.06, 2.0); // ramps from ×1 to ×2
+
+        const pos = participant.body.translation();
+        const currentTargetX = target?.body
+          ? target.body.translation().x
+          : targetX;
+        const currentTargetY = target?.body
+          ? target.body.translation().y
+          : targetY;
+        const angleRad = Math.atan2(
+          currentTargetY - pos.y,
+          currentTargetX - pos.x,
+        );
         const cos = Math.cos(angleRad);
         const sin = Math.sin(angleRad);
 
         enemies.forEach((enemy) => {
-          const ex = enemy.body.position.x - start.x;
-          const ey = enemy.body.position.y - start.y;
+          if (!enemy.body || !enemy.isAlive) return;
+          const ePos = enemy.body.translation();
+          const ex = ePos.x - pos.x;
+          const ey = ePos.y - pos.y;
           const proj = ex * cos + ey * sin;
           const perp = -ex * sin + ey * cos;
 
-          if (proj >= 0 && Math.abs(perp) < beamWidth / 2) {
+          if (proj >= 0 && Math.abs(perp) < 65) {
+            // Scale damage: starts at 20% of base, ramps to 40%
             dealDamage(
               enemy,
-              battleSettings.battleEventDamage * 0.2,
+              battleSettings.battleEventDamage * 0.2 * damageRamp,
               participant,
-              false
+              false,
             );
+
+            // Knockback — push enemy along beam direction
+            if (enemy.body) {
+              const knockStrength = 4.5 + damageRamp * 2;
+              enemy.body.applyImpulse(
+                { x: cos * knockStrength, y: sin * knockStrength },
+                true,
+              );
+            }
+
+            // Hit spark at enemy position
+            spawnHitSparks(svg, ePos.x, ePos.y);
           }
         });
-      }, 120);
+      }, 100);
 
-      // Fade + shrink cleanup
+      // ─── 5. CLEANUP WITH FADE ─────────────────────────────────────────────
+
       setTimeout(() => {
-        const startTime = Date.now();
-        const fadeDuration = 800;
+        clearInterval(beamInterval);
+        clearInterval(damageLoop);
 
-        const fadeInterval = setInterval(() => {
-          const elapsed = Date.now() - startTime;
-          const t = Math.min(1, elapsed / fadeDuration);
-          const currentWidth = beamWidth * (1 - t);
+        // Fade out all beam layers
+        const fadeTargets = [outerGlow, midBeam, coreBeam, muzzle];
+        fadeTargets.forEach((el) => {
+          el.animate([{ opacity: 1 }, { opacity: 0 }], {
+            duration: 350,
+            easing: "ease-out",
+            fill: "forwards",
+          }).onfinish = () => el.remove();
+        });
 
-          const startPos = participant.body.position;
-          const dx = pointX - startPos.x;
-          const dy = pointY - startPos.y;
-          const angleRad = Math.atan2(dy, dx);
-          const angleDeg = angleRad * (180 / Math.PI);
-
-          const p1x = startPos.x;
-          const p1y = startPos.y - currentWidth / 2;
-          const p2x = startPos.x;
-          const p2y = startPos.y + currentWidth / 2;
-          const p3x = startPos.x + beamLength;
-          const p3y = startPos.y + currentWidth / 2;
-          const p4x = startPos.x + beamLength;
-          const p4y = startPos.y - currentWidth / 2;
-
-          beam.setAttribute(
-            "points",
-            `${p1x},${p1y} ${p2x},${p2y} ${p3x},${p3y} ${p4x},${p4y}`
+        if (participant.body) {
+          participant.body.setBodyType(
+            window.RAPIER.RigidBodyType.Dynamic,
+            true,
           );
-          beam.setAttribute(
-            "transform",
-            `rotate(${angleDeg}, ${startPos.x}, ${startPos.y})`
-          );
-          beam.setAttribute("opacity", 1 - t);
-          startCircle.setAttribute("r", currentWidth / 2);
-          startCircle.setAttribute("opacity", 1 - t);
-
-          if (t >= 1) {
-            clearInterval(fadeInterval);
-            clearInterval(beamInterval);
-            clearInterval(damageLoop);
-            svg.removeChild(beam);
-            svg.removeChild(startCircle);
-            engine.timing.timeScale = 1;
-          }
-        }, 16);
-      }, 1200);
-    }, chargeDuration);
+        }
+      }, BEAM_DURATION);
+    }, CHARGE_DURATION);
   },
 });
+
+// ─── HELPERS ────────────────────────────────────────────────────────────────
+
+function spawnHitSparks(svg, x, y) {
+  const count = 5 + Math.floor(Math.random() * 4);
+  for (let i = 0; i < count; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 20 + Math.random() * 40;
+    const spark = document.createElementNS(
+      "http://www.w3.org/2000/svg",
+      "line",
+    );
+    const len = 3 + Math.random() * 6;
+    spark.setAttribute("x1", x);
+    spark.setAttribute("y1", y);
+    spark.setAttribute("x2", x + Math.cos(angle) * len);
+    spark.setAttribute("y2", y + Math.sin(angle) * len);
+    spark.setAttribute("stroke", Math.random() > 0.4 ? "#00fbff" : "#ffffff");
+    spark.setAttribute("stroke-width", 1 + Math.random());
+    svg.appendChild(spark);
+
+    spark.animate(
+      [
+        {
+          transform: "translate(0,0)",
+          opacity: 1,
+        },
+        {
+          transform: `translate(${Math.cos(angle) * speed}px, ${Math.sin(angle) * speed}px)`,
+          opacity: 0,
+        },
+      ],
+      { duration: 260 + Math.random() * 160, easing: "ease-out" },
+    ).onfinish = () => spark.remove();
+  }
+}

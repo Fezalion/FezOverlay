@@ -1,5 +1,5 @@
-import React, { useEffect, useRef, useState } from "react";
-import Matter from "matter-js";
+import React, { useEffect, useRef, useState, useCallback } from "react";
+import { usePhysicsEngine } from "../hooks/usePhysicsEngine";
 
 import { useTwitchClient } from "../hooks/useTwitchClient";
 import { useSubscriberTracker } from "../hooks/useSubscriberTracker";
@@ -11,26 +11,25 @@ import fih_swim_1 from "../utils/fih/fih_still_frame_03.png";
 import fih_swim_2 from "../utils/fih/fih_still_frame_04.png";
 import fih_feed from "../utils/fih/feed.png";
 
-const BASE_RADIUS = 40;
-const SIZE_PER_EAT = 0.18;
-const MAX_SIZE = 2.2;
+const BASE_RADIUS = 10;
+const SIZE_PER_EAT = 0.12;
+const MAX_SIZE = 4;
 const DECAY_START_MS = 15000;
 const DECAY_RATE = 0.00003;
 
 export default function FihOverlay() {
   const sceneRef = useRef(null);
   const fishCanvasRef = useRef(null);
-  const engineRef = useRef(Matter.Engine.create());
   const fishRef = useRef(null);
   const subBodies = useRef(new Map());
-  const wallsRef = useRef([]);
   const facingRightRef = useRef(false);
   const gulpScaleRef = useRef(1);
+  const isAlive = useRef(true);
 
   const fishSizeRef = useRef(1);
   const lastEatTimeRef = useRef(null);
 
-  // --- New: Bubble tracking ---
+  // Bubble tracking
   const bubblesRef = useRef([]);
   const bubbleSpawnTimerRef = useRef(0);
 
@@ -46,7 +45,206 @@ export default function FihOverlay() {
     y: Math.random() * window.innerHeight,
   });
 
-  // (Effect: Feed redeem - no changes)
+  const applyPhysicsSize = useCallback((body, newSize) => {
+    const world = engineRef.current;
+    if (!world || !body) return;
+    try {
+      const colliderHandle = body.collider(0);
+      if (colliderHandle === undefined || colliderHandle === null) return;
+      const collider = world.getCollider(colliderHandle);
+      if (!collider) return;
+
+      // 1. Update Physical Size
+      const targetRadius = BASE_RADIUS * newSize;
+      collider.setRadius(targetRadius);
+
+      // 2. Exponential Damping
+      // Base is 0.03. At MAX_SIZE (2.2), this reaches ~2.5, making it feel very sluggish.
+      const intensity = 15;
+      const dynamicDamping = 0.03 + Math.pow(newSize - 1, 1.5) * intensity;
+      body.setLinearDamping(dynamicDamping);
+
+      // 3. Instant Momentum Adjustment
+      // When the fish grows, we slightly reduce current velocity to simulate "mass gain"
+      const currentVel = body.linvel();
+      const massBrake = 0.85; // Reduce current speed by 15% immediately upon eating
+      body.setLinvel(
+        { x: currentVel.x * massBrake, y: currentVel.y * massBrake },
+        true,
+      );
+    } catch (e) {
+      console.warn("applyPhysicsSize error", e);
+    }
+  }, []);
+
+  const handlePhysicsStep = useCallback(
+    (world) => {
+      const fish = fishRef.current;
+      if (!isAlive.current || !world || !fish) return;
+
+      try {
+        const positions = Array.from(subBodies.current.values()).map((body) => {
+          const pos = body.translation();
+          return {
+            id: body.handle,
+            name: body.subscriberName,
+            x: pos.x,
+            y: pos.y,
+            color: body.color,
+          };
+        });
+        setActiveSubs(positions);
+
+        const chasing = subBodies.current.size > 0;
+        let target = idleTarget.current;
+        if (chasing) {
+          const firstSub = subBodies.current.values().next().value;
+          if (firstSub) target = firstSub.translation();
+        }
+
+        const fishPos = fish.translation();
+        const dx = target.x - fishPos.x;
+        const dy = target.y - fishPos.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+
+        if (dist > 5) {
+          const baseSpeed = chasing ? 180 : 80;
+          const speed = baseSpeed / (1 + (fishSizeRef.current - 1) * 1.5);
+          fish.setLinvel(
+            { x: (dx / dist) * speed, y: (dy / dist) * speed },
+            true,
+          );
+        } else {
+          fish.setLinvel({ x: 0, y: 0 }, true);
+        }
+
+        const velocity = fish.linvel();
+
+        // Face the correct direction based on horizontal movement
+        if (velocity.x > 0.1) facingRightRef.current = true;
+        else if (velocity.x < -0.1) facingRightRef.current = false;
+
+        // Distance-based collision detection
+
+        const fishPos2 = fish.translation();
+        const eatRadius = (BASE_RADIUS + 30) * fishSizeRef.current;
+        const toEat = [];
+        subBodies.current.forEach((sub) => {
+          const subPos = sub.translation();
+          const dx2 = subPos.x - fishPos2.x;
+          const dy2 = subPos.y - fishPos2.y;
+          const dist2 = Math.sqrt(dx2 * dx2 + dy2 * dy2);
+          if (dist2 < eatRadius) toEat.push(sub);
+        });
+
+        toEat.forEach((sub) => {
+          try {
+            subBodies.current.delete(sub.handle);
+            world.removeRigidBody(sub);
+
+            fishSizeRef.current = Math.min(
+              MAX_SIZE,
+              fishSizeRef.current + SIZE_PER_EAT,
+            );
+            lastEatTimeRef.current = Date.now();
+            applyPhysicsSize(fish, fishSizeRef.current);
+
+            gulpScaleRef.current = 1.25;
+            setTimeout(() => {
+              gulpScaleRef.current = 1;
+            }, 220);
+          } catch (e) {
+            console.warn("Collision cleanup error", e);
+          }
+        });
+      } catch (error) {
+        console.error("Manual physics step error:", error);
+      }
+    },
+    [applyPhysicsSize],
+  );
+
+  // Initialize Physics Engine with our manual step handler
+  const { engineRef } = usePhysicsEngine(handlePhysicsStep);
+
+  const spawnSubBubble = useCallback(
+    (name, color) => {
+      const RAPIER = window.RAPIER;
+      if (!RAPIER || !engineRef.current) return;
+
+      const world = engineRef.current;
+      const padding = 100;
+      const minDistance = 400;
+      const fish = fishRef.current;
+      let x, y, dist;
+      let attempts = 0;
+      do {
+        x = Math.random() * (window.innerWidth - padding * 2) + padding;
+        y = Math.random() * (window.innerHeight - padding * 2) + padding;
+        if (fish) {
+          const fishPos = fish.translation();
+          const dx = x - fishPos.x;
+          const dy = y - fishPos.y;
+          dist = Math.sqrt(dx * dx + dy * dy);
+        } else {
+          dist = minDistance + 1;
+        }
+        attempts++;
+      } while (dist < minDistance && attempts < 15);
+
+      const bodyDesc = RAPIER.RigidBodyDesc.dynamic().setTranslation(x, y);
+      const body = world.createRigidBody(bodyDesc);
+      const colliderDesc = RAPIER.ColliderDesc.ball(20).setRestitution(0.8);
+      world.createCollider(colliderDesc, body);
+
+      body.subscriberName = name;
+      body.color = color;
+      subBodies.current.set(body.handle, body);
+    },
+    [engineRef],
+  );
+
+  // Debug toggle and spawn test
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === " " || e.code === "Space") setIsDebug((prev) => !prev);
+      if (e.key === "a") spawnSubBubble("fih", "red");
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [spawnSubBubble]);
+
+  const subscriberTrackerRef = useRef(subscriberTracker);
+  useEffect(() => {
+    subscriberTrackerRef.current = subscriberTracker;
+  }, [subscriberTracker]);
+
+  function randomBetween(min, max) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+  }
+
+  const nextSpawnTime = useRef(
+    Date.now() + randomBetween(1000 * 10, 1000 * 120),
+  );
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = Date.now();
+      if (now < nextSpawnTime.current) return;
+      const available = subscriberTrackerRef.current.getSubscriberCount();
+      if (available >= 1) {
+        const selected = subscriberTrackerRef.current.getRandomSubscribers(1);
+        if (selected?.length > 0) {
+          const name = selected[0].name || selected[0].displayName;
+          spawnSubBubble(name, selected.color);
+          nextSpawnTime.current =
+            Date.now() + randomBetween(1000 * 10, 1000 * 120);
+        }
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [spawnSubBubble]);
+
   useEffect(() => {
     if (!clientRef.current) return;
     let localref = clientRef.current;
@@ -74,77 +272,6 @@ export default function FihOverlay() {
     return () => localref.removeListener("message", handleMessage);
   }, [settings, clientRef]);
 
-  // Debug toggle
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (e.key === " " || e.code === "Space") setIsDebug((prev) => !prev);
-      if (e.key === "a" || e.code === "a") spawnSubBubble("fih");
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
-
-  const subscriberTrackerRef = useRef(subscriberTracker);
-  useEffect(() => {
-    subscriberTrackerRef.current = subscriberTracker;
-  }, [subscriberTracker]);
-
-  function randomBetween(min, max) {
-    return Math.floor(Math.random() * (max - min + 1)) + min;
-  }
-
-  const nextSpawnTime = useRef(
-    Date.now() + randomBetween(1000 * 10, 1000 * 120),
-  );
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const now = Date.now();
-      if (now < nextSpawnTime.current) return;
-      const available = subscriberTrackerRef.current.getSubscriberCount();
-      if (available >= 1) {
-        const selected = subscriberTrackerRef.current.getRandomSubscribers(1);
-        if (selected?.length > 0) {
-          const name = selected[0].name || selected[0].displayName;
-          spawnSubBubble(name);
-          nextSpawnTime.current =
-            Date.now() + randomBetween(1000 * 10, 1000 * 120);
-        }
-      }
-    }, 1000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const spawnSubBubble = (name) => {
-    const { Bodies, Composite } = Matter;
-    const padding = 100;
-    const minDistance = 400;
-    const fish = fishRef.current;
-    let x, y, dist;
-    let attempts = 0;
-    do {
-      x = Math.random() * (window.innerWidth - padding * 2) + padding;
-      y = Math.random() * (window.innerHeight - padding * 2) + padding;
-      if (fish) {
-        const dx = x - fish.position.x;
-        const dy = y - fish.position.y;
-        dist = Math.sqrt(dx * dx + dy * dy);
-      } else {
-        dist = minDistance + 1;
-      }
-      attempts++;
-    } while (dist < minDistance && attempts < 15);
-
-    const newSub = Bodies.circle(x, y, 20, {
-      label: "sub",
-      restitution: 0.8,
-      render: { sprite: { texture: fih_feed, xScale: 1, yScale: 1 } },
-    });
-    newSub.subscriberName = name;
-    subBodies.current.set(newSub.id, newSub);
-    Composite.add(engineRef.current.world, newSub);
-  };
-
   useEffect(() => {
     const moveIdlePoint = () => {
       const padding = 0.2;
@@ -158,8 +285,9 @@ export default function FihOverlay() {
         newY =
           (Math.random() * (1 - padding * 2) + padding) * window.innerHeight;
         if (fish) {
-          const dx = newX - fish.position.x;
-          const dy = newY - fish.position.y;
+          const pos = fish.translation();
+          const dx = newX - pos.x;
+          const dy = newY - pos.y;
           dist = Math.sqrt(dx * dx + dy * dy);
         } else {
           dist = minDistance + 1;
@@ -172,62 +300,25 @@ export default function FihOverlay() {
     return () => clearInterval(interval);
   }, []);
 
+  // --- 2. THE VISUAL RENDERING LOOP (rAF) ---
+  // Only handles drawing, decay, and visuals
   useEffect(() => {
-    const { Engine, Render, Runner, Bodies, Composite, Body, Events } = Matter;
-    const engine = engineRef.current;
-    engine.gravity.y = 0;
+    const RAPIER = window.RAPIER;
+    if (!RAPIER || !engineRef.current) return;
 
-    const render = Render.create({
-      element: sceneRef.current,
-      engine: engine,
-      options: {
-        width: window.innerWidth,
-        height: window.innerHeight,
-        wireframes: false,
-        background: "transparent",
-      },
-    });
-
-    const fish = Bodies.circle(
-      Math.random() * window.innerWidth,
-      Math.random() * window.innerHeight,
-      BASE_RADIUS,
-      { label: "fish", frictionAir: 0.03, render: { opacity: 0 } },
-    );
+    const world = engineRef.current;
+    const padding = 0.2;
+    // Create the fish body
+    const bodyDesc = RAPIER.RigidBodyDesc.dynamic()
+      .setTranslation(
+        (Math.random() * (1 - padding * 2) + padding) * window.innerWidth,
+        (Math.random() * (1 - padding * 2) + padding) * window.innerHeight,
+      )
+      .setLinearDamping(0.03);
+    const fish = world.createRigidBody(bodyDesc);
+    const colliderDesc = RAPIER.ColliderDesc.ball(BASE_RADIUS);
+    world.createCollider(colliderDesc, fish);
     fishRef.current = fish;
-    Composite.add(engine.world, [fish]);
-
-    const thickness = 60;
-    const walls = [
-      Bodies.rectangle(0, 0, 10, 10, {
-        isStatic: true,
-        render: { visible: false },
-      }),
-      Bodies.rectangle(0, 0, 10, 10, {
-        isStatic: true,
-        render: { visible: false },
-      }),
-      Bodies.rectangle(0, 0, 10, 10, {
-        isStatic: true,
-        render: { visible: false },
-      }),
-      Bodies.rectangle(0, 0, 10, 10, {
-        isStatic: true,
-        render: { visible: false },
-      }),
-    ];
-    wallsRef.current = walls;
-
-    const updateWalls = () => {
-      const w = window.innerWidth;
-      const h = window.innerHeight;
-      Body.setPosition(walls[0], { x: w / 2, y: -thickness / 2 });
-      Body.setPosition(walls[1], { x: w / 2, y: h + thickness / 2 });
-      Body.setPosition(walls[2], { x: -thickness / 2, y: h / 2 });
-      Body.setPosition(walls[3], { x: w + thickness / 2, y: h / 2 });
-    };
-    updateWalls();
-    Composite.add(engine.world, walls);
 
     const fishCanvas = fishCanvasRef.current;
     const fishCtx = fishCanvas.getContext("2d");
@@ -237,43 +328,31 @@ export default function FihOverlay() {
       img.src = src;
       return img;
     });
+    const feedImg = new Image();
+    feedImg.src = fih_feed;
 
     const handleResize = () => {
-      render.canvas.width = window.innerWidth;
-      render.canvas.height = window.innerHeight;
       fishCanvas.width = window.innerWidth;
       fishCanvas.height = window.innerHeight;
-      updateWalls();
     };
     window.addEventListener("resize", handleResize);
     handleResize();
-
-    const runner = Runner.create();
-    Runner.run(runner, engine);
-    Render.run(render);
-
-    const applyPhysicsSize = (body, newSize) => {
-      const targetRadius = BASE_RADIUS * newSize;
-      const currentRadius = body.circleRadius || BASE_RADIUS;
-      const scaleFactor = targetRadius / currentRadius;
-      Body.scale(body, scaleFactor, scaleFactor);
-      body.circleRadius = targetRadius;
-    };
 
     let animFrame;
     let lastFrameTime = performance.now();
 
     const drawFish = () => {
+      if (!isAlive.current) return;
       const now = performance.now();
       const dtMs = now - lastFrameTime;
       lastFrameTime = now;
 
-      const fish = fishRef.current;
+      const currentFish = fishRef.current;
       fishCtx.clearRect(0, 0, fishCanvas.width, fishCanvas.height);
 
-      // --- Size decay & Bubble spawning logic ---
+      // Size decay and bubble spawning
       const lastEat = lastEatTimeRef.current;
-      if (lastEat !== null && fish) {
+      if (lastEat !== null && currentFish) {
         const msSinceEat = Date.now() - lastEat;
         if (msSinceEat > DECAY_START_MS && fishSizeRef.current > 1) {
           const prevSize = fishSizeRef.current;
@@ -283,175 +362,94 @@ export default function FihOverlay() {
           );
 
           if (Math.abs(prevSize - fishSizeRef.current) > 0.001) {
-            applyPhysicsSize(fish, fishSizeRef.current);
+            applyPhysicsSize(currentFish, fishSizeRef.current);
           }
 
           bubbleSpawnTimerRef.current += dtMs;
           if (bubbleSpawnTimerRef.current > 200) {
             bubbleSpawnTimerRef.current = 0;
-
-            const angle = fish.angle;
-            const spawnDist = BASE_RADIUS * fishSizeRef.current * 0.9;
+            const angle = currentFish.rotation();
+            const fishPos = currentFish.translation();
+            const spawnDist = BASE_RADIUS * fishSizeRef.current;
             const directionMod = facingRightRef.current ? -1 : 1;
 
             bubblesRef.current.push({
-              x: fish.position.x + Math.cos(angle) * spawnDist * directionMod,
-              y: fish.position.y + Math.sin(angle) * spawnDist,
+              x: fishPos.x + Math.cos(angle) * spawnDist * directionMod,
+              y: fishPos.y + Math.sin(angle) * spawnDist,
               text: Math.random() > 0.5 ? "o" : "O",
               opacity: 1,
               vx: (Math.random() - 0.5) * 0.4,
-              vy: -Math.random() * 1.2 - 0.5,
+              vy: -Math.random() * 0.8 - 0.3,
               size: 12 + Math.random() * 8,
             });
-          }
-
-          if (fishSizeRef.current === 1) {
-            Matter.Body.setVelocity(fish, { x: 0, y: 0 });
           }
         }
       }
 
-      // --- Render Bubbles ---
-      bubblesRef.current.forEach((b, i) => {
+      // Render Bubbles
+      bubblesRef.current.forEach((b) => {
         b.x += b.vx;
         b.y += b.vy;
         b.opacity -= 0.005;
-
         fishCtx.save();
         fishCtx.globalAlpha = Math.max(0, b.opacity);
-        fishCtx.fillStyle = "white";
+        fishCtx.fillStyle = "red";
         fishCtx.font = `bold ${b.size}px monospace`;
         fishCtx.fillText(b.text, b.x, b.y);
         fishCtx.restore();
       });
       bubblesRef.current = bubblesRef.current.filter((b) => b.opacity > 0);
 
-      // --- Draw the Fish ---
-      if (fish) {
-        const speed = Math.sqrt(fish.velocity.x ** 2 + fish.velocity.y ** 2);
+      // Draw the Fish
+      if (currentFish) {
+        const velocity = currentFish.linvel();
+        const speed = Math.sqrt(velocity.x ** 2 + velocity.y ** 2);
         const isMoving = speed > 0.3;
-        const time = performance.now();
         let frameIndex = 0;
-        if (isMoving) frameIndex = 1 + (Math.floor(time / 150) % 3);
+        if (isMoving) frameIndex = 1 + (Math.floor(now / 150) % 3);
         const img = fishImages[frameIndex];
         const baseW = img.naturalWidth || 80;
         const baseH = img.naturalHeight || 80;
         const visualScale = fishSizeRef.current * gulpScaleRef.current;
         const w = baseW * visualScale;
         const h = baseH * visualScale;
-        const { x, y } = fish.position;
-        const angle = fish.angle;
+        const fishPos = currentFish.translation();
+        const angle = currentFish.rotation();
 
         fishCtx.save();
-        fishCtx.translate(x, y);
+        fishCtx.translate(fishPos.x, fishPos.y);
         fishCtx.rotate(angle);
         if (facingRightRef.current) fishCtx.scale(-1, 1);
         fishCtx.drawImage(img, -w / 2, -h / 2, w, h);
         fishCtx.restore();
       }
 
+      subBodies.current.forEach((body) => {
+        const pos = body.translation();
+        const radius = 20; // Matches ColliderDesc.ball(20)
+
+        fishCtx.save();
+        // Centering the image on the physics body position[cite: 5]
+        fishCtx.drawImage(
+          feedImg,
+          pos.x - radius,
+          pos.y - radius,
+          radius * 2,
+          radius * 2,
+        );
+        fishCtx.restore();
+      });
+
       animFrame = requestAnimationFrame(drawFish);
     };
     drawFish();
 
-    // Sync React nameplates
-    Events.on(engine, "afterUpdate", () => {
-      const positions = Array.from(subBodies.current.values()).map((body) => ({
-        id: body.id,
-        name: body.subscriberName,
-        x: body.position.x,
-        y: body.position.y,
-        color: body.color,
-      }));
-      setActiveSubs(positions);
-    });
-
-    Events.on(engine, "beforeUpdate", (event) => {
-      const fish = fishRef.current;
-      if (!fish) return;
-      const size = fishSizeRef.current;
-      const slugFactor = (size - 1) / (MAX_SIZE - 1);
-      fish.frictionAir = 0.03 + slugFactor * 0.09;
-      const chasing = subBodies.current.size > 0;
-      const target = chasing
-        ? subBodies.current.values().next().value.position
-        : idleTarget.current;
-      const dx = target.x - fish.position.x;
-      const dy = target.y - fish.position.y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-
-      if (fish.velocity.x > 0.1) facingRightRef.current = true;
-      else if (fish.velocity.x < -0.1) facingRightRef.current = false;
-
-      const speed = Math.sqrt(fish.velocity.x ** 2 + fish.velocity.y ** 2);
-      if (dist > 30 && speed > 0.3) {
-        const tiltAngle = Math.atan2(dy, Math.abs(dx)) * 0.4;
-        const clampedAngle = Math.max(Math.min(tiltAngle, 0.4), -0.4);
-        Matter.Body.setAngle(
-          fish,
-          facingRightRef.current ? -clampedAngle : clampedAngle,
-        );
-      } else {
-        Matter.Body.setAngle(fish, fish.angle * 0.9);
-      }
-
-      Matter.Body.setAngularVelocity(fish, 0);
-      const time = event.source.timing.timestamp;
-      if (dist > 20) {
-        const force = chasing ? 0.006 : 0.0008;
-        Matter.Body.applyForce(fish, fish.position, {
-          x: (dx / dist) * force,
-          y: (dy / dist) * force,
-        });
-      }
-      if (!chasing) {
-        const sway = Math.sin(time * 0.002) * 0.0004;
-        Matter.Body.applyForce(fish, fish.position, { x: 0, y: sway });
-        Matter.Body.setVelocity(fish, {
-          x: fish.velocity.x * 0.98,
-          y: fish.velocity.y * 0.98,
-        });
-      }
-    });
-
-    Events.on(engine, "collisionStart", (event) => {
-      event.pairs.forEach((pair) => {
-        const sub =
-          pair.bodyA.label === "sub"
-            ? pair.bodyA
-            : pair.bodyB.label === "sub"
-              ? pair.bodyB
-              : null;
-        if (
-          sub &&
-          (pair.bodyA.label === "fish" || pair.bodyB.label === "fish")
-        ) {
-          Composite.remove(engine.world, sub);
-          subBodies.current.delete(sub.id);
-          fishSizeRef.current = Math.min(
-            MAX_SIZE,
-            fishSizeRef.current + SIZE_PER_EAT,
-          );
-          lastEatTimeRef.current = Date.now();
-          if (fishRef.current)
-            applyPhysicsSize(fishRef.current, fishSizeRef.current);
-          gulpScaleRef.current = 1.25;
-          setTimeout(() => {
-            gulpScaleRef.current = 1;
-          }, 220);
-        }
-      });
-    });
-
     return () => {
+      isAlive.current = false;
       cancelAnimationFrame(animFrame);
       window.removeEventListener("resize", handleResize);
-      Render.stop(render);
-      Runner.stop(runner);
-      Engine.clear(engine);
-      render.canvas.remove();
     };
-  }, []);
+  }, [engineRef, applyPhysicsSize]);
 
   return (
     <div
@@ -482,7 +480,7 @@ export default function FihOverlay() {
           style={{
             position: "absolute",
             left: sub.x,
-            top: sub.y - 40,
+            top: sub.y - 50,
             transform: "translateX(-50%)",
             color: sub.color ?? "#fff",
             backgroundColor: "rgba(0,0,0,0.6)",
