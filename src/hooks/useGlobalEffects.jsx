@@ -1,21 +1,22 @@
-import { useRef, useCallback } from "react";
-import Matter from "matter-js";
+import { useRef, useCallback, useEffect } from "react";
 import { useBattleSystem } from "./useBattleSystem";
 
 export function useGlobalEffects(
-  engineRef,
+  engineRef, // engineRef.current is the Rapier World
   bodiesWithTimers,
   emoteMap,
   battleSettings,
   subscriberTracker,
   viewerTracker,
   sceneRef,
-  client
+  client,
 ) {
   const magneticEventRef = useRef(false);
   const reverseGravityEventRef = useRef(false);
   const gravityEventRef = useRef(false);
   const dpsTrackerRef = useRef(null);
+
+  const magneticIntervalRef = useRef(null);
 
   const battleSystem = useBattleSystem(
     engineRef,
@@ -25,123 +26,146 @@ export function useGlobalEffects(
     subscriberTracker,
     viewerTracker,
     sceneRef,
-    client
+    client,
   );
 
   dpsTrackerRef.current = battleSystem.getDpsTracker();
 
+  // Cleanup on unmount to prevent memory leaks or orphaned intervals
+  useEffect(() => {
+    return () => {
+      if (magneticIntervalRef.current)
+        clearInterval(magneticIntervalRef.current);
+    };
+  }, []);
+
   const startMagneticEvent = useCallback(
     (duration, str) => {
-      const engine = engineRef.current;
-      if (magneticEventRef.current || !engine) return;
+      const world = engineRef.current;
+      if (magneticEventRef.current || !world) return;
 
+      // RESTORED: This handles the UI display for the event start
       dpsTrackerRef.current?.recordEventUse(
         "system",
         "Chat",
         "#fff",
         "Magnetic Event",
-        duration
+        duration,
       );
+
       magneticEventRef.current = true;
+      const forceMultiplier = str * 40000;
 
-      const forceMagnitude = str / 100000;
+      const targetRef = { handle: null };
+      const originalDamping = new Map();
 
-      const magneticUpdate = () => {
-        const centerX = window.innerWidth / 2;
-        const centerY = window.innerHeight / 2;
+      const pickNewTarget = () => {
+        const activeBodies = bodiesWithTimers.current.filter(
+          (b) => b.body && !b.body.isSleeping(),
+        );
+        if (activeBodies.length > 0) {
+          const choice =
+            activeBodies[Math.floor(Math.random() * activeBodies.length)];
+          targetRef.handle = choice.body.handle;
+        } else {
+          targetRef.handle = null;
+        }
+      };
+
+      pickNewTarget();
+
+      magneticIntervalRef.current = setInterval(() => {
+        if (!magneticEventRef.current) return;
+
+        // Safe lookup via Rapier handle
+        const targetBody = world.getRigidBody(targetRef.handle);
+
+        if (!targetBody) {
+          pickNewTarget();
+          return;
+        }
+
+        const targetPos = targetBody.translation();
 
         bodiesWithTimers.current.forEach(({ body }) => {
-          if (!body.isSleeping) {
-            const dx = centerX - body.position.x;
-            const dy = centerY - body.position.y;
-            Matter.Body.applyForce(body, body.position, {
-              x: dx * forceMagnitude,
-              y: dy * forceMagnitude,
-            });
+          if (body && body.handle !== targetRef.handle && !body.isSleeping()) {
+            // Apply high damping to ensure they clump effectively[cite: 1]
+            if (!originalDamping.has(body.handle)) {
+              originalDamping.set(body.handle, body.linearDamping());
+              body.setLinearDamping(8.0);
+            }
+
+            const pos = body.translation();
+            const dx = targetPos.x - pos.x;
+            const dy = targetPos.y - pos.y;
+            const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+
+            body.addForce(
+              {
+                x: (dx / dist) * forceMultiplier,
+                y: (dy / dist) * forceMultiplier,
+              },
+              true,
+            );
           }
         });
-      };
-
-      Matter.Events.on(engine, "beforeUpdate", magneticUpdate);
+      }, 16);
 
       setTimeout(() => {
-        Matter.Events.off(engine, "beforeUpdate", magneticUpdate);
+        clearInterval(magneticIntervalRef.current);
         magneticEventRef.current = false;
-        console.log("magnetic event ended");
-      }, duration * 1000);
-    },
-    [engineRef, bodiesWithTimers]
-  );
 
-  const startReverseGravityEvent = useCallback(
-    (duration, str) => {
-      const engine = engineRef.current;
-      if (reverseGravityEventRef.current || !engine) return;
-
-      dpsTrackerRef.current?.recordEventUse(
-        "system",
-        "Chat",
-        "#fff",
-        "Reverse Gravity",
-        duration
-      );
-
-      reverseGravityEventRef.current = true;
-
-      const gravityUpdate = () => {
-        bodiesWithTimers.current.forEach(({ body, isSub }) => {
-          if (!body.isSleeping && isSub) {
-            const upwardForce = (str / 1000) * -1 * body.mass;
-            Matter.Body.applyForce(body, body.position, {
-              x: 0,
-              y: upwardForce,
-            });
+        // Restore original physics settings[cite: 1]
+        bodiesWithTimers.current.forEach(({ body }) => {
+          if (body && originalDamping.has(body.handle)) {
+            body.setLinearDamping(originalDamping.get(body.handle));
           }
         });
-      };
-
-      Matter.Events.on(engine, "beforeUpdate", gravityUpdate);
-
-      setTimeout(() => {
-        Matter.Events.off(engine, "beforeUpdate", gravityUpdate);
-        reverseGravityEventRef.current = false;
-        console.log("reverse gravity event ended");
       }, duration * 1000);
     },
-    [engineRef, bodiesWithTimers]
+    [engineRef, bodiesWithTimers],
   );
 
   const startGravityEvent = useCallback(
-    (duration, gravityY = 1) => {
-      const engine = engineRef.current;
-      if (gravityEventRef.current || !engine) return;
+    (duration, str) => {
+      const world = engineRef.current;
+      if (gravityEventRef.current || !world) return;
 
+      // Log the event to your UI
       dpsTrackerRef.current?.recordEventUse(
         "system",
         "Chat",
         "#fff",
         "Gravity Event",
-        duration
+        duration,
       );
 
       gravityEventRef.current = true;
 
-      // Save original gravity
-      const originalGravityY = engine.world.gravity.y;
-      engine.world.gravity.y = gravityY;
+      // Rapier gravity is an object {x, y}. Store current state to restore later
+      const originalGravity = { x: world.gravity.x, y: world.gravity.y };
+
+      // Apply downward gravity.
+      // str * 9.81 * 100 provides a noticeable "drop" in the Rapier scale
+      world.gravity = { x: 0, y: str * 981 };
+
+      // Wake up all bodies so they react to the new gravity immediately
+      bodiesWithTimers.current.forEach(({ body }) => {
+        if (body) body.wakeUp();
+      });
 
       setTimeout(() => {
-        engine.world.gravity.y = originalGravityY;
+        // Restore original gravity (likely {x: 0, y: 0})
+        world.gravity = originalGravity;
         gravityEventRef.current = false;
         console.log("gravity event ended");
       }, duration * 1000);
     },
-    [engineRef]
+    [engineRef, bodiesWithTimers],
   );
 
   return {
     startMagneticEvent,
-    startReverseGravityEvent,
     startGravityEvent,
     magneticEventActive: magneticEventRef.current,
     reverseGravityEventActive: reverseGravityEventRef.current,

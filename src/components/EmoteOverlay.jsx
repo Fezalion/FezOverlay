@@ -83,8 +83,12 @@ function EmoteOverlayCore({ settings, wsRef, refreshToken }) {
     includeTwitchChannelEmotes: settings.includeTwitchChannelEmotes,
   });
   const physics = usePhysicsEngine();
-  const subscriberTracker = useSubscriberTracker(clientRef.current, false);
-  const viewerTracker = useSubscriberTracker(clientRef.current, true);
+  const subscriberTracker = useSubscriberTracker(
+    clientRef.current,
+    false,
+    true,
+  );
+  const viewerTracker = useSubscriberTracker(clientRef.current, true, true);
 
   const battleSettings = {
     battleEventChance: settings.battleEventChance,
@@ -116,7 +120,7 @@ function EmoteOverlayCore({ settings, wsRef, refreshToken }) {
   );
 
   const { spawnEmote } = useEmoteSpawner(
-    physics.engineRef.current,
+    physics.engineRef, // pass ref, not .current — spawnEmote reads .current at call time
     emoteMap,
     bodiesWithTimers,
     settings,

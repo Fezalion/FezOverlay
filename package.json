@@ -11,10 +11,10 @@
     "package": "npm run build && pkg server.cjs --targets node18-win-x64 --output fezoverlay.exe && pkg updater.cjs --targets node18-win-x64 --output updater.exe"
   },
   "dependencies": {
+    "@dimforge/rapier2d-compat": "^0.19.3",
     "@tailwindcss/vite": "^4.1.11",
     "dotenv": "^17.2.1",
     "express": "^5.1.0",
-    "matter-js": "^0.20.0",
     "motion": "^12.23.19",
     "obs-websocket-js": "^5.0.6",
     "poe-log-monitor": "^1.2.6",

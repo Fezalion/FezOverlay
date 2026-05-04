@@ -256,13 +256,9 @@ export default function EmoteOverlaySettings({ settings, updateSetting }) {
         <button
           onClick={() => {
             const defaultSubEffects = {
-              subEffectHueShiftChance: 5,
               subEffectBlackHoleChance: 5,
               subEffectBlackHoleDuration: 15,
               subEffectBlackHoleStrength: 5,
-              subEffectReverseGravityChance: 5,
-              subEffectReverseGravityDuration: 15,
-              subEffectReverseGravityStrength: 2,
               subEffectGravityEventStrength: 1,
               subEffectGravityEventChance: 5,
               subEffectGravityEventDuration: 15,
@@ -328,32 +324,6 @@ export default function EmoteOverlaySettings({ settings, updateSetting }) {
 
       {/* Effects */}
       <EffectCard
-        effectKey="hueShift"
-        label="Hue Shift"
-        enabled={settings.subEffectTypes.includes("hueShift")}
-        toggleEnabled={() =>
-          updateSetting(
-            "subEffectTypes",
-            settings.subEffectTypes.includes("hueShift")
-              ? settings.subEffectTypes.filter((t) => t !== "hueShift")
-              : [...settings.subEffectTypes, "hueShift"],
-          )
-        }
-        settings={settings}
-        onChange={updateSetting}
-        fields={[
-          {
-            key: "subEffectHueShiftChance",
-            label: "Chance (%)",
-            min: 0,
-            max: 100,
-            step: 1,
-            parser: parseInt,
-          },
-        ]}
-      />
-
-      <EffectCard
         effectKey="magneticAttraction"
         label="Magnetic Attraction"
         enabled={settings.subEffectTypes.includes("magneticAttraction")}
@@ -388,48 +358,6 @@ export default function EmoteOverlaySettings({ settings, updateSetting }) {
           },
           {
             key: "subEffectBlackHoleChance",
-            label: "Chance (%)",
-            min: 1,
-            max: 100,
-            step: 1,
-            parser: parseInt,
-          },
-        ]}
-      />
-
-      <EffectCard
-        effectKey="reverseGravity"
-        label="Reverse Gravity"
-        enabled={settings.subEffectTypes.includes("reverseGravity")}
-        toggleEnabled={() =>
-          updateSetting(
-            "subEffectTypes",
-            settings.subEffectTypes.includes("reverseGravity")
-              ? settings.subEffectTypes.filter((t) => t !== "reverseGravity")
-              : [...settings.subEffectTypes, "reverseGravity"],
-          )
-        }
-        settings={settings}
-        onChange={updateSetting}
-        fields={[
-          {
-            key: "subEffectReverseGravityDuration",
-            label: "Duration (s)",
-            min: 1,
-            max: 30,
-            step: 1,
-            parser: parseInt,
-          },
-          {
-            key: "subEffectReverseGravityStrength",
-            label: "Strength",
-            min: 1,
-            max: 10,
-            step: 1,
-            parser: parseInt,
-          },
-          {
-            key: "subEffectReverseGravityChance",
             label: "Chance (%)",
             min: 1,
             max: 100,

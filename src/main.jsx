@@ -1,5 +1,4 @@
 import { StrictMode } from "react";
-import { createRoot } from "react-dom/client";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { NowPlaying } from "./components/NowPlaying";
 import Settings from "./components/Settings";
@@ -13,6 +12,10 @@ import Music from "./components/MusicOverlay";
 import FihOverlay from "./components/Fih";
 import "./index.css";
 import { setupGlobalErrorLogger } from "./utils/errorLogger";
+import RAPIER from "@dimforge/rapier2d-compat";
+
+await RAPIER.init();
+window.RAPIER = RAPIER;
 
 setupGlobalErrorLogger();
 
@@ -72,21 +75,30 @@ fetch("/api/settings")
     );
   });
 
-createRoot(document.getElementById("root")).render(
-  <StrictMode>
-    <BrowserRouter>
-      <Routes>
-        <Route path="/playing" element={<NowPlaying />} />
-        <Route path="/emotes" element={<EmoteOverlay />} />
-        <Route path="/" element={<Settings />} />
-        <Route path="/yapmeter" element={<YapMeter />} />
-        <Route path="/commands" element={<ChatCommands />} />
-        <Route path="/auth/twitch/callback" element={<AuthCallback />} />
-        <Route path="/chat" element={<ChatOverlay />} />
-        <Route path="/deaths" element={<POEDeathCounter />} />
-        <Route path="/music" element={<Music />} />
-        <Route path="/fih" element={<FihOverlay />} />
-      </Routes>
-    </BrowserRouter>
-  </StrictMode>,
-);
+async function main() {
+  await RAPIER.init();
+  window.RAPIER = RAPIER;
+  // now mount React
+  const { createRoot } = await import("react-dom/client");
+
+  createRoot(document.getElementById("root")).render(
+    <StrictMode>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/playing" element={<NowPlaying />} />
+          <Route path="/emotes" element={<EmoteOverlay />} />
+          <Route path="/" element={<Settings />} />
+          <Route path="/yapmeter" element={<YapMeter />} />
+          <Route path="/commands" element={<ChatCommands />} />
+          <Route path="/auth/twitch/callback" element={<AuthCallback />} />
+          <Route path="/chat" element={<ChatOverlay />} />
+          <Route path="/deaths" element={<POEDeathCounter />} />
+          <Route path="/music" element={<Music />} />
+          <Route path="/fih" element={<FihOverlay />} />
+        </Routes>
+      </BrowserRouter>
+    </StrictMode>,
+  );
+}
+
+main();
