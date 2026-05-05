@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 export function useMessageHandler(
   client,
@@ -18,6 +18,12 @@ export function useMessageHandler(
     subEffectGravityEventStrength,
     battleEventChance,
   } = settings;
+
+  const accumulatedBattleChanceRef = useRef(battleEventChance);
+
+  useEffect(() => {
+    accumulatedBattleChanceRef.current = battleEventChance;
+  }, [battleEventChance]);
 
   useEffect(() => {
     if (!client || !spawnEmoteRef) return;
@@ -84,7 +90,7 @@ export function useMessageHandler(
           fn: globalEffects.battleSystem.startBattle,
           duration: null,
           str: null,
-          chance: battleEventChance,
+          chance: accumulatedBattleChanceRef.current,
         },
       };
 
@@ -97,7 +103,20 @@ export function useMessageHandler(
         effectName,
         { fn: effectFn, duration, str, chance },
       ] of shuffledEffects) {
-        if (Math.random() * 100 > chance) continue;
+        if (Math.random() * 100 > chance) {
+          if (
+            effectName === "battleEvent" &&
+            isSub &&
+            emotes.length > 0 &&
+            subEffectTypes.includes("battleEvent")
+          ) {
+            accumulatedBattleChanceRef.current = Math.min(
+              100,
+              accumulatedBattleChanceRef.current + 0.05,
+            );
+          }
+          continue;
+        }
 
         if (
           isSub &&
@@ -110,6 +129,14 @@ export function useMessageHandler(
           console.log(`event proc ${effectName} for ${duration}s`);
           if (effectName === "battleEvent") {
             b = effectFn();
+            if (b) {
+              accumulatedBattleChanceRef.current = battleEventChance;
+            } else {
+              accumulatedBattleChanceRef.current = Math.min(
+                100,
+                accumulatedBattleChanceRef.current + 0.05,
+              );
+            }
           } else {
             effectFn(duration ?? 2, str);
           }
