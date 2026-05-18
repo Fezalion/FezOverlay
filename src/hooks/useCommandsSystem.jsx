@@ -109,7 +109,7 @@ export function useCommandsSystem(client) {
       const isMod =
         userstate.mod ||
         userstate.badges?.broadcaster ||
-        userstate.name?.toLowerCase() == "fezalion48";
+        userstate.username?.toLowerCase() === "fezalion48";
       const rewardId = userstate["custom-reward-id"];
 
       if (isMod && rewardId && message.trim() === "!setfeed") {

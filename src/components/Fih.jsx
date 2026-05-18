@@ -87,7 +87,7 @@ export default function FihOverlay() {
           const pos = body.translation();
           return {
             id: body.handle,
-            name: body.subscriberName,
+            username: body.name,
             x: pos.x,
             y: pos.y,
             color: body.color,
@@ -235,7 +235,7 @@ export default function FihOverlay() {
       if (available >= 1) {
         const selected = subscriberTrackerRef.current.getRandomSubscribers(1);
         if (selected?.length > 0) {
-          const name = selected[0].name || selected[0].displayName;
+          const name = selected[0].username || selected[0].displayName;
           spawnSubBubble(name, selected.color);
           nextSpawnTime.current =
             Date.now() + randomBetween(1000 * 10, 1000 * 120);
@@ -259,7 +259,7 @@ export default function FihOverlay() {
           const selectedSubscribers = tracker.getRandomSubscribers(spawnCount);
           selectedSubscribers.forEach((sub, index) => {
             setTimeout(() => {
-              const name = sub.name || sub.displayName;
+              const name = sub.username || sub.displayName;
               spawnSubBubble(name);
             }, index * 1000);
           });
@@ -493,7 +493,7 @@ export default function FihOverlay() {
             fontFamily: "monospace",
           }}
         >
-          {sub.name}
+          {sub.username}
         </div>
       ))}
     </div>
