@@ -87,7 +87,7 @@ export default function FihOverlay() {
           const pos = body.translation();
           return {
             id: body.handle,
-            username: body.name,
+            username: body.subscriberName,
             x: pos.x,
             y: pos.y,
             color: body.color,
