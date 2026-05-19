@@ -1253,6 +1253,15 @@ app.get("/api/deaths", (req, res) => {
 poeLog.start();
 console.log("[POE] Log watcher started:", config.poeLogPath);
 
+app.post("/api/twitch-log", (req, res) => {
+  const { event, detail } = req.body;
+  const timestamp = new Date().toISOString();
+  console.error(
+    `[Twitch] [${timestamp}] [${event}]${detail ? ` — ${detail}` : ""}`,
+  );
+  res.status(204).end();
+});
+
 server.listen(PORT, "0.0.0.0", () => {
   console.log(`Server + WS running on http://localhost:${PORT}`);
   broadcast("refresh");
