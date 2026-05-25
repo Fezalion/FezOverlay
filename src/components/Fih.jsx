@@ -249,7 +249,6 @@ export default function FihOverlay() {
     if (!clientRef.current) return;
     let localref = clientRef.current;
     const handleMessage = (channel, userstate, message, self) => {
-      if (self) return;
       if (userstate["custom-reward-id"] === settings.redeemFeed) {
         const tracker = subscriberTrackerRef.current;
         if (!tracker) return;
@@ -270,7 +269,7 @@ export default function FihOverlay() {
     };
     localref.on("message", handleMessage);
     return () => localref.removeListener("message", handleMessage);
-  }, [settings, clientRef]);
+  }, [settings, clientRef, spawnSubBubble]);
 
   useEffect(() => {
     const moveIdlePoint = () => {
