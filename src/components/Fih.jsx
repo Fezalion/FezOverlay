@@ -236,7 +236,7 @@ export default function FihOverlay() {
         const selected = subscriberTrackerRef.current.getRandomSubscribers(1);
         if (selected?.length > 0) {
           const name = selected[0].username || selected[0].displayName;
-          spawnSubBubble(name, selected[0].color);
+          spawnSubBubble(name, selected[0]?.color ?? "white");
           nextSpawnTime.current =
             Date.now() + randomBetween(1000 * 10, 1000 * 120);
         }
@@ -260,7 +260,7 @@ export default function FihOverlay() {
           selectedSubscribers.forEach((sub, index) => {
             setTimeout(() => {
               const name = sub.username || sub.displayName;
-              spawnSubBubble(name, sub.color);
+              spawnSubBubble(name, sub?.color ?? "white");
             }, index * 1000);
           });
           nextSpawnTime.current =
