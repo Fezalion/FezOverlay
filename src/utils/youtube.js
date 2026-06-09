@@ -4,6 +4,17 @@ export const YOUTUBE_API_SETUP_URL =
   "https://console.cloud.google.com/apis/credentials";
 export const hasYoutubeApiKey = false;
 
+function durationToTotalSeconds(duration) {
+  const match = duration.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+
+  const hours = parseInt(match[1] || 0);
+  const minutes = parseInt(match[2] || 0);
+  const seconds = parseInt(match[3] || 0);
+
+  // Formula: (Hours * 3600) + (Minutes * 60) + Seconds
+  return hours * 3600 + minutes * 60 + seconds;
+}
+
 export async function fetchPlaylistData(playlistId) {
   try {
     const res = await fetch(
@@ -37,7 +48,7 @@ export async function fetchVideoInfo(videoId) {
       videoId,
       title: data?.title || "Unknown title",
       channel: data?.channel || "Unknown channel",
-      duration: data?.duration ?? 0,
+      duration: durationToTotalSeconds(data?.duration) ?? 0,
     };
 
     cache.set(videoId, info);

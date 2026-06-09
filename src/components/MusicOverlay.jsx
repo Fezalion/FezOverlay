@@ -195,6 +195,9 @@ export default function Music() {
 
       const info = await fetchVideoInfo(videoId);
 
+      console.log(info);
+      console.log(settings.maxSongLength);
+
       if (
         info.duration > settings.maxSongLength &&
         settings.maxSongLength != 0
@@ -451,8 +454,6 @@ export default function Music() {
     const localref = clientRef.current;
 
     const handleMessage = (channel, userstate, message, self) => {
-      if (self) return;
-
       const msg = message.trim().toLowerCase();
       const isMod = userstate.mod || userstate.badges?.broadcaster === "1";
 
@@ -542,18 +543,6 @@ export default function Music() {
       stopProgressTimer();
     }
   }, [current?.videoId, stopProgressTimer]);
-
-  // Skip songs that exceed the max song length limit
-  useEffect(() => {
-    const limit = settings.maxSongLength;
-    if (!limit || limit <= 0 || !duration || duration <= 0) return;
-    if (duration > limit) {
-      console.log(
-        `[MusicOverlay] Skipping "${current?.title}" — duration ${Math.round(duration)}s exceeds limit ${limit}s`,
-      );
-      playNextRef.current?.();
-    }
-  }, [duration, settings.maxSongLength, current?.title]);
 
   const togglePlay = () => {
     if (!playerRef.current) return;

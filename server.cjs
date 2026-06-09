@@ -484,9 +484,11 @@ app.get("/api/youtube/video/:videoId", async (req, res) => {
       return res.status(400).json({ error: "Invalid video ID" });
     }
 
-    const url = `https://www.googleapis.com/youtube/v3/videos?id=${videoId}&part=snippet&key=${apiKey}`;
+    const url = `https://www.googleapis.com/youtube/v3/videos?id=${videoId}&part=snippet,contentDetails&key=${apiKey}`;
     const data = await fetchJson(url);
     const item = data?.items?.[0];
+    const duration = item.contentDetails.duration;
+    console.log(duration);
     if (!item?.snippet) {
       return res.status(404).json({ error: "Video not found" });
     }
@@ -495,6 +497,7 @@ app.get("/api/youtube/video/:videoId", async (req, res) => {
       videoId,
       title: item.snippet.title,
       channel: item.snippet.channelTitle || "Unknown channel",
+      duration: duration,
     });
   } catch (err) {
     console.error("[YouTube API] Failed to fetch video info:", err);
