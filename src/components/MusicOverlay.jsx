@@ -154,7 +154,7 @@ export default function Music() {
   const [shuffleMode, setShuffleMode] = useState("off");
   const historyRef = useRef([]);
 
-  const { settings } = useMetadata();
+  const { settings, updateSetting } = useMetadata();
   const clientRef = useTwitchClient(settings.twitchName);
 
   const primaryPlaylist = playlists.find((entry) => entry.isPrimary) ?? null;
@@ -194,6 +194,16 @@ export default function Music() {
         "Viewer";
 
       const info = await fetchVideoInfo(videoId);
+
+      if (
+        info.duration > settings.maxSongLength &&
+        settings.maxSongLength != 0
+      ) {
+        if (localref && channel) {
+          localref.say(channel, `Song exceeds the max song length.`);
+        }
+        return;
+      }
 
       setQueue((q) => [
         ...q,
@@ -532,6 +542,18 @@ export default function Music() {
       stopProgressTimer();
     }
   }, [current?.videoId, stopProgressTimer]);
+
+  // Skip songs that exceed the max song length limit
+  useEffect(() => {
+    const limit = settings.maxSongLength;
+    if (!limit || limit <= 0 || !duration || duration <= 0) return;
+    if (duration > limit) {
+      console.log(
+        `[MusicOverlay] Skipping "${current?.title}" — duration ${Math.round(duration)}s exceeds limit ${limit}s`,
+      );
+      playNextRef.current?.();
+    }
+  }, [duration, settings.maxSongLength, current?.title]);
 
   const togglePlay = () => {
     if (!playerRef.current) return;
@@ -1377,6 +1399,7 @@ export default function Music() {
                 label: "Playlists",
                 count: playlists.length,
               },
+              { id: "settings", label: "Settings" },
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -2099,6 +2122,139 @@ export default function Music() {
                       ))}
                     </tbody>
                   </table>
+                )}
+              </div>
+            </div>
+          )}
+          {/* ── SETTINGS TAB ── */}
+          {activeTab === "settings" && (
+            <div
+              style={{
+                flex: 1,
+                overflowY: "auto",
+                padding: "28px 32px",
+                display: "flex",
+                flexDirection: "column",
+                gap: "32px",
+              }}
+            >
+              {/* Section: Music */}
+              <div>
+                <div
+                  style={{
+                    fontSize: "9px",
+                    letterSpacing: "3px",
+                    color: "rgba(255,255,255,0.4)",
+                    textTransform: "uppercase",
+                    marginBottom: "16px",
+                  }}
+                >
+                  Music
+                </div>
+
+                {/* Max Song Length */}
+                <div
+                  style={{
+                    background: "rgba(255,255,255,0.03)",
+                    border: "1px solid rgba(255,255,255,0.08)",
+                    borderRadius: "10px",
+                    padding: "18px 20px",
+                    display: "flex",
+                    alignItems: "flex-start",
+                    gap: "20px",
+                  }}
+                >
+                  <div style={{ flex: 1 }}>
+                    <div
+                      style={{
+                        fontSize: "13px",
+                        fontWeight: "500",
+                        color: "#fff",
+                        marginBottom: "4px",
+                      }}
+                    >
+                      Max Song Length
+                    </div>
+                    <div
+                      style={{
+                        fontSize: "11px",
+                        color: "rgba(255,255,255,0.45)",
+                        lineHeight: "1.5",
+                      }}
+                    >
+                      Songs longer than this will be automatically skipped. Set
+                      to 0 to allow any length.
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "10px",
+                      flexShrink: 0,
+                    }}
+                  >
+                    <input
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={
+                        settings.maxSongLength > 0
+                          ? Math.round(settings.maxSongLength / 60)
+                          : ""
+                      }
+                      placeholder="∞"
+                      onChange={(e) => {
+                        const mins = parseFloat(e.target.value);
+                        const secs =
+                          isNaN(mins) || mins <= 0 ? 0 : Math.round(mins * 60);
+                        updateSetting("maxSongLength", secs);
+                      }}
+                      style={{
+                        width: "72px",
+                        background: "rgba(255,255,255,0.06)",
+                        border: "1px solid rgba(255,255,255,0.14)",
+                        borderRadius: "8px",
+                        padding: "8px 10px",
+                        color: "#fff",
+                        fontSize: "13px",
+                        fontFamily: "inherit",
+                        outline: "none",
+                        textAlign: "center",
+                      }}
+                      onFocus={(e) =>
+                        (e.currentTarget.style.borderColor = `${accent}88`)
+                      }
+                      onBlur={(e) =>
+                        (e.currentTarget.style.borderColor =
+                          "rgba(255,255,255,0.14)")
+                      }
+                    />
+                    <span
+                      style={{
+                        fontSize: "11px",
+                        color: "rgba(255,255,255,0.45)",
+                        userSelect: "none",
+                      }}
+                    >
+                      min
+                    </span>
+                  </div>
+                </div>
+
+                {settings.maxSongLength > 0 && (
+                  <div
+                    style={{
+                      marginTop: "8px",
+                      fontSize: "10px",
+                      color: accent,
+                      paddingLeft: "2px",
+                    }}
+                  >
+                    Songs longer than {Math.round(settings.maxSongLength / 60)}{" "}
+                    min ({formatTime(settings.maxSongLength)}) will be skipped.
+                  </div>
                 )}
               </div>
             </div>

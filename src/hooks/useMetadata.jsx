@@ -103,6 +103,9 @@ export function useMetadata() {
     //Redeem
     redeemFeed: "",
     redeemSongRequest: "",
+
+    // Music Settings
+    maxSongLength: 0, // 0 = unlimited, otherwise max duration in seconds
   });
 
   const [availableSubEffects, setAvailableSubEffects] = useState([]);
@@ -321,6 +324,9 @@ export function useMetadata() {
         //
         redeemFeed: data.redeemFeed || "",
         redeemSongRequest: data.redeemSongRequest || "",
+
+        // Music Settings
+        maxSongLength: toNumber(data.maxSongLength, 0),
       });
 
       setError(null);
