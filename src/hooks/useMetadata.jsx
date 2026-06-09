@@ -473,7 +473,6 @@ export function useMetadata() {
     const loadAllData = async () => {
       await fetchSettings();
       await fetchSubEffectTypes();
-      await fetchVersionInfo();
     };
 
     loadAllData();

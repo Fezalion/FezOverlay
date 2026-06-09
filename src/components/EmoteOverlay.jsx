@@ -75,7 +75,7 @@ function EmoteOverlayCore({ settings, wsRef, refreshToken }) {
   const sceneRef = useRef(null);
   const bodiesWithTimers = useRef([]);
 
-  const clientRef = useTwitchClient(settings.twitchName);
+  const client = useTwitchClient(settings.twitchName);
   const emoteMap = useEmoteLoader(settings.emoteSetId, refreshToken, {
     twitchName: settings.twitchName,
     enableBTTV: settings.enableBTTV,
@@ -83,8 +83,8 @@ function EmoteOverlayCore({ settings, wsRef, refreshToken }) {
     includeTwitchChannelEmotes: settings.includeTwitchChannelEmotes,
   });
   const physics = usePhysicsEngine();
-  const subscriberTracker = useSubscriberTracker(clientRef.current, false);
-  const viewerTracker = useSubscriberTracker(clientRef.current, true);
+  const subscriberTracker = useSubscriberTracker(client, false);
+  const viewerTracker = useSubscriberTracker(client, true);
 
   const battleSettings = {
     battleEventChance: settings.battleEventChance,
@@ -112,7 +112,7 @@ function EmoteOverlayCore({ settings, wsRef, refreshToken }) {
     subscriberTracker,
     viewerTracker,
     sceneRef,
-    clientRef,
+    client,
   );
 
   const { spawnEmote } = useEmoteSpawner(
@@ -271,16 +271,10 @@ function EmoteOverlayCore({ settings, wsRef, refreshToken }) {
     settings.emoteStaticMode,
   ]);
 
-  useMessageHandler(
-    clientRef.current,
-    emoteMap,
-    spawnEmoteRef,
-    globalEffects,
-    settings,
-  );
+  useMessageHandler(client, emoteMap, spawnEmoteRef, globalEffects, settings);
 
   useRaidHandler(
-    clientRef.current,
+    client,
     spawnEmoteRef,
     settings.raidEffect,
     settings.emoteDelay,

@@ -138,7 +138,7 @@ const buildMotionProps = (
 };
 
 function ChatOverlayCore({ settings }) {
-  const clientRef = useTwitchClient(settings.twitchName);
+  const client = useTwitchClient(settings.twitchName);
   const [messages, setMessages] = useState([]);
   const emotes = useEmoteLoader(settings.emoteSetId);
   const maxMessages = settings.maxChatMessages || 50;
@@ -236,11 +236,10 @@ function ChatOverlayCore({ settings }) {
   // Handle incoming chat messages
   useEffect(() => {
     // Check if client exists before trying to use it
-    if (!clientRef.current) {
+    if (!client) {
       console.log("Client not ready yet");
       return;
     }
-    const client = clientRef.current;
 
     const handleMessage = (channel, userstate, message) => {
       let doRainbow =
@@ -299,7 +298,7 @@ function ChatOverlayCore({ settings }) {
 
     client.on("message", handleMessage);
     return () => client.off("message", handleMessage);
-  }, [clientRef, maxMessages, fadeDuration, fadeTransitionTime, settings]);
+  }, [client, maxMessages, fadeDuration, fadeTransitionTime, settings]);
 
   // Random color fallback
   const getRandomColor = () => {
@@ -453,7 +452,7 @@ function ChatOverlayCore({ settings }) {
     [settings.chatBackgroundColor, settings.chatFontSize, settings.chatFont],
   );
 
-  if (!clientRef.current) {
+  if (!client) {
     return (
       <div
         className="flex flex-col text-white overflow-hidden"

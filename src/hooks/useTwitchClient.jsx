@@ -1,33 +1,40 @@
-import { useRef, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import tmi from "tmi.js";
 
 const logToServer = (event, detail = "") => {
   fetch("/api/twitch-log", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+    },
     body: JSON.stringify({ event, detail }),
-  }).catch(() => {}); // silent — don't let logging errors cause more errors
+  }).catch(() => {});
 };
 
 const log = (level, event, detail = "") => {
   const timestamp = new Date().toISOString();
   const msg = `[Twitch] [${timestamp}] [${event}]${detail ? ` — ${detail}` : ""}`;
+
   if (level === "error") {
     console.error(msg);
     logToServer(event, detail);
-  } else if (level === "warn") console.warn(msg);
-  else console.log(msg);
+  } else if (level === "warn") {
+    console.warn(msg);
+  } else {
+    console.log(msg);
+  }
 };
 
 export function useTwitchClient(twitchName) {
-  const clientRef = useRef(null);
   const [auth, setAuth] = useState(null);
   const [cid, setCid] = useState(null);
+  const [client, setClient] = useState(null);
 
   useEffect(() => {
-    log("info", "AUTH_FETCH", "Requesting credentials from /api/twitch");
+    log("info", "AUTH_FETCH", "Requesting credentials");
+
     fetch("/api/twitch")
-      .then((data) => data.json())
+      .then((r) => r.json())
       .then((data) => {
         log("info", "AUTH_OK", "Credentials received");
         setAuth(data.auth);
@@ -43,7 +50,7 @@ export function useTwitchClient(twitchName) {
 
     log("info", "CLIENT_INIT", `Channel: ${twitchName}`);
 
-    const client = new tmi.Client({
+    const newClient = new tmi.Client({
       options: {
         debug: false,
         clientId: cid,
@@ -59,36 +66,44 @@ export function useTwitchClient(twitchName) {
       channels: [twitchName],
     });
 
-    client.on("connecting", (address, port) =>
+    newClient.on("connecting", (address, port) =>
       log("info", "CONNECTING", `${address}:${port}`),
     );
-    client.on("connected", (address, port) =>
+
+    newClient.on("connected", (address, port) =>
       log("info", "CONNECTED", `${address}:${port}`),
     );
-    client.on("disconnected", (reason) =>
+
+    newClient.on("disconnected", (reason) =>
       log("warn", "DISCONNECTED", reason ?? "no reason given"),
     );
-    client.on("reconnect", () =>
+
+    newClient.on("reconnect", () =>
       log("warn", "RECONNECT", "Attempting reconnection"),
     );
-    client.on("logon", () =>
-      log("info", "LOGON", "Authenticated with Twitch IRC"),
-    );
-    client.on("join", (channel) => log("info", "JOIN", `Joined ${channel}`));
 
-    client
+    newClient.on("logon", () => log("info", "LOGON", "Authenticated"));
+
+    newClient.on("join", (channel) => log("info", "JOIN", `Joined ${channel}`));
+
+    newClient
       .connect()
-      .then(() => log("info", "CONNECT_RESOLVED"))
-      .catch((err) => log("error", "CONNECT_FAIL", err?.message ?? err));
-
-    clientRef.current = client;
+      .then(() => {
+        log("info", "CONNECT_RESOLVED");
+        setClient(newClient);
+      })
+      .catch((err) => {
+        log("error", "CONNECT_FAIL", err?.message ?? String(err));
+      });
 
     return () => {
       log("info", "CLEANUP", `Disconnecting from ${twitchName}`);
-      client.disconnect().catch(() => {});
-      clientRef.current = null;
+
+      setClient(null);
+
+      newClient.disconnect().catch(() => {});
     };
   }, [twitchName, auth, cid]);
 
-  return clientRef;
+  return client;
 }

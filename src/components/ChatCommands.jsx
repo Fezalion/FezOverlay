@@ -32,7 +32,7 @@ export default function ChatCommands() {
 
     ws.addEventListener("message", handleMessage);
     ws.addEventListener("error", (err) =>
-      console.error("WebSocket error:", err)
+      console.error("WebSocket error:", err),
     );
     ws.addEventListener("close", () => console.log("WebSocket closed"));
 
@@ -46,7 +46,7 @@ export default function ChatCommands() {
 
   const stableKey = useMemo(
     () => `overlay-${settings.twitchName}-${settings.emoteSetId}`,
-    [settings.twitchName, settings.emoteSetId]
+    [settings.twitchName, settings.emoteSetId],
   );
 
   return (
@@ -59,12 +59,12 @@ export default function ChatCommands() {
 }
 
 function ChatCommandsCore({ settings }) {
-  const clientRef = useTwitchClient(settings.twitchName);
+  const client = useTwitchClient(settings.twitchName);
 
-  const { commands } = useCommandsSystem(clientRef.current);
+  const { commands } = useCommandsSystem(client);
   console.log(
     "Loaded commands:",
-    commands.map((c) => c.name)
+    commands.map((c) => c.name),
   );
 
   return <></>;

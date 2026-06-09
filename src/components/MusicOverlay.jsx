@@ -155,7 +155,7 @@ export default function Music() {
   const historyRef = useRef([]);
 
   const { settings, updateSetting } = useMetadata();
-  const clientRef = useTwitchClient(settings.twitchName);
+  const client = useTwitchClient(settings.twitchName);
 
   const primaryPlaylist = playlists.find((entry) => entry.isPrimary) ?? null;
   const playlist = primaryPlaylist?.items ?? [];
@@ -362,9 +362,9 @@ export default function Music() {
       if (nextSong) {
         setCurrent(nextSong);
         setDuration(nextSong.duration || 0);
-        if (nextSong.requestedBy && clientRef.current && settings.twitchName) {
+        if (nextSong.requestedBy && client && settings.twitchName) {
           const channel = `#${settings.twitchName.toLowerCase()}`;
-          clientRef.current.say(
+          client.say(
             channel,
             `🎵 Now Playing: "${nextSong.title}" (Requested by ${nextSong.requestedBy})`,
           );
@@ -374,7 +374,7 @@ export default function Music() {
       setCurrentTime(0);
       isTransitioningRef.current = false;
     }, 50);
-  }, [settings.twitchName, clientRef, shuffleMode]);
+  }, [settings.twitchName, client, shuffleMode]);
 
   useEffect(() => {
     playNextRef.current = playNext;
@@ -449,9 +449,7 @@ export default function Music() {
   }, []);
 
   useEffect(() => {
-    if (!clientRef.current) return;
-
-    const localref = clientRef.current;
+    if (!client) return;
 
     const handleMessage = (channel, userstate, message, self) => {
       const msg = message.trim().toLowerCase();
@@ -468,16 +466,16 @@ export default function Music() {
             ? `Now playing: ${current.title} (Requested by: ${current.requestedBy})`
             : `Now playing: ${current.title}`;
 
-          localref.say(channel, response);
+          client.say(channel, response);
         } else {
-          localref.say(channel, "No song is currently playing.");
+          client.say(channel, "No song is currently playing.");
         }
       }
 
       if (msg === "!skip") {
         if (isMod) {
           playNextRef.current();
-          localref.say(channel, `Skipping current song...`);
+          client.say(channel, `Skipping current song...`);
         } else {
           // Optional: Tell non-mods they can't skip
           // localref.say(channel, "Only moderators can skip songs.");
@@ -493,18 +491,18 @@ export default function Music() {
               requestedBy:
                 userstate["display-name"] || userstate["username"] || "Viewer",
             },
-            localref,
+            client,
             channel,
           )
           .catch((err) => console.error("Song request failed:", err));
       }
     };
 
-    localref.on("message", handleMessage);
+    client.on("message", handleMessage);
     return () => {
-      localref.removeListener("message", handleMessage);
+      client.removeListener("message", handleMessage);
     };
-  }, [clientRef, settings.redeemSongRequest, current]);
+  }, [client, settings.redeemSongRequest, current]);
 
   useEffect(() => {
     playerRef.current?.setVolume(volume);
@@ -566,9 +564,9 @@ export default function Music() {
       setQueue((q) => q.filter((_, i) => i !== index));
       setCurrent({ ...item, requestedBy: item.requestedBy ?? "Queue" });
 
-      if (item.requestedBy && clientRef.current && settings.twitchName) {
+      if (item.requestedBy && client && settings.twitchName) {
         const channel = `#${settings.twitchName.toLowerCase()}`;
-        clientRef.current.say(
+        client.say(
           channel,
           `▶️ Now Playing: "${item.title}" (Requested by ${item.requestedBy})`,
         );

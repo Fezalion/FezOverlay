@@ -7,7 +7,7 @@ import { useTwitchClient } from "../hooks/useTwitchClient";
 export default function YapMeter() {
   const { settings, refreshSettings } = useMetadata();
   const [refreshToken, setRefreshToken] = useState(0);
-  const clientRef = useTwitchClient(settings.twitchName);
+  const client = useTwitchClient(settings.twitchName);
   const wsRef = useRef(null);
 
   useEffect(() => {
@@ -46,7 +46,7 @@ export default function YapMeter() {
       settings={settings}
       isRefresh={refreshToken > 0}
       wsRef={wsRef}
-      clientRef={clientRef}
+      clientRef={client}
     />
   );
 }
@@ -190,7 +190,7 @@ function FloatingPercent({ percent, getColor, settings }) {
   );
 }
 
-function YapMeterCore({ settings, wsRef, clientRef, isRefresh }) {
+function YapMeterCore({ settings, wsRef, client, isRefresh }) {
   const [score, setScore] = useState(0);
   const [displayScore, setDisplayScore] = useState(0);
   const [trailScore, setTrailScore] = useState(0);
@@ -229,14 +229,14 @@ function YapMeterCore({ settings, wsRef, clientRef, isRefresh }) {
             "coreaudio_input_capture",
             "pulse_input_capture",
             "alsa_input_capture",
-          ].includes(i.inputKind)
+          ].includes(i.inputKind),
         );
         if (!micInput) return console.error("❌ No mic input found");
         micSourceNameRef.current = micInput.inputName;
 
         obs.on("InputVolumeMeters", (data) => {
           const mic = data.inputs.find(
-            (i) => i.inputName === micSourceNameRef.current
+            (i) => i.inputName === micSourceNameRef.current,
           );
           if (!mic) return;
           const levels =
@@ -335,9 +335,9 @@ function YapMeterCore({ settings, wsRef, clientRef, isRefresh }) {
               triggeredAt: Date.now(),
             };
             wsRef.current.send(JSON.stringify(payloadEmote));
-            clientRef.current?.say(
+            client?.say(
               settings.twitchName,
-              ` OVERYAPPED for ${timer.toFixed(1)} seconds straight!`
+              ` OVERYAPPED for ${timer.toFixed(1)} seconds straight!`,
             );
             console.log("🚀 Sent spawnEmote:", payloadEmote);
           }

@@ -37,8 +37,8 @@ export default function FihOverlay() {
   const [activeSubs, setActiveSubs] = useState([]);
 
   const { settings } = useMetadata();
-  const clientRef = useTwitchClient(settings.twitchName);
-  const subscriberTracker = useSubscriberTracker(clientRef.current, false);
+  const client = useTwitchClient(settings.twitchName);
+  const subscriberTracker = useSubscriberTracker(client, true);
 
   const idleTarget = useRef({
     x: Math.random() * window.innerWidth,
@@ -246,8 +246,9 @@ export default function FihOverlay() {
   }, [spawnSubBubble]);
 
   useEffect(() => {
-    if (!clientRef.current) return;
-    let localref = clientRef.current;
+    if (!client) return;
+
+    console.log("IM ALIVEEEEEEEEEEEEEEEEE"); // This fires sometimes
     const handleMessage = (channel, userstate, message, self) => {
       console.log(settings.redeemFeed);
       console.log(userstate);
@@ -255,10 +256,13 @@ export default function FihOverlay() {
       if (userstate["custom-reward-id"] === settings.redeemFeed) {
         const tracker = subscriberTrackerRef.current;
         if (!tracker) return;
+        console.log("we passed tracker check");
         const available = tracker.getSubscriberCount();
         const spawnCount = Math.min(available, 5);
+        console.log("spawncount:", spawnCount);
         if (spawnCount > 0) {
           const selectedSubscribers = tracker.getRandomSubscribers(spawnCount);
+          console.log("selected subs:", selectedSubscribers);
           selectedSubscribers.forEach((sub, index) => {
             setTimeout(() => {
               const name = sub.username || sub.displayName;
@@ -270,9 +274,9 @@ export default function FihOverlay() {
         }
       }
     };
-    localref.on("message", handleMessage);
-    return () => localref.removeListener("message", handleMessage);
-  }, [settings, clientRef, spawnSubBubble, settings.redeemFeed]);
+    client.on("message", handleMessage);
+    return () => client.removeListener("message", handleMessage);
+  }, [client, spawnSubBubble, settings.redeemFeed]);
 
   useEffect(() => {
     const moveIdlePoint = () => {
