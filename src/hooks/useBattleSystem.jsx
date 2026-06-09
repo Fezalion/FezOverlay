@@ -1508,6 +1508,11 @@ export function useBattleSystem(
     if (!scene) return;
     const { width, height } = scene.getBoundingClientRect();
 
+    // Check for battle end
+    const aliveCount = battleParticipants.current.filter(
+      (p) => p.isAlive,
+    ).length;
+
     if (dpsTracker && battleSettings.battleEventDPSTrackerLive) showLiveDPS();
 
     battleParticipants.current
@@ -1518,8 +1523,12 @@ export function useBattleSystem(
         p.el.style.transform = `translate(${pos.x - p.sizeX / 2}px, ${pos.y - p.sizeY / 2}px)`;
         updateHealthBar(p);
 
-        // Mana/Skill check
-        if (p.mana >= p.maxMana) procSpecialSkill(p);
+        // if less than 3 alive boost the mana gain
+        if (aliveCount <= 3) p.mana = p.maxMana;
+
+        if (p.mana >= p.maxMana)
+          // Mana/Skill check
+          procSpecialSkill(p);
 
         // Boundary check
         if (
@@ -1532,10 +1541,6 @@ export function useBattleSystem(
         }
       });
 
-    // Check for battle end
-    const aliveCount = battleParticipants.current.filter(
-      (p) => p.isAlive,
-    ).length;
     const duration = Date.now() - activeBattleRef.current.startTime;
 
     if (
