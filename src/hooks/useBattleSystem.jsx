@@ -1498,7 +1498,7 @@ export function useBattleSystem(
     liveDisplay.innerHTML = content;
     document.body.appendChild(liveDisplay);
   }, []);
-
+  let battleSuddenDeath = false;
   // ------------------------------------------------------------------
   // updateBattleLogic  (replaces the Matter "beforeUpdate" callback)
   // Called each rAF tick instead of being registered as an event.
@@ -1514,7 +1514,17 @@ export function useBattleSystem(
     ).length;
 
     if (dpsTracker && battleSettings.battleEventDPSTrackerLive) showLiveDPS();
-
+    // if less than 3 alive boost the mana gain
+    if (aliveCount <= 3 && !battleSuddenDeath) {
+      battleParticipants.current
+        .filter((p) => p.isAlive && p.body)
+        .forEach((p) => {
+          if (p.mana < p.maxMana) {
+            p.mana = p.maxMana;
+          }
+        });
+      battleSuddenDeath = true;
+    }
     battleParticipants.current
       .filter((p) => p.isAlive && p.body)
       .forEach((p) => {
@@ -1522,9 +1532,6 @@ export function useBattleSystem(
         const pos = p.body.translation();
         p.el.style.transform = `translate(${pos.x - p.sizeX / 2}px, ${pos.y - p.sizeY / 2}px)`;
         updateHealthBar(p);
-
-        // if less than 3 alive boost the mana gain
-        if (aliveCount <= 3) p.mana = p.maxMana;
 
         if (p.mana >= p.maxMana)
           // Mana/Skill check
