@@ -414,7 +414,7 @@ export const lightning = ({
 
     // Resume physics + final cleanup
     setTimeout(() => {
-      restoreEngineTimeScale();
+      restoreEngineTimeScale(1.0);
 
       // Big final impact at farEnemy
       const fp = getPos(farEnemy);

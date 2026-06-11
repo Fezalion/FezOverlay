@@ -130,7 +130,7 @@ export function useBattleSystem(
 
       try {
         if (timescaleWatchdogRef.current) {
-          clearInterval(timescaleWatchdogRef.current);
+          clearTimeout(timescaleWatchdogRef.current);
           timescaleWatchdogRef.current = null;
         }
       } catch (e) {
@@ -1017,7 +1017,7 @@ export function useBattleSystem(
       try {
         restoreEngineTimeScale();
         if (timescaleWatchdogRef.current) {
-          clearInterval(timescaleWatchdogRef.current);
+          clearTimeout(timescaleWatchdogRef.current);
           timescaleWatchdogRef.current = null;
         }
       } catch (e) {
@@ -1413,7 +1413,7 @@ export function useBattleSystem(
 
       try {
         if (timescaleWatchdogRef.current) {
-          clearInterval(timescaleWatchdogRef.current);
+          clearTimeout(timescaleWatchdogRef.current);
           timescaleWatchdogRef.current = null;
         }
       } catch (e) {
