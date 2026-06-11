@@ -1,35 +1,13 @@
 import { useRef, useCallback, useEffect } from "react";
-import { useBattleSystem } from "./useBattleSystem";
 
 export function useGlobalEffects(
   engineRef, // engineRef.current is the Rapier World
   bodiesWithTimers,
-  emoteMap,
-  battleSettings,
-  subscriberTracker,
-  viewerTracker,
-  sceneRef,
-  client,
 ) {
   const magneticEventRef = useRef(false);
   const reverseGravityEventRef = useRef(false);
   const gravityEventRef = useRef(false);
-  const dpsTrackerRef = useRef(null);
-
   const magneticIntervalRef = useRef(null);
-
-  const battleSystem = useBattleSystem(
-    engineRef,
-    emoteMap,
-    bodiesWithTimers,
-    battleSettings,
-    subscriberTracker,
-    viewerTracker,
-    sceneRef,
-    client,
-  );
-
-  dpsTrackerRef.current = battleSystem.getDpsTracker();
 
   // Cleanup on unmount to prevent memory leaks or orphaned intervals
   useEffect(() => {
@@ -43,15 +21,6 @@ export function useGlobalEffects(
     (duration, str) => {
       const world = engineRef.current;
       if (magneticEventRef.current || !world) return;
-
-      // RESTORED: This handles the UI display for the event start
-      dpsTrackerRef.current?.recordEventUse(
-        "system",
-        "Chat",
-        "#fff",
-        "Magnetic Event",
-        duration,
-      );
 
       magneticEventRef.current = true;
       const forceMultiplier = str * 40000;
@@ -128,16 +97,6 @@ export function useGlobalEffects(
     (duration, str) => {
       const world = engineRef.current;
       if (gravityEventRef.current || !world) return;
-
-      // Log the event to your UI
-      dpsTrackerRef.current?.recordEventUse(
-        "system",
-        "Chat",
-        "#fff",
-        "Gravity Event",
-        duration,
-      );
-
       gravityEventRef.current = true;
 
       // Rapier gravity is an object {x, y}. Store current state to restore later
@@ -168,6 +127,5 @@ export function useGlobalEffects(
     magneticEventActive: magneticEventRef.current,
     reverseGravityEventActive: reverseGravityEventRef.current,
     gravityEventActive: gravityEventRef.current,
-    battleSystem,
   };
 }

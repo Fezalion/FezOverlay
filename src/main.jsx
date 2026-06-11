@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { NowPlaying } from "./components/NowPlaying";
 import Settings from "./components/Settings";
 import EmoteOverlay from "./components/EmoteOverlay";
+import BattleOverlay from "./components/BattleOverlay";
 import AuthCallback from "./AuthCallback";
 import YapMeter from "./components/YapMeter";
 import ChatCommands from "./components/ChatCommands";
@@ -87,6 +88,7 @@ async function main() {
         <Routes>
           <Route path="/playing" element={<NowPlaying />} />
           <Route path="/emotes" element={<EmoteOverlay />} />
+          <Route path="/battle" element={<BattleOverlay />} />
           <Route path="/" element={<Settings />} />
           <Route path="/yapmeter" element={<YapMeter />} />
           <Route path="/commands" element={<ChatCommands />} />

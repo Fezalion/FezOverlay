@@ -38,20 +38,6 @@ export default function EmoteOverlaySettings({ settings, updateSetting }) {
     fontWeight: "500",
   };
 
-  const inputStyle = {
-    background: "rgba(255,255,255,0.05)",
-    border: "1px solid rgba(255,255,255,0.1)",
-    borderRadius: "8px",
-    padding: "8px 12px",
-    color: "#fff",
-    fontFamily: "inherit",
-    fontSize: "12px",
-    outline: "none",
-    width: "100%",
-    marginBottom: "16px",
-    transition: "all 0.15s",
-  };
-
   const actionButtonStyle = {
     padding: "8px 12px",
     fontSize: "11px",
@@ -262,15 +248,6 @@ export default function EmoteOverlaySettings({ settings, updateSetting }) {
               subEffectGravityEventStrength: 1,
               subEffectGravityEventChance: 5,
               subEffectGravityEventDuration: 15,
-              battleEventChance: 5,
-              battleEventParticipants: 8,
-              battleEventHp: 300,
-              battleEventDamage: 50,
-              battleEventDuration: 60,
-              battleEventDPSTracker: true,
-              battleEventAcceptPlebs: false,
-              battleEventDPSTrackerFloatLeft: false,
-              battleEventDPSTrackerLiveFloatLeft: false,
               subOnlyMode: false,
               subEffectTypes: [],
             };
@@ -408,160 +385,6 @@ export default function EmoteOverlaySettings({ settings, updateSetting }) {
           },
         ]}
       />
-
-      <EffectCard
-        effectKey="battleEvent"
-        label="Battle Event"
-        enabled={settings.subEffectTypes.includes("battleEvent")}
-        toggleEnabled={() =>
-          updateSetting(
-            "subEffectTypes",
-            settings.subEffectTypes.includes("battleEvent")
-              ? settings.subEffectTypes.filter((t) => t !== "battleEvent")
-              : [...settings.subEffectTypes, "battleEvent"],
-          )
-        }
-        settings={settings}
-        onChange={updateSetting}
-        fields={[
-          {
-            key: "battleEventDuration",
-            label: "Maximum Duration (s)",
-            min: 30,
-            max: 120,
-            step: 1,
-            parser: parseInt,
-          },
-          {
-            key: "battleEventParticipants",
-            label: "Max Participants",
-            min: 3,
-            max: 20,
-            step: 1,
-            parser: parseInt,
-          },
-          {
-            key: "battleEventChance",
-            label: "Chance (%)",
-            min: 1,
-            max: 100,
-            step: 1,
-            parser: parseInt,
-          },
-          {
-            key: "battleEventHp",
-            label: "Max HP",
-            min: 1,
-            max: 600,
-            step: 1,
-            parser: parseInt,
-          },
-          {
-            key: "battleEventDamage",
-            label: "Damage per hit (±20%)",
-            min: 5,
-            max: 100,
-            step: 1,
-            parser: parseInt,
-          },
-        ]}
-      >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "12px",
-            marginBottom: "16px",
-          }}
-        >
-          <label style={{ ...labelStyle, marginBottom: 0 }}>
-            Include non-subs in battles
-          </label>
-          <button
-            onClick={() =>
-              updateSetting(
-                "battleEventAcceptPlebs",
-                !settings.battleEventAcceptPlebs,
-              )
-            }
-            style={toggleButtonStyle(settings.battleEventAcceptPlebs)}
-          >
-            <div
-              style={{
-                position: "absolute",
-                width: "20px",
-                height: "20px",
-                borderRadius: "50%",
-                background: "#fff",
-                top: "2px",
-                left: settings.battleEventAcceptPlebs ? "26px" : "2px",
-                transition: "left 0.15s",
-              }}
-            />
-          </button>
-        </div>
-
-        <EffectCard
-          effectKey="battleEventDPSTracker"
-          label="DPS Tracker / Battle Results"
-          enabled={settings.battleEventDPSTracker}
-          toggleEnabled={() =>
-            updateSetting(
-              "battleEventDPSTracker",
-              !settings.battleEventDPSTracker,
-            )
-          }
-          settings={settings}
-          onChange={updateSetting}
-          fields={[]}
-        >
-          {[
-            ["Display real-time dps", "battleEventDPSTrackerLive"],
-            [
-              "Display result screen at left side",
-              "battleEventDPSTrackerFloatLeft",
-            ],
-            [
-              "Display Live DPS Tracker at left side",
-              "battleEventDPSTrackerLiveFloatLeft",
-            ],
-            [
-              "Display Leaderboard at left side",
-              "battleEventLeaderboardFloatLeft",
-            ],
-            ["Display skill history", "battleEventShowSkillHistory"],
-          ].map(([label, key]) => (
-            <div
-              key={key}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "12px",
-                marginBottom: "16px",
-              }}
-            >
-              <label style={{ ...labelStyle, marginBottom: 0 }}>{label}</label>
-              <button
-                onClick={() => updateSetting(key, !settings[key])}
-                style={toggleButtonStyle(settings[key])}
-              >
-                <div
-                  style={{
-                    position: "absolute",
-                    width: "20px",
-                    height: "20px",
-                    borderRadius: "50%",
-                    background: "#fff",
-                    top: "2px",
-                    left: settings[key] ? "26px" : "2px",
-                    transition: "left 0.15s",
-                  }}
-                />
-              </button>
-            </div>
-          ))}
-        </EffectCard>
-      </EffectCard>
     </div>
   );
 }

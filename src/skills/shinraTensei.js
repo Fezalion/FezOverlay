@@ -7,6 +7,6 @@ export const shinraTensei = ({ showText, radialKnockback }) => ({
     setTimeout(() => {
       if (!participant.isAlive) return; // Skip if dead
       radialKnockback(participant);
-    }, 150);
+    }, 500);
   },
 });

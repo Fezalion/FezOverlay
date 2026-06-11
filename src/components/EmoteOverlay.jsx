@@ -8,11 +8,11 @@ import { useGlobalEffects } from "../hooks/useGlobalEffects";
 import { useMessageHandler } from "../hooks/useMessageHandler";
 import { useEmoteLifecycle } from "../hooks/useEmoteLifecycle";
 import { useRaidHandler } from "../hooks/useRaidHandler";
-import { useSubscriberTracker } from "../hooks/useSubscriberTracker";
 
 export default function EmoteOverlay() {
   const { settings, refreshSettings } = useMetadata();
   const [refreshToken, setRefreshToken] = useState(0);
+
   const wsRef = useRef(null);
 
   // Refresh logic
@@ -74,8 +74,8 @@ export default function EmoteOverlay() {
 function EmoteOverlayCore({ settings, wsRef, refreshToken }) {
   const sceneRef = useRef(null);
   const bodiesWithTimers = useRef([]);
-
   const client = useTwitchClient(settings.twitchName);
+
   const emoteMap = useEmoteLoader(settings.emoteSetId, refreshToken, {
     twitchName: settings.twitchName,
     enableBTTV: settings.enableBTTV,
@@ -83,36 +83,11 @@ function EmoteOverlayCore({ settings, wsRef, refreshToken }) {
     includeTwitchChannelEmotes: settings.includeTwitchChannelEmotes,
   });
   const physics = usePhysicsEngine();
-  const subscriberTracker = useSubscriberTracker(client, false);
-  const viewerTracker = useSubscriberTracker(client, true);
-
-  const battleSettings = {
-    battleEventChance: settings.battleEventChance,
-    battleEventParticipants: settings.battleEventParticipants,
-    battleEventHp: settings.battleEventHp,
-    battleEventDamage: settings.battleEventDamage,
-    battleEventDuration: settings.battleEventDuration,
-    battleEventDPSTracker: settings.battleEventDPSTracker,
-    battleEventDPSTrackerFloatLeft: settings.battleEventDPSTrackerFloatLeft,
-    battleEventDPSTrackerLiveFloatLeft:
-      settings.battleEventDPSTrackerLiveFloatLeft,
-    battleEventDPSTrackerLive: settings.battleEventDPSTrackerLive,
-    battleEventAcceptPlebs: settings.battleEventAcceptPlebs,
-    battleEventShowSkillHistory: settings.battleEventShowSkillHistory,
-    twitchName: settings.twitchName,
-    emoteScale: settings.emoteScale ?? 1,
-    emoteBaseSize: settings.emoteBaseSize ?? 64,
-  };
 
   const globalEffects = useGlobalEffects(
     physics.engineRef,
     bodiesWithTimers,
     emoteMap,
-    battleSettings,
-    subscriberTracker,
-    viewerTracker,
-    sceneRef,
-    client,
   );
 
   const { spawnEmote } = useEmoteSpawner(

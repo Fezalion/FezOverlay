@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 
 export function useMessageHandler(
   client,
@@ -16,20 +16,12 @@ export function useMessageHandler(
     subEffectGravityEventChance,
     subEffectGravityEventDuration,
     subEffectGravityEventStrength,
-    battleEventChance,
   } = settings;
-
-  const accumulatedBattleChanceRef = useRef(battleEventChance);
-
-  useEffect(() => {
-    accumulatedBattleChanceRef.current = battleEventChance;
-  }, [battleEventChance]);
 
   useEffect(() => {
     if (!client || !spawnEmoteRef) return;
 
     function onMessage(channel, userstate, message) {
-      const isMod = userstate.mod || userstate.badges?.broadcaster;
       const words = message.split(/\s+/);
 
       const trimPunc = (s) => s.replace(/^[^a-zA-Z0-9]+|[^a-zA-Z0-9]+$/g, "");
@@ -86,12 +78,6 @@ export function useMessageHandler(
           str: subEffectGravityEventStrength,
           chance: subEffectGravityEventChance,
         },
-        battleEvent: {
-          fn: globalEffects.battleSystem.startBattle,
-          duration: null,
-          str: null,
-          chance: accumulatedBattleChanceRef.current,
-        },
       };
 
       let b = false;
@@ -104,17 +90,6 @@ export function useMessageHandler(
         { fn: effectFn, duration, str, chance },
       ] of shuffledEffects) {
         if (Math.random() * 100 > chance) {
-          if (
-            effectName === "battleEvent" &&
-            isSub &&
-            emotes.length > 0 &&
-            subEffectTypes.includes("battleEvent")
-          ) {
-            accumulatedBattleChanceRef.current = Math.min(
-              100,
-              accumulatedBattleChanceRef.current + 0.05,
-            );
-          }
           continue;
         }
 
@@ -123,23 +98,10 @@ export function useMessageHandler(
           emotes.length > 0 &&
           subEffectTypes.includes(effectName) &&
           !globalEffects.magneticEventActive &&
-          !globalEffects.gravityEventActive &&
-          !globalEffects.battleSystem.isActive
+          !globalEffects.gravityEventActive
         ) {
           console.log(`event proc ${effectName} for ${duration}s`);
-          if (effectName === "battleEvent") {
-            b = effectFn();
-            if (b) {
-              accumulatedBattleChanceRef.current = battleEventChance;
-            } else {
-              accumulatedBattleChanceRef.current = Math.min(
-                100,
-                accumulatedBattleChanceRef.current + 0.05,
-              );
-            }
-          } else {
-            effectFn(duration ?? 2, str);
-          }
+          effectFn(duration ?? 2, str);
           break;
         }
       }
@@ -151,19 +113,6 @@ export function useMessageHandler(
             spawnEmoteRef.current?.(emoteName, isSub, userColor);
           }, i * emoteDelay);
         });
-      }
-
-      const cmd = words[0].toLowerCase();
-      const arg = words[1]?.toLowerCase();
-
-      if (cmd === "!force" && isMod) {
-        switch (arg) {
-          case "battleevent":
-            if (subEffectTypes.includes("battleEvent")) {
-              globalEffects.battleSystem.startBattle();
-            }
-            break;
-        }
       }
     }
 
@@ -184,6 +133,5 @@ export function useMessageHandler(
     subEffectGravityEventStrength,
     subEffectGravityEventChance,
     subEffectGravityEventDuration,
-    battleEventChance,
   ]);
 }

@@ -11,7 +11,7 @@ import { useRef, useEffect, useCallback } from "react";
 //   window.RAPIER = RAPIER;
 //
 // engineRef.current is now a Rapier World instance.  All downstream hooks
-// (useBattleSystem, useEmoteSpawner, etc.) read engineRef.current as the world.
+// (useEmoteSpawner) read engineRef.current as the world.
 //
 // Key API differences vs Matter.js:
 //   body.translation()          → { x, y }   (replaces body.position)

@@ -7,10 +7,12 @@ import CommandSettings from "./CommandSettings";
 import ChatOverlaySettings from "./ChatOverlaySettings";
 import LeaderboardSettings from "./LeaderboardSettings";
 import POEDeathCounterSettings from "./POEDeathCounterSettings";
+import BattleSettings from "./BattleSettings";
 
 const MENU = [
   { key: "song", label: "Song Overlay", component: SongOverlaySettings },
   { key: "emote", label: "Emote Overlay", component: EmoteOverlaySettings },
+  { key: "battle", label: "Battle Overlay", component: BattleSettings },
   { key: "yap", label: "Yap Meter", component: YapMeterSettings },
   { key: "commands", label: "Commands", component: CommandSettings },
   { key: "chat", label: "Chat Overlay", component: ChatOverlaySettings },
@@ -52,6 +54,10 @@ function Settings() {
             updateSetting={updateSetting}
             availableSubEffects={availableSubEffects}
           />
+        );
+      case "battle":
+        return (
+          <BattleSettings settings={settings} updateSetting={updateSetting} />
         );
       case "yap":
         return (
@@ -171,18 +177,14 @@ function Settings() {
                   textAlign: "left",
                   padding: "12px 20px",
                   background:
-                    selected === item.key
-                      ? `${accent}15`
-                      : "transparent",
+                    selected === item.key ? `${accent}15` : "transparent",
                   border: "none",
                   borderLeft:
                     selected === item.key
                       ? `2px solid ${accent}`
                       : "2px solid transparent",
                   color:
-                    selected === item.key
-                      ? "#fff"
-                      : "rgba(255,255,255,0.6)",
+                    selected === item.key ? "#fff" : "rgba(255,255,255,0.6)",
                   fontSize: "12px",
                   cursor: "pointer",
                   transition: "all 0.15s",
