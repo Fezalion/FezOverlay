@@ -1660,7 +1660,7 @@ export default function BattleOverlay() {
         userstate.badges?.vip ||
         userstate.badges?.broadcaster;
 
-      if (Math.random() * 100 > settings.battleEventChance) {
+      if (Math.random() * 100 < settings.battleEventChance) {
         if (
           (settings.battleEventAcceptPlebs || isSub) &&
           emotes.length > 0 &&
