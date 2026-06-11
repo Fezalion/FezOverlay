@@ -15,19 +15,6 @@ export default function EmoteOverlaySettings({ settings, updateSetting }) {
       });
   }, []);
 
-  const toggleAllEffects = () => {
-    updateSetting("subEffectTypes", [...allAvailableEffects.current]);
-  };
-
-  const sectionStyle = {
-    background: "rgba(255,255,255,0.04)",
-    border: "1px solid rgba(255,255,255,0.08)",
-    borderRadius: "8px",
-    padding: "16px",
-    marginBottom: "16px",
-    position: "relative",
-  };
-
   const labelStyle = {
     fontSize: "11px",
     letterSpacing: "1px",
@@ -36,35 +23,6 @@ export default function EmoteOverlaySettings({ settings, updateSetting }) {
     marginBottom: "12px",
     display: "block",
     fontWeight: "500",
-  };
-
-  const actionButtonStyle = {
-    padding: "8px 12px",
-    fontSize: "11px",
-    fontWeight: "500",
-    color: "rgba(255,255,255,0.7)",
-    background: "rgba(255,255,255,0.05)",
-    border: "1px solid rgba(255,255,255,0.1)",
-    borderRadius: "6px",
-    cursor: "pointer",
-    fontFamily: "inherit",
-    transition: "all 0.15s",
-  };
-
-  const resetButtonStyle = {
-    position: "absolute",
-    top: "12px",
-    right: "12px",
-    padding: "6px 10px",
-    fontSize: "10px",
-    fontWeight: "500",
-    color: "rgba(255,255,255,0.6)",
-    background: "rgba(255,255,255,0.05)",
-    border: "1px solid rgba(255,255,255,0.1)",
-    borderRadius: "6px",
-    cursor: "pointer",
-    fontFamily: "inherit",
-    transition: "all 0.15s",
   };
 
   const toggleButtonStyle = (enabled) => ({

@@ -7,7 +7,8 @@ A React-based overlay application for streaming fun features.
 - **Music Overlay**: Play your own youtube playlists and get song requests from your twitch chat.
 - **Customizable UI**: Adjust background color, scale, padding, and more
 - **Auto-Update System**: Automatically downloads and updates from the latest GitHub release
-- **Emote Overlay**: Show the emotes sent in chat in a fun way in your stream, and battle events
+- **Emote Overlay**: Show the emotes sent in chat in a fun way in your stream
+- **Battle Overlay**: A battle mini-game
 - **Chat Overlay**: Show your twitch chat in your stream with customizable events
 - **Yap Meter**: Show how much you yap and get punished for it
 
@@ -28,8 +29,9 @@ A React-based overlay application for streaming fun features.
 4. **Add the Overlays to OBS:**
    - In OBS, add a new **Browser Source**s for the widgets you want to use.
    - Set the URL for widgets and make the resolution same as your screen:  
-      `http://localhost:48000/playing`
+     `http://localhost:48000/playing`
      `http://localhost:48000/emotes`
+     `http://localhost:48000/battle`
      `http://localhost:48000/chat`
      `http://localhost:48000/commands`
      `http://localhost:48000/yapmeter`
