@@ -452,22 +452,6 @@ app.get("/api/currentversion", (req, res) => {
   res.json({ version: val });
 });
 
-app.get("/api/twitch", (req, res) => {
-  if (!process.env.TWITCH_ACCESS_TOKEN) {
-    console.error(
-      "[Twitch API] TWITCH_ACCESS_TOKEN and/or CLIENT_ID is not set",
-    );
-    return res
-      .status(500)
-      .json({ error: "TWITCH_ACCESS_TOKEN and/or CLIENT_ID is not set" });
-  }
-  let val = process.env.TWITCH_ACCESS_TOKEN;
-  res.json({
-    auth: val,
-    client: "pro83yr2qxpqs1qwy85uqkp17w5wpl",
-  });
-});
-
 app.get("/api/youtube/apikey/status", (req, res) => {
   res.json({ configured: Boolean(process.env.VITE_YOUTUBE_API_KEY) });
 });
@@ -911,7 +895,7 @@ app.get("/api/subeffecttypes", (req, res) => {
 
 // Backend: receives token from frontend and saves it
 app.post("/auth/twitch/callback", express.json(), (req, res) => {
-  const { access_token } = req.body;
+  const { access_token, username } = req.body;
 
   if (!access_token) {
     return res
@@ -919,20 +903,43 @@ app.post("/auth/twitch/callback", express.json(), (req, res) => {
       .json({ error: "Missing access_token in request body" });
   }
 
-  // Save token into .env
+  // Save token and username into .env
   let envData = "";
   if (fs.existsSync(envPath)) {
     envData = fs.readFileSync(envPath, "utf8");
   }
 
+  // Strip existing values
   envData = envData.replace(/TWITCH_ACCESS_TOKEN=.*/g, "");
+  envData = envData.replace(/TWITCH_USERNAME=.*/g, "");
+
+  // Append new values cleanly
   envData += `\nTWITCH_ACCESS_TOKEN=${access_token}`;
+  if (username) {
+    envData += `\nTWITCH_USERNAME=${username.trim().toLowerCase()}`;
+  }
 
   fs.writeFileSync(envPath, envData.trim() + "\n");
 
   reloadEnv();
 
-  res.json({ success: true, message: "Token saved and loaded" });
+  res.json({
+    success: true,
+    message: "Token and identity credentials saved and loaded",
+  });
+});
+
+app.get("/api/twitch", (req, res) => {
+  if (!process.env.TWITCH_ACCESS_TOKEN) {
+    console.error("[Twitch API] TWITCH_ACCESS_TOKEN is not set");
+    return res.status(500).json({ error: "TWITCH_ACCESS_TOKEN is not set" });
+  }
+
+  res.json({
+    auth: process.env.TWITCH_ACCESS_TOKEN,
+    username: process.env.TWITCH_USERNAME || "", // Send the saved logged-in name
+    client: "pro83yr2qxpqs1qwy85uqkp17w5wpl",
+  });
 });
 
 // --- STATIC & SPA ROUTING ---

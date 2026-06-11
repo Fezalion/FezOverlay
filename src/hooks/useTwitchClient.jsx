@@ -47,14 +47,19 @@ const fetchAuth = () => {
   return authPromise;
 };
 
-const initializeClient = async (twitchName, auth, cid) => {
+// Updated signature to accept the full data payload from /api/twitch
+const initializeClient = async (twitchName, authData, cid) => {
   if (sharedClient) {
     log("info", "CLIENT_REUSE", `Reusing existing client for ${twitchName}`);
     clientRefCount++;
     return sharedClient;
   }
 
-  log("info", "CLIENT_INIT", `Channel: ${twitchName}`);
+  log("info", "CLIENT_INIT", `Target Room Channel: ${twitchName}`);
+
+  // Use the authorized bot/user account name returned from the backend.
+  // Fall back to target channel if backend credentials don't provide a username.
+  const identityName = (authData.username || twitchName).toLowerCase();
 
   const newClient = new tmi.Client({
     options: {
@@ -63,13 +68,13 @@ const initializeClient = async (twitchName, auth, cid) => {
       skipUpdatingEmotesets: true,
     },
     identity: {
-      username: twitchName,
-      password: "oauth:" + auth,
+      username: identityName, // The specific account that OWNS the OAuth token
+      password: "oauth:" + authData.auth,
     },
     connection: {
       reconnect: true,
     },
-    channels: [twitchName],
+    channels: [twitchName.toLowerCase()], // The targeted streamer chat room to enter
   });
 
   newClient.on("connecting", (address, port) =>
@@ -88,9 +93,13 @@ const initializeClient = async (twitchName, auth, cid) => {
     log("warn", "RECONNECT", "Attempting reconnection"),
   );
 
-  newClient.on("logon", () => log("info", "LOGON", "Authenticated"));
+  newClient.on("logon", () =>
+    log("info", "LOGON", `Authenticated as ${identityName}`),
+  );
 
-  newClient.on("join", (channel) => log("info", "JOIN", `Joined ${channel}`));
+  newClient.on("join", (channel) =>
+    log("info", "JOIN", `Joined room: ${channel}`),
+  );
 
   try {
     await newClient.connect();
@@ -115,7 +124,8 @@ export function useTwitchClient(twitchName) {
     fetchAuth()
       .then((data) => {
         if (ignore) return;
-        return initializeClient(twitchName, data.auth, data.client);
+        // Pass the entire data object instead of just data.auth
+        return initializeClient(twitchName, data, data.client);
       })
       .then((connectedClient) => {
         if (ignore || !mounted.current) return;
