@@ -7,151 +7,60 @@ on:
 
 permissions:
   contents: write
-  issues: write
-  pull-requests: write
-  packages: write
 
 jobs:
-  build-and-release:
-    runs-on: windows-latest
+  publish-tauri:
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # If you want to expand to macOS or Linux later, you can uncomment these:
+          # - platform: 'macos-latest'
+          #   args: ''
+          # - platform: 'ubuntu-22.04'
+          #   args: ''
+          - platform: "windows-latest"
+            args: ""
 
+    runs-on: ${{ matrix.platform }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Get version from tag
-        id: get_version
-        run: |
-          $tag = "${{ github.ref_name }}"
-          $version = $tag -replace '^v', ''
-          echo "version=$version" >> $env:GITHUB_OUTPUT
-          echo "tag=$tag" >> $env:GITHUB_OUTPUT
-          echo "Version: $version"
-          echo "Tag: $tag"
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "18"
+          node-version: "22" # Updated to modern Node.js
+          cache: "npm"
 
-      - name: Generate changelog from commits
-        id: changelog
-        run: |
-          # Determine previous tag (if any)
-          $currentTag = "${{ github.ref_name }}"
-          Write-Host "Current tag: $currentTag"
-          $allTags = git tag --sort=-creatordate
-          $previousTag = $null
-          if ($allTags) {
-            $tagsArray = $allTags -split "`n" | Where-Object { $_ -ne $currentTag }
-            if ($tagsArray -and $tagsArray.Count -gt 0) { $previousTag = $tagsArray[0].Trim() }
-          }
-          if (-not $previousTag) { Write-Host "No previous tag found, using initial commit range" }
+      - name: Install Rust Stable
+        uses: dtolnay/rust-toolchain@stable
 
-          if ($previousTag) {
-            $range = "$previousTag..$currentTag"
-          } else {
-            $range = "$currentTag"
-          }
-
-          Write-Host "Commit range: $range"
-
-          # Get commits in the range and format as markdown list
-          $commits = git log --pretty=format:'%h %s (%an)' $range
-          if (-not $commits) {
-            $body = "No changes listed for this release."
-          } else {
-            $body = "## Changelog`n`n"
-            $body += ($commits -split "`n" | ForEach-Object { "- $_`n" }) -join ""
-          }
-
-          # Fallback body if empty
-          if (-not $body) { $body = "No changes listed for this release." }
-
-          Write-Host "Generated changelog:\n$body"
-          echo "changelog<<EOF" >> $env:GITHUB_OUTPUT
-          echo $body >> $env:GITHUB_OUTPUT
-          echo "EOF" >> $env:GITHUB_OUTPUT
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Update package.json version
-        run: |
-          $version = "${{ steps.get_version.outputs.version }}"
-          $packageJson = Get-Content package.json | ConvertFrom-Json
-          $packageJson.version = $version
-          $packageJson | ConvertTo-Json -Depth 10 | Set-Content package.json
-          echo "Updated package.json version to $version"
-
-      - name: Build React app
-        run: npm run build
-
-      - name: Install pkg
-        run: npm install -g pkg
-
-      - name: Build executables
-        run: |
-          pkg server.cjs --targets node18-win-x64 --output fezoverlay.exe
-          pkg updater.cjs --targets node18-win-x64 --output updater.exe
-
-      - name: Verify build outputs
-        run: |
-          echo "Checking build outputs..."
-          if (-not (Test-Path "fezoverlay.exe")) {
-            Write-Error "fezoverlay.exe was not created"
-            exit 1
-          }
-          if (-not (Test-Path "updater.exe")) {
-            Write-Error "updater.exe was not created"
-            exit 1
-          }
-          if (-not (Test-Path "dist")) {
-            Write-Error "dist folder was not created"
-            exit 1
-          }
-          echo "Build outputs verified successfully"
-
-      - name: Zip dist folder
-        run: Compress-Archive -Path dist/* -DestinationPath dist.zip
-
-      - name: List files for debugging
-        run: |
-          echo "Current directory:"
-          Get-Location
-          echo "Files in current directory:"
-          Get-ChildItem
-          echo "Size of fezoverlay.exe:"
-          if (Test-Path fezoverlay.exe) { (Get-Item fezoverlay.exe).Length }
-          echo "Size of dist.zip:"
-          if (Test-Path dist.zip) { (Get-Item dist.zip).Length }
-
-      - name: Create Release
-        uses: softprops/action-gh-release@v2
+      - name: Rust Cache
+        uses: swatinem/rust-cache@v2
         with:
-          tag_name: ${{ steps.get_version.outputs.tag }}
-          name: "FezOverlay v${{ steps.get_version.outputs.version }}"
-          body: |
-            ## FezOverlay v${{ steps.get_version.outputs.version }}
+          workspaces: "./src-tauri -> target"
 
-            ${{ steps.changelog.outputs.changelog }}
+      # Only needed if you decide to build for Linux (Ubuntu) in the matrix above
+      - name: Install Linux Dependencies
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
 
-            ### Downloads
-            - **fezoverlay.exe**: Standalone Windows executable
-            - **dist.zip**: Application files (extract to use with the executable)
+      - name: Install Frontend Dependencies
+        run: npm install
 
-            ### Installation
-            1. Download `updater.exe`
-            2. Run `updater.exe`
-
-            The application will automatically download the latest files if needed.
-          files: |
-            fezoverlay.exe
-            updater.exe
-            dist.zip
-          draft: false
-          prerelease: false
+      - name: Build and Publish Tauri Application
+        uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: "FezOverlay ${{ github.ref_name }}"
+          releaseBody: "Automated production binaries generated by GitHub Actions pipeline."
+          releaseDraft: true
+          prerelease: false
+          args: ${{ matrix.args }}

@@ -18,7 +18,7 @@ export default function ChatOverlay() {
 
   // Single WS setup
   useEffect(() => {
-    const ws = new WebSocket("ws://localhost:48000");
+    const ws = new WebSocket("ws://localhost:48000/ws");
 
     const handleMessage = (event) => {
       console.log("message received, ", event);

@@ -1,5 +1,5 @@
-import { StrictMode } from "react";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { StrictMode, useEffect } from "react";
+import { BrowserRouter, Routes, Route, useNavigate } from "react-router-dom";
 import { NowPlaying } from "./components/NowPlaying";
 import Settings from "./components/Settings";
 import EmoteOverlay from "./components/EmoteOverlay";
@@ -8,17 +8,13 @@ import AuthCallback from "./AuthCallback";
 import YapMeter from "./components/YapMeter";
 import ChatCommands from "./components/ChatCommands";
 import ChatOverlay from "./components/ChatOverlay";
-import POEDeathCounter from "./components/POEDeathCounter";
 import Music from "./components/MusicOverlay";
 import FihOverlay from "./components/Fih";
 import "./index.css";
 import { setupGlobalErrorLogger } from "./utils/errorLogger";
 import RAPIER from "@dimforge/rapier2d-compat";
 
-await RAPIER.init();
-window.RAPIER = RAPIER;
-
-setupGlobalErrorLogger();
+import { listen } from "@tauri-apps/api/event";
 
 function hexToRgb(hex) {
   hex = hex.replace("#", "");
@@ -76,25 +72,67 @@ fetch("/api/settings")
     );
   });
 
+function TrayNavigationHandler() {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    let unlistenFn = null;
+
+    const setupListener = async () => {
+      unlistenFn = await listen("navigate-to", (event) => {
+        const targetPage = event.payload;
+        console.log("Navigating via Tray to:", targetPage);
+
+        switch (targetPage) {
+          case "music":
+            navigate("/music");
+            break;
+          case "settings":
+            navigate("/");
+            break;
+          default:
+            navigate(`/${targetPage}`);
+            break;
+        }
+      });
+    };
+
+    setupListener();
+
+    return () => {
+      if (unlistenFn) {
+        unlistenFn();
+      }
+    };
+  }, [navigate]);
+
+  return null;
+}
+
 async function main() {
   await RAPIER.init();
   window.RAPIER = RAPIER;
+
+  setupGlobalErrorLogger();
+
   // now mount React
   const { createRoot } = await import("react-dom/client");
 
   createRoot(document.getElementById("root")).render(
     <StrictMode>
       <BrowserRouter>
+        <TrayNavigationHandler />
+
         <Routes>
           <Route path="/playing" element={<NowPlaying />} />
           <Route path="/emotes" element={<EmoteOverlay />} />
           <Route path="/battle" element={<BattleOverlay />} />
           <Route path="/" element={<Settings />} />
+          <Route path="/settings" element={<Settings />} />
           <Route path="/yapmeter" element={<YapMeter />} />
           <Route path="/commands" element={<ChatCommands />} />
           <Route path="/auth/twitch/callback" element={<AuthCallback />} />
           <Route path="/chat" element={<ChatOverlay />} />
-          <Route path="/deaths" element={<POEDeathCounter />} />
           <Route path="/music" element={<Music />} />
           <Route path="/fih" element={<FihOverlay />} />
         </Routes>

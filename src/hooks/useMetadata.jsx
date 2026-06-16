@@ -113,6 +113,13 @@ export function useMetadata() {
   const [latestVersion, setLatestVersion] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Track pending (unsaved) changes using state for reactivity
+  const pendingChangesRef = useRef({});
+  const [unsavedCount, setUnsavedCount] = useState(0);
+
+  const hasUnsavedChanges = unsavedCount > 0;
 
   // Ref for debounce timer
   const refreshTimeoutRef = useRef(null);
@@ -142,6 +149,12 @@ export function useMetadata() {
         clearTimeout(refreshTimeoutRef.current);
       }
     };
+  }, []);
+
+  // Clear pending helper
+  const clearPending = useCallback(() => {
+    pendingChangesRef.current = {};
+    setUnsavedCount(0);
   }, []);
 
   // Fetch all settings
@@ -329,6 +342,9 @@ export function useMetadata() {
         maxSongLength: toNumber(data.maxSongLength, 0),
       });
 
+      // Clear pending changes after successful fetch
+      clearPending();
+
       setError(null);
     } catch (err) {
       console.error("Error fetching settings:", err);
@@ -336,7 +352,7 @@ export function useMetadata() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [clearPending]);
 
   // Fetch available sub effects
   const fetchSubEffectTypes = useCallback(async () => {
@@ -374,8 +390,8 @@ export function useMetadata() {
     }
   }, []);
 
-  // Function to update local state only (for immediate visual feedback)
-  const setLocalSetting = useCallback((key, value) => {
+  // Update a single setting locally (no API call, tracks as pending)
+  const updateSetting = useCallback((key, value) => {
     setSettings((prev) => {
       const newSettings = { ...prev, [key]: value };
 
@@ -389,84 +405,51 @@ export function useMetadata() {
 
       return newSettings;
     });
+
+    // Track the change as pending and update count for reactivity
+    pendingChangesRef.current[key] = value;
+    setUnsavedCount(Object.keys(pendingChangesRef.current).length);
   }, []);
 
-  // Update a single setting
-  const updateSetting = useCallback(
-    async (key, value) => {
-      try {
-        const response = await fetch("/api/settings", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ [key]: value }),
-        });
+  // Save all pending changes to the backend
+  const saveSettings = useCallback(async () => {
+    const changes = { ...pendingChangesRef.current };
+    if (Object.keys(changes).length === 0) return true;
 
-        if (!response.ok) throw new Error(`Failed to update ${key}`);
+    setIsSaving(true);
+    try {
+      console.log("Saving settings:", changes);
 
-        // Update local state immediately
-        setSettings((prev) => ({ ...prev, [key]: value }));
+      const response = await fetch("/api/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(changes),
+      });
 
-        // Debounce the refresh call
-        debouncedRefresh();
+      if (!response.ok) throw new Error("Failed to save settings");
 
-        return true;
-      } catch (err) {
-        console.error(`Error updating setting ${key}:`, err);
-        return false;
-      }
-    },
-    [debouncedRefresh],
-  );
+      console.log("Settings saved successfully");
 
-  // Bulk update multiple settings at once
-  const updateSettings = useCallback(
-    async (updatedSettings) => {
-      try {
-        console.log("updateSettings called with:", updatedSettings);
+      // Clear pending changes
+      clearPending();
 
-        const response = await fetch("/api/settings", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(updatedSettings),
-        });
+      // Debounce the refresh call
+      debouncedRefresh();
 
-        if (!response.ok) throw new Error("Failed to update settings");
+      return true;
+    } catch (err) {
+      console.error("Error saving settings:", err);
+      return false;
+    } finally {
+      setIsSaving(false);
+    }
+  }, [debouncedRefresh, clearPending]);
 
-        console.log("API call successful");
-
-        // Update local state immediately
-        setSettings((prev) => {
-          const newSettings = { ...prev, ...updatedSettings };
-
-          // Special handling for player location coordinates
-          if (
-            "playerLocationX" in updatedSettings ||
-            "playerLocationY" in updatedSettings
-          ) {
-            newSettings.playerLocationCoords = {
-              x: updatedSettings.playerLocationX ?? prev.playerLocationCoords.x,
-              y: updatedSettings.playerLocationY ?? prev.playerLocationCoords.y,
-            };
-            console.log(
-              "Updated playerLocationCoords:",
-              newSettings.playerLocationCoords,
-            );
-          }
-
-          return newSettings;
-        });
-
-        // Debounce the refresh call
-        debouncedRefresh();
-
-        return true;
-      } catch (err) {
-        console.error("Error updating settings:", err);
-        return false;
-      }
-    },
-    [debouncedRefresh],
-  );
+  // Discard pending changes (revert to last saved state)
+  const discardSettings = useCallback(() => {
+    clearPending();
+    fetchSettings();
+  }, [clearPending, fetchSettings]);
 
   // Load all data on initial mount
   useEffect(() => {
@@ -485,12 +468,11 @@ export function useMetadata() {
     latestVersion,
     isLoading,
     error,
+    isSaving,
+    hasUnsavedChanges,
     updateSetting,
-    updateSettings,
+    saveSettings,
+    discardSettings,
     refreshSettings: fetchSettings,
-    // Expose the debounced refresh function in case you need manual control
-    debouncedRefresh,
-    // Function for immediate local state updates without API calls
-    setLocalSetting,
   };
 }

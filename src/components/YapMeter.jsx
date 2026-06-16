@@ -15,7 +15,7 @@ export default function YapMeter() {
   }, [refreshToken, refreshSettings]);
 
   useEffect(() => {
-    const wsUrl = "ws://localhost:48000";
+    const wsUrl = "ws://localhost:48000/ws";
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 

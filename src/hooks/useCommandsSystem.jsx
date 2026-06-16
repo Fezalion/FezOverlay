@@ -14,7 +14,7 @@ export function useCommandsSystem(client) {
     let reconnectTimeout;
 
     function connectWS() {
-      ws = new WebSocket("ws://localhost:48000");
+      ws = new WebSocket("ws://localhost:48000/ws");
       wsRef.current = ws;
 
       ws.onopen = () => {

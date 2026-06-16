@@ -34,6 +34,7 @@ export async function fetchPlaylistData(playlistId) {
 export async function fetchVideoInfo(videoId) {
   if (cache.has(videoId)) return cache.get(videoId);
 
+  console.log("Data from youtube.js :", videoId);
   try {
     const res = await fetch(
       `/api/youtube/video/${encodeURIComponent(videoId)}`,
@@ -44,6 +45,7 @@ export async function fetchVideoInfo(videoId) {
     }
 
     const data = await res.json();
+
     const info = {
       videoId,
       title: data?.title || "Unknown title",
