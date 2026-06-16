@@ -71,7 +71,7 @@ export default function BattleOverlay() {
     includeTwitchChannelEmotes: settings.includeTwitchChannelEmotes,
   });
   const physics = usePhysicsEngine();
-  const subscriberTracker = useSubscriberTracker(client, false, true);
+  const subscriberTracker = useSubscriberTracker(client, false);
   const viewerTracker = useSubscriberTracker(client, true);
 
   const battleSettings = useMemo(
