@@ -103,11 +103,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: ${{ steps.get_version.outputs.tag }}
+          tagName: ${{ github.ref_name }}
           releaseName: "FezOverlay ${{ github.ref_name }}"
           releaseBody: |
-            ## FezOverlay v${{ steps.get_version.outputs.version }}
-
             ${{ steps.changelog.outputs.changelog }}
 
           releaseDraft: false
