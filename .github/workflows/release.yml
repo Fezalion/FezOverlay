@@ -24,46 +24,62 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # Full history needed to compare tags
-
-      - name: Generate Changelog
-        id: changelog
-        shell: bash
-        run: |
-          CURRENT_TAG="${{ github.ref_name }}"
-          PREV_TAG=$(git tag --sort=-version:refname | grep -E '^v' | sed -n '2p')
-
-          if [ -z "$PREV_TAG" ]; then
-            COMMITS=$(git log --pretty=format:"- %s (%h)" HEAD)
-          else
-            COMMITS=$(git log --pretty=format:"- %s (%h)" "$PREV_TAG"..HEAD)
-          fi
-
-          [ -z "$COMMITS" ] && COMMITS="- No changes recorded."
-
-          {
-            echo "## What's Changed"
-            echo ""
-            echo "$COMMITS"
-            echo ""
-            if [ -n "$PREV_TAG" ]; then
-              echo "**Full diff:** [\`$PREV_TAG...$CURRENT_TAG\`](https://github.com/${{ github.repository }}/compare/$PREV_TAG...$CURRENT_TAG)"
-            fi
-          } > changelog.md
-
-      - name: Read Changelog
-        id: read_changelog
-        shell: bash
-        run: |
-          echo "body<<EOF" >> "$GITHUB_OUTPUT"
-          cat changelog.md >> "$GITHUB_OUTPUT"
-          echo "EOF" >> "$GITHUB_OUTPUT"
+          fetch-depth: 0
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "22"
           cache: "npm"
+
+      - name: Get version from tag
+        id: get_version
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $version = $tag -replace '^v', ''
+          echo "version=$version" >> $env:GITHUB_OUTPUT
+          echo "tag=$tag" >> $env:GITHUB_OUTPUT
+          echo "Version: $version"
+          echo "Tag: $tag"
+
+      - name: Generate changelog from commits
+        id: changelog
+        run: |
+          # Determine previous tag (if any)
+          $currentTag = "${{ github.ref_name }}"
+          Write-Host "Current tag: $currentTag"
+          $allTags = git tag --sort=-creatordate
+          $previousTag = $null
+          if ($allTags) {
+            $tagsArray = $allTags -split "`n" | Where-Object { $_ -ne $currentTag }
+            if ($tagsArray -and $tagsArray.Count -gt 0) { $previousTag = $tagsArray[0].Trim() }
+          }
+          if (-not $previousTag) { Write-Host "No previous tag found, using initial commit range" }
+
+          if ($previousTag) {
+            $range = "$previousTag..$currentTag"
+          } else {
+            $range = "$currentTag"
+          }
+
+          Write-Host "Commit range: $range"
+
+          # Get commits in the range and format as markdown list
+          $commits = git log --pretty=format:'%h %s (%an)' $range
+          if (-not $commits) {
+            $body = "No changes listed for this release."
+          } else {
+            $body = "## Changelog`n`n"
+            $body += ($commits -split "`n" | ForEach-Object { "- $_`n" }) -join ""
+          }
+
+          # Fallback body if empty
+          if (-not $body) { $body = "No changes listed for this release." }
+
+          Write-Host "Generated changelog:\n$body"
+          echo "changelog<<EOF" >> $env:GITHUB_OUTPUT
+          echo $body >> $env:GITHUB_OUTPUT
+          echo "EOF" >> $env:GITHUB_OUTPUT
 
       - name: Install Rust Stable
         uses: dtolnay/rust-toolchain@stable
@@ -87,9 +103,13 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: ${{ github.ref_name }}
+          tagName: ${{ steps.get_version.outputs.tag }}
           releaseName: "FezOverlay ${{ github.ref_name }}"
-          releaseBody: ${{ steps.read_changelog.outputs.body }}
-          releaseDraft: true
+          releaseBody: |
+            ## FezOverlay v${{ steps.get_version.outputs.version }}
+
+            ${{ steps.changelog.outputs.changelog }}
+
+          releaseDraft: false
           prerelease: false
           args: ${{ matrix.args }}
