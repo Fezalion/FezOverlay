@@ -5,7 +5,12 @@ use chrono::Utc;
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct AppConfig {
+    /// Directory for writable runtime data (settings, .env, playlists, etc.)
+    /// In debug: current dir. In release: app data dir (%APPDATA%/com.fezalion.fezoverlay)
     pub base_dir: PathBuf,
+    /// Directory for bundled resources (dist, icons, etc.)
+    /// In debug: same as base_dir. In release: Tauri resource_dir
+    pub resource_dir: PathBuf,
     pub env_path: PathBuf,
     pub settings_path: PathBuf,
     pub bots_path: PathBuf,
@@ -18,7 +23,11 @@ pub struct AppConfig {
 }
 
 impl AppConfig {
-    pub fn new(base_dir: PathBuf) -> Self {
+    pub fn new(base_dir: PathBuf, resource_dir: PathBuf) -> Self {
+
+        // Ensure the data directory exists
+        std::fs::create_dir_all(&base_dir).ok();
+
         let env_path = if cfg!(debug_assertions) {
             PathBuf::from(".env")
         } else {
@@ -38,6 +47,7 @@ impl AppConfig {
                 Utc::now().format("%Y-%m-%d-%H-%M-%S")
             )),
             base_dir,
+            resource_dir,
             env_path,
         }
     }
@@ -81,6 +91,16 @@ impl AppConfig {
     fs::write(&self.env_path, final_lines.join("\n") + "\n").ok();
 }
 
+pub fn get_env(&self, key: &str) -> String {
+        if !self.env_path.exists() { return String::new(); }
+        fs::read_to_string(&self.env_path)
+            .unwrap_or_default()
+            .lines()
+            .find(|l| l.starts_with(&format!("{}=", key)))
+            .and_then(|l| l.splitn(2, '=').nth(1))
+            .map(str::to_string)
+            .unwrap_or_default()
+    }
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]

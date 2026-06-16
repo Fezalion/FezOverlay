@@ -14,8 +14,6 @@ import "./index.css";
 import { setupGlobalErrorLogger } from "./utils/errorLogger";
 import RAPIER from "@dimforge/rapier2d-compat";
 
-import { listen } from "@tauri-apps/api/event";
-
 function hexToRgb(hex) {
   hex = hex.replace("#", "");
   if (hex.length === 3)
@@ -72,43 +70,6 @@ fetch("/api/settings")
     );
   });
 
-function TrayNavigationHandler() {
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    let unlistenFn = null;
-
-    const setupListener = async () => {
-      unlistenFn = await listen("navigate-to", (event) => {
-        const targetPage = event.payload;
-        console.log("Navigating via Tray to:", targetPage);
-
-        switch (targetPage) {
-          case "music":
-            navigate("/music");
-            break;
-          case "settings":
-            navigate("/");
-            break;
-          default:
-            navigate(`/${targetPage}`);
-            break;
-        }
-      });
-    };
-
-    setupListener();
-
-    return () => {
-      if (unlistenFn) {
-        unlistenFn();
-      }
-    };
-  }, [navigate]);
-
-  return null;
-}
-
 async function main() {
   await RAPIER.init();
   window.RAPIER = RAPIER;
@@ -121,8 +82,6 @@ async function main() {
   createRoot(document.getElementById("root")).render(
     <StrictMode>
       <BrowserRouter>
-        <TrayNavigationHandler />
-
         <Routes>
           <Route path="/playing" element={<NowPlaying />} />
           <Route path="/emotes" element={<EmoteOverlay />} />

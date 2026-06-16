@@ -17,6 +17,14 @@ use config::AppConfig;
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            // When a second instance is launched, bring the main window to the front
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.show();
+                let _ = window.unminimize();
+                let _ = window.set_focus();
+            }
+        }))
         .on_window_event(|window, event| {
             if let WindowEvent::CloseRequested { api, .. } = event {
                 api.prevent_close();
@@ -43,19 +51,17 @@ pub fn run() {
                         }
                         "page_music" => {
                             if let Some(music_window) = app.get_webview_window("music") {
-                                // If it exists, bring it to the front
                                 let _ = music_window.show();
                                 let _ = music_window.unminimize();
                                 let _ = music_window.set_focus();
                             } else {
-                                // If it doesn't exist, create a new window pointing to the /music route
                                 let _music_window = WebviewWindowBuilder::new(
                                     app,
-                                    "music", // Unique window label
-                                    WebviewUrl::App("music".into()) // Directs it to localhost:48000/music
+                                    "music",
+                                    WebviewUrl::External("http://localhost:48000/music".parse().unwrap())
                                 )
                                 .title("Music Overlay")
-                                .inner_size(1280.0, 720.0) // Set your preferred starting size
+                                .inner_size(1280.0, 720.0)
                                 .resizable(true)
                                 .build();
                             }
@@ -87,20 +93,22 @@ pub fn run() {
             }
 
             // Initialize app config
-            let config = {
-                let resource_dir = app.path().resource_dir()
-                    .unwrap_or_else(|_| std::path::PathBuf::from("."));
-                let base_dir = if cfg!(debug_assertions) {
-                    std::env::current_dir()
-                        .unwrap_or_else(|_| resource_dir.clone())
-                        .parent()
-                        .map(|p| p.to_path_buf())
-                        .unwrap_or_else(|| resource_dir.clone())
-                } else {
-                    resource_dir.clone()
-                };
-                AppConfig::new(base_dir)
+            let resource_dir = app.path().resource_dir()
+                .unwrap_or_else(|_| std::path::PathBuf::from("."));
+            let base_dir = if cfg!(debug_assertions) {
+                std::env::current_dir()
+                    .unwrap_or_else(|_| resource_dir.clone())
+                    .parent()
+                    .map(|p| p.to_path_buf())
+                    .unwrap_or_else(|| resource_dir.clone())
+            } else {
+                // Use the directory where the executable is located
+                std::env::current_exe()
+                    .ok()
+                    .and_then(|p| p.parent().map(|p| p.to_path_buf()))
+                    .unwrap_or_else(|| resource_dir.clone())
             };
+            let config = AppConfig::new(base_dir, resource_dir);
 
             // Load .env file
             dotenvy::from_path(&config.env_path).ok();

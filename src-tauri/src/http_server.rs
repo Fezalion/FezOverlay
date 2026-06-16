@@ -36,11 +36,17 @@ pub async fn start_http_server(config: AppConfig) {
     // Determine dist directory for static files
     let dist_dir = {
         let cfg = cfg_clone.lock().await;
-        let base = &cfg.base_dir;
-        let dist = base.join("dist");
+        // In release mode, dist is bundled in resource_dir
+        // In debug mode, resource_dir == base_dir
+        let dist = cfg.resource_dir.join("dist");
         if !dist.exists() {
-            // Fallback to current directory
-            std::path::PathBuf::from("dist")
+            // Fallback to base_dir or current directory
+            let dist2 = cfg.base_dir.join("dist");
+            if !dist2.exists() {
+                std::path::PathBuf::from("dist")
+            } else {
+                dist2
+            }
         } else {
             dist
         }
@@ -140,7 +146,9 @@ async fn spa_handler(
     }
 
     let cfg = config.lock().await;
-    let dist_dir = if cfg.base_dir.join("dist").exists() {
+    let dist_dir = if cfg.resource_dir.join("dist").exists() {
+        cfg.resource_dir.join("dist")
+    } else if cfg.base_dir.join("dist").exists() {
         cfg.base_dir.join("dist")
     } else {
         std::path::PathBuf::from("dist")
@@ -305,11 +313,6 @@ pub async fn broadcast_ws(message: &str) {
     }
 }
 
-// Helper to get config reference
-fn get_env(cfg: &AppConfig, key: &str) -> String {
-    std::env::var(key).ok().unwrap_or_default()
-}
-
 // --- HANDLER IMPLEMENTATIONS ---
 
 async fn get_settings_handler(State(config): State<Arc<Mutex<AppConfig>>>) -> Json<Value> {
@@ -393,8 +396,8 @@ async fn get_latest_version_handler() -> Json<Value> {
 
 async fn get_twitch_auth_handler(State(config): State<Arc<Mutex<AppConfig>>>) -> Result<Json<Value>, StatusCode> {
     let cfg = config.lock().await;
-    let auth = get_env(&cfg, "TWITCH_ACCESS_TOKEN");
-    let username = get_env(&cfg, "TWITCH_USERNAME");
+    let auth = cfg.get_env("TWITCH_ACCESS_TOKEN");
+    let username = cfg.get_env("TWITCH_USERNAME");
     if auth.is_empty() {
         return Err(StatusCode::UNAUTHORIZED);
     }
@@ -408,8 +411,8 @@ async fn get_twitch_auth_handler(State(config): State<Arc<Mutex<AppConfig>>>) ->
 async fn get_twitch_status_handler(State(config): State<Arc<Mutex<AppConfig>>>) -> Json<Value> {
     let cfg = config.lock().await;
     cfg.reload_env();
-    let auth = get_env(&cfg, "TWITCH_ACCESS_TOKEN");
-    let username = get_env(&cfg, "TWITCH_USERNAME");
+    let auth = cfg.get_env("TWITCH_ACCESS_TOKEN");
+    let username = cfg.get_env("TWITCH_USERNAME");
     let configured = !auth.is_empty();
     Json(serde_json::json!({
         "configured": configured,
@@ -425,7 +428,9 @@ async fn twitch_callback_page_handler(
     State(config): State<Arc<Mutex<AppConfig>>>,
 ) -> Response {
     let cfg = config.lock().await;
-    let dist_dir = if cfg.base_dir.join("dist").exists() {
+    let dist_dir = if cfg.resource_dir.join("dist").exists() {
+        cfg.resource_dir.join("dist")
+    } else if cfg.base_dir.join("dist").exists() {
         cfg.base_dir.join("dist")
     } else {
         std::path::PathBuf::from("dist")
@@ -519,7 +524,8 @@ async fn log_twitch_event_handler(Json(body): Json<Value>) -> Json<Value> {
 
 async fn get_api_key_status_handler(State(config): State<Arc<Mutex<AppConfig>>>) -> Json<Value> {
     let cfg = config.lock().await;
-    let key = get_env(&cfg, "VITE_YOUTUBE_API_KEY");
+    cfg.reload_env();
+    let key = cfg.get_env("VITE_YOUTUBE_API_KEY");
     Json(serde_json::json!({ "configured": !key.is_empty() }))
 }
 
@@ -554,7 +560,8 @@ async fn get_video_info_handler(
     Path(video_id): Path<String>,
 ) -> Result<Json<Value>, StatusCode> {
     let cfg = config.lock().await;
-    let api_key = get_env(&cfg, "VITE_YOUTUBE_API_KEY");
+    cfg.reload_env();
+    let api_key = cfg.get_env("VITE_YOUTUBE_API_KEY");
     if api_key.is_empty() {
         return Err(StatusCode::INTERNAL_SERVER_ERROR);
     }
@@ -584,7 +591,7 @@ async fn get_playlist_info_handler(
     Path(playlist_id): Path<String>,
 ) -> Result<Json<Value>, StatusCode> {
     let cfg = config.lock().await;
-    let api_key = get_env(&cfg, "VITE_YOUTUBE_API_KEY");
+    let api_key = cfg.get_env("VITE_YOUTUBE_API_KEY");
     if api_key.is_empty() {
         return Err(StatusCode::INTERNAL_SERVER_ERROR);
     }
