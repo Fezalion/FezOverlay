@@ -17,13 +17,13 @@ A React-based overlay application for streaming fun features.
 ### Overlay Usage
 
 1. **Running:**
-   - Run `updater.exe` to update and install the files, after update is done launch `fezoverlay.exe`
+   - Run `fezoverlay` shortcut in your desktop.
 
 2. **Twitch Auth:**
-   - Click the link in the terminal window to authenticate with Twitch API.
+   - Click the button up top in the main page to auth.
 
 3. **Open the Settings Page:**
-   - Go to [http://localhost:48000/](http://localhost:48000/) in your browser.
+   - You can open the settings window by right clicking the tray icon.
    - Here you can customize the overlay's color, font, padding, and more.
 
 4. **Add the Overlays to OBS:**
@@ -42,45 +42,8 @@ A React-based overlay application for streaming fun features.
 5. **Position the Overlay:**
    - You should have the overlays be the same size of your Scene, you can move the NowPlaying/chat widgets by either pressing interact in obs then using (Shift +) Arrow Keys, or the same in your browser.
 
-6. **Edit Overlay Appearance:**
-   - To change the overlay's appearance, open [http://localhost:48000/](http://localhost:48000/) in your browser again.
-   - Adjust the settings as desired.
-
 ## FAQ
 
 **I updated mid stream, do I need to do something?:**
 
 - Yes, to have no issues, please refresh your obs browser sources.
-
-## Update System
-
-The application uses a separate updater tool for downloading and updating files:
-
-### **How to Update**:
-
-1. **Run updater.exe** in the same folder as fezoverlay.exe
-2. **Wait for completion** - the updater will download and update both the executable and application files
-3. **Run fezoverlay.exe** - the application will now use the updated files
-
-### **Manual Update**:
-
-If the updater doesn't work:
-
-1. Download `dist.zip` from the latest GitHub release
-2. Extract it to the same folder as fezoverlay.exe
-3. Run fezoverlay.exe
-
-### Requirements for Auto-Download
-
-- Internet connection to access GitHub releases
-- The GitHub repository must have releases with a `dist.zip` asset
-- The executable must have write permissions in its directory
-
-### Error Handling
-
-If the auto-download fails:
-
-- The application will log detailed error messages
-- The server will still start (if possible)
-- API endpoints will return a 503 status with helpful error messages
-- Users can manually download and extract the dist folder
