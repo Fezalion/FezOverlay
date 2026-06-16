@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "tauri:dev": "npx tauri dev --no-dev-server-wait",
+    "tauri": "npx tauri build",
     "lint": "eslint .",
     "preview": "vite preview",
     "package": "npm run build && pkg server.cjs --targets node18-win-x64 --output fezoverlay.exe && pkg updater.cjs --targets node18-win-x64 --output updater.exe"
