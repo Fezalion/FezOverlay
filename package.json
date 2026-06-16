@@ -1,13 +1,13 @@
 {
   "name": "fezoverlay",
   "private": true,
-  "version": "1.0.1",
+  "version": "1.0.2",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "tauri:dev": "npx tauri dev --no-dev-server-wait",
-    "tauri": "npx tauri build",
+    "tauri": "npx tauri",
     "lint": "eslint .",
     "preview": "vite preview",
     "package": "npm run build && pkg server.cjs --targets node18-win-x64 --output fezoverlay.exe && pkg updater.cjs --targets node18-win-x64 --output updater.exe"
