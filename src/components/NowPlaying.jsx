@@ -3,7 +3,7 @@ import { useMetadata } from "../hooks/useMetadata";
 
 const SPACE = "\u00A0\u00A0";
 const NOTHING_PLAYING = "Nothing is playing...";
-const WS_URL = "ws://localhost:48000";
+const WS_URL = "ws://localhost:48000/ws";
 const OPACITY_TRANSITION_MS = 300;
 
 const GLOBAL_STYLE = `
@@ -52,6 +52,7 @@ const useNowPlaying = (onRefresh) => {
       const res = await fetch("/api/music/nowplaying");
       if (!res.ok) return;
       const data = await res.json();
+      console.log(data);
       applyTrack(data);
     } catch {}
   }, [applyTrack]);
@@ -67,10 +68,11 @@ const useNowPlaying = (onRefresh) => {
       ws.onopen = () => fetchCurrent();
 
       ws.onmessage = (event) => {
+        console.log("event fired on ws: ", event);
         try {
           const msg = JSON.parse(event.data);
-          if (msg.type === "nowPlaying") {
-            applyTrack(msg.track);
+          if (msg.type === "nowPlayingUpdated") {
+            fetchCurrent();
           } else if (
             msg.type === "refresh" &&
             (msg.target === "all" || msg.target === "song")

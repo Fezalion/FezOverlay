@@ -237,7 +237,7 @@ export default function Music() {
         );
       }
     },
-    [extractVideoId, currentTime, duration],
+    [extractVideoId, currentTime, duration, settings.maxSongLength],
   );
   const calculateTimeFromEvent = (e) => {
     if (!progressBarRef.current || duration <= 0) return 0;
@@ -293,21 +293,29 @@ export default function Music() {
       current && isPlaying
         ? {
             title: current.title,
+            channel: current.channel,
+            requestedBy: current.requestedBy ?? null,
           }
         : null;
+
+    console.log("[MusicOverlay] pushing now-playing:", payload);
 
     fetch("/api/music/nowplaying", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ track: payload }),
-    }).catch((err) =>
-      console.error("[MusicOverlay] Failed to push now-playing:", err),
-    );
+    })
+      .then((r) => r.json())
+      .then((d) => console.log("[MusicOverlay] now-playing response:", d))
+      .catch((err) =>
+        console.error("[MusicOverlay] Failed to push now-playing:", err),
+      );
   }, [current, isPlaying]);
 
   useEffect(() => {
     songRequestHandlerRef.current = handleRedeemSongRequest;
   }, [handleRedeemSongRequest]);
+
   const playNext = useCallback(async () => {
     if (isTransitioningRef.current) return;
     isTransitioningRef.current = true;

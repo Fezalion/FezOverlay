@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 export function useMessageHandler(
   client,
@@ -7,25 +7,46 @@ export function useMessageHandler(
   globalEffects,
   settings,
 ) {
-  const {
-    emoteDelay,
-    subEffectTypes,
-    subEffectBlackHoleChance,
-    subEffectBlackHoleDuration,
-    subEffectBlackHoleStrength,
-    subEffectGravityEventChance,
-    subEffectGravityEventDuration,
-    subEffectGravityEventStrength,
-  } = settings;
+  const settingsRef = useRef(settings);
+  useEffect(() => {
+    settingsRef.current = settings;
+  }, [settings]);
+
+  const emoteMapRef = useRef(emoteMap);
+  useEffect(() => {
+    emoteMapRef.current = emoteMap;
+  }, [emoteMap]);
+
+  const globalEffectsRef = useRef(globalEffects);
+  useEffect(() => {
+    globalEffectsRef.current = globalEffects;
+  }, [globalEffects]);
 
   useEffect(() => {
-    if (!client || !spawnEmoteRef) return;
+    if (!client) return;
+
+    console.log("registering onMessage for client", client);
 
     function onMessage(channel, userstate, message) {
-      const words = message.split(/\s+/);
+      console.log("onMessage fired", channel, message);
 
+      const {
+        emoteDelay,
+        subEffectTypes,
+        subEffectBlackHoleChance,
+        subEffectBlackHoleDuration,
+        subEffectBlackHoleStrength,
+        subEffectGravityEventChance,
+        subEffectGravityEventDuration,
+        subEffectGravityEventStrength,
+      } = settingsRef.current;
+      const emoteMap = emoteMapRef.current;
+      const globalEffects = globalEffectsRef.current;
+
+      const words = message.split(/\s+/);
       const trimPunc = (s) => s.replace(/^[^a-zA-Z0-9]+|[^a-zA-Z0-9]+$/g, "");
       const emotes = [];
+
       for (let i = 0; i < words.length; i++) {
         const raw = words[i];
         const w = trimPunc(raw);
@@ -80,18 +101,16 @@ export function useMessageHandler(
         },
       };
 
-      let b = false;
       const shuffledEffects = Object.entries(effectsMap).sort(
         () => Math.random() - 0.5,
       );
 
+      let effectFired = false;
       for (const [
         effectName,
         { fn: effectFn, duration, str, chance },
       ] of shuffledEffects) {
-        if (Math.random() * 100 > chance) {
-          continue;
-        }
+        if (Math.random() * 100 > chance) continue;
 
         if (
           isSub &&
@@ -102,11 +121,12 @@ export function useMessageHandler(
         ) {
           console.log(`event proc ${effectName} for ${duration}s`);
           effectFn(duration ?? 2, str);
+          effectFired = true;
           break;
         }
       }
 
-      if (!b) {
+      if (!effectFired) {
         emotes.forEach((emoteName, i) => {
           setTimeout(() => {
             const userColor = userstate.color || "orange";
@@ -120,18 +140,5 @@ export function useMessageHandler(
     return () => {
       client.off("message", onMessage);
     };
-  }, [
-    client,
-    emoteMap,
-    spawnEmoteRef,
-    globalEffects,
-    emoteDelay,
-    subEffectTypes,
-    subEffectBlackHoleChance,
-    subEffectBlackHoleDuration,
-    subEffectBlackHoleStrength,
-    subEffectGravityEventStrength,
-    subEffectGravityEventChance,
-    subEffectGravityEventDuration,
-  ]);
+  }, [client]);
 }

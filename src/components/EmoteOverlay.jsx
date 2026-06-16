@@ -22,7 +22,7 @@ export default function EmoteOverlay() {
 
   // Single WS setup
   useEffect(() => {
-    const ws = new WebSocket("ws://localhost:48000");
+    const ws = new WebSocket("ws://localhost:48000/ws");
     wsRef.current = ws;
 
     const handleMessage = (event) => {
@@ -103,12 +103,17 @@ function EmoteOverlayCore({ settings, wsRef, refreshToken }) {
     spawnEmoteRef.current = spawnEmote;
   }, [spawnEmote]);
 
+  useEffect(() => {
+    console.log("client changed:", client);
+  }, [client]);
+
   // Attach a message handler for WS
   useEffect(() => {
     const ws = wsRef.current;
     if (!ws) return;
 
     ws.onCoreMessage = (data) => {
+      console.log(data);
       if (data.type === "spawnEmote" && data.emote) {
         const count = data.count || 1;
         for (let i = 0; i < count; i++) {

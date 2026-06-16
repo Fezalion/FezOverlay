@@ -20,3 +20,10 @@ export function getStrokeTextShadow(width, color) {
   }
   return shadows.join(", ");
 }
+
+export const openUrl = (url) =>
+  fetch("/api/open-url", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ url }),
+  }).catch(() => {});
