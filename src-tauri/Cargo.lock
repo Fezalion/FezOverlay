@@ -1246,7 +1246,7 @@ dependencies = [
 
 [[package]]
 name = "fezoverlay"
-version = "0.2.2"
+version = "1.0.7"
 dependencies = [
  "axum",
  "base64 0.22.1",

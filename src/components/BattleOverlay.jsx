@@ -103,9 +103,6 @@ export default function BattleOverlay() {
   const battleParticipants = useRef([]);
   const battleRafRef = useRef(null);
   const isInitialized = useRef(false);
-  const timeScaleRef = useRef(1);
-  const previousTimeScaleRef = useRef(null);
-  const timescaleWatchdogRef = useRef(null);
   const activeCooldownsRef = useRef(new Map());
 
   // ------------------------------------------------------------------
@@ -114,44 +111,6 @@ export default function BattleOverlay() {
   const getWorld = useCallback(
     () => physics.engineRef.current,
     [physics.engineRef],
-  );
-
-  const restoreEngineTimeScale = useCallback((forcedValue) => {
-    timeScaleRef.current =
-      typeof forcedValue === "number"
-        ? forcedValue
-        : (previousTimeScaleRef.current ?? 1.0);
-
-    if (timescaleWatchdogRef.current) {
-      clearTimeout(timescaleWatchdogRef.current);
-      timescaleWatchdogRef.current = null;
-    }
-  }, []);
-
-  const setEngineTimeScale = useCallback(
-    (value) => {
-      try {
-        const sanitizedValue = Math.max(0.01, value);
-
-        previousTimeScaleRef.current = timeScaleRef.current;
-        timeScaleRef.current = sanitizedValue;
-
-        if (timescaleWatchdogRef.current) {
-          clearTimeout(timescaleWatchdogRef.current);
-        }
-
-        if (sanitizedValue !== 1.0) {
-          timescaleWatchdogRef.current = setTimeout(() => {
-            console.log("Timescale watchdog triggered: resetting to 1.0");
-            restoreEngineTimeScale(1.0);
-            timescaleWatchdogRef.current = null;
-          }, 5000);
-        }
-      } catch (e) {
-        console.warn("Unable to set timeScale:", e);
-      }
-    },
-    [restoreEngineTimeScale],
   );
 
   // ------------------------------------------------------------------
@@ -481,19 +440,9 @@ export default function BattleOverlay() {
           (bt) => bt.id === participant.id,
         );
         if (mainIndex !== -1) bodiesWithTimers.current.splice(mainIndex, 1);
-
-        try {
-          restoreEngineTimeScale();
-          if (timescaleWatchdogRef.current) {
-            clearTimeout(timescaleWatchdogRef.current);
-            timescaleWatchdogRef.current = null;
-          }
-        } catch (e) {
-          console.warn("Error restoring timescale in kill:", e);
-        }
       }, 1500);
     },
-    [getWorld, restoreEngineTimeScale],
+    [getWorld],
   );
 
   const dealDamage = useCallback(
@@ -551,9 +500,6 @@ export default function BattleOverlay() {
 
       const casterPos = getPos(caster);
 
-      setEngineTimeScale(0.1);
-      setTimeout(() => restoreEngineTimeScale(1.0), 500);
-
       const allParticipants = battleParticipants.current.filter(
         (p) => p.isAlive && p.id !== caster.id && p.body,
       );
@@ -590,14 +536,7 @@ export default function BattleOverlay() {
         }
       });
     },
-    [
-      getWorld,
-      getPos,
-      setEngineTimeScale,
-      restoreEngineTimeScale,
-      dealDamage,
-      battleSettings,
-    ],
+    [getWorld, getPos, dealDamage, battleSettings],
   );
 
   // ------------------------------------------------------------------
@@ -618,8 +557,6 @@ export default function BattleOverlay() {
       drawJaggedLightning,
       battleSettings,
       battleParticipants,
-      setEngineTimeScale,
-      restoreEngineTimeScale,
     };
     return createSkills(helpers);
   }, [
@@ -634,8 +571,6 @@ export default function BattleOverlay() {
     radialKnockback,
     drawJaggedLightning,
     battleSettings,
-    setEngineTimeScale,
-    restoreEngineTimeScale,
   ]);
 
   const procSpecialSkill = useCallback(
@@ -1396,17 +1331,6 @@ export default function BattleOverlay() {
       activeBattleRef.current = null;
       console.log("Battle ended and all participants cleaned up");
 
-      restoreEngineTimeScale();
-
-      try {
-        if (timescaleWatchdogRef.current) {
-          clearTimeout(timescaleWatchdogRef.current);
-          timescaleWatchdogRef.current = null;
-        }
-      } catch (e) {
-        console.warn("Unable to clear timescale watchdog after battle:", e);
-      }
-
       try {
         bodiesWithTimers.current.forEach((obj) => {
           try {
@@ -1437,7 +1361,6 @@ export default function BattleOverlay() {
     displayWinner,
     displayDraw,
     kill,
-    restoreEngineTimeScale,
   ]);
 
   const updateBattleLogic = useCallback(() => {
@@ -1508,7 +1431,7 @@ export default function BattleOverlay() {
       applyAttraction();
       handleCollisions();
 
-      world.timestep = (1 / 60) * timeScaleRef.current;
+      world.timestep = 1 / 60;
       world.step();
 
       updateBattleLogic();
@@ -1596,20 +1519,9 @@ export default function BattleOverlay() {
         activeCooldownsRef.current = null;
       }
 
-      restoreEngineTimeScale(1.0);
-
-      try {
-        if (timescaleWatchdogRef.current) {
-          clearTimeout(timescaleWatchdogRef.current);
-          timescaleWatchdogRef.current = null;
-        }
-      } catch (e) {
-        console.warn("Unable to clear timescale watchdog:", e);
-      }
-
       isInitialized.current = false;
     };
-  }, [getWorld, restoreEngineTimeScale]);
+  }, [getWorld]);
 
   // Twitch Client Message Routing
   useEffect(() => {

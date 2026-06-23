@@ -14,8 +14,6 @@ export const judgmentCut = ({
   battleParticipants,
   battleSettings,
   dealDamage,
-  setEngineTimeScale,
-  restoreEngineTimeScale,
 }) => ({
   name: "judgmentCut",
   disabled: false,
@@ -29,7 +27,6 @@ export const judgmentCut = ({
     const targetPos = farEnemy.body.translation();
     teleport(participant, targetPos.x, targetPos.y);
 
-    setEngineTimeScale(0.05);
     showText(participant, "I am the storm that is approaching!", "#1d4cf7");
 
     const svg = document.getElementById("effects-layer");
@@ -56,7 +53,6 @@ export const judgmentCut = ({
       (p) => p.isAlive && p.id !== participant.id,
     );
     if (enemies.length === 0) {
-      restoreEngineTimeScale(1.0);
       return;
     }
 
@@ -149,8 +145,6 @@ export const judgmentCut = ({
 
     // ── release — happens at end of charge ────────────────────────────────────
     setTimeout(() => {
-      restoreEngineTimeScale(1.0);
-
       // turn all slashes bright white, then fade and remove
       allSlashGroups.forEach((g) => {
         g.querySelectorAll("line").forEach((l) =>

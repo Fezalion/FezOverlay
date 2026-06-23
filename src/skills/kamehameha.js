@@ -1,6 +1,4 @@
 export const kamehameha = ({
-  setEngineTimeScale,
-  restoreEngineTimeScale,
   findNearestEnemy,
   findFarthestEnemy,
   findPopulatedPoint,
@@ -16,10 +14,7 @@ export const kamehameha = ({
     if (!participant.body) return;
 
     // ─── 1. SETUP ────────────────────────────────────────────────────────────
-
-    setEngineTimeScale(0.08); // deeper slow-mo for dramatic effect
-
-    // Target nearest enemy for better gameplay feel
+    // Target nearest enemy
     const target =
       (typeof findNearestEnemy === "function"
         ? findNearestEnemy(participant)
@@ -154,7 +149,6 @@ export const kamehameha = ({
       intervals.forEach(clearInterval);
       orb.remove();
 
-      restoreEngineTimeScale(1.0);
       showText(participant, "HA!!!", "#ffffff");
 
       // Three-layer beam: outer glow → mid energy → white core

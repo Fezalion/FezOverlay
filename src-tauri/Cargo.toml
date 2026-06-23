@@ -1,6 +1,6 @@
 [package]
 name = "fezoverlay"
-version = "0.2.2"
+version = "1.0.7"
 description = "FezOverlay - Tauri Backend"
 authors = ["Fezalion"]
 license = ""

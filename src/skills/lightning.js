@@ -3,8 +3,6 @@ export const lightning = ({
   showText,
   dealDamage,
   battleSettings,
-  setEngineTimeScale,
-  restoreEngineTimeScale,
 }) => ({
   name: "Lightning",
   disabled: false,
@@ -64,9 +62,6 @@ export const lightning = ({
     }
 
     showText(participant, "⚡ LIGHTNING STRIKE!", "#4af");
-
-    // Enable physics slowdown
-    setEngineTimeScale(0.08);
 
     // --- SVG Layer Setup ---
     let svg = document.getElementById("lightning-svg-layer");
@@ -414,8 +409,6 @@ export const lightning = ({
 
     // Resume physics + final cleanup
     setTimeout(() => {
-      restoreEngineTimeScale(1.0);
-
       // Big final impact at farEnemy
       const fp = getPos(farEnemy);
       if (fp) drawImpact(fp.x, fp.y, "#ffffff", 2);
