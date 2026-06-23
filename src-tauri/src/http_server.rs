@@ -60,6 +60,7 @@ pub async fn start_http_server(config: AppConfig) {
         .route("/api/subeffecttypes", get(get_subeffect_types_handler))
         .route("/api/currentversion", get(get_current_version_handler))
         .route("/api/latestversion", get(get_latest_version_handler))
+        .route("/api/check-update", get(check_update_handler))
         .route("/api/twitch", get(get_twitch_auth_handler))
         .route("/api/twitch/status", get(get_twitch_status_handler))
         .route("/api/twitch-log", post(log_twitch_event_handler))
@@ -371,10 +372,9 @@ async fn get_subeffect_types_handler() -> Json<Vec<&'static str>> {
     Json(AVAILABLE_SUB_EFFECTS.to_vec())
 }
 
-async fn get_current_version_handler(State(config): State<Arc<Mutex<AppConfig>>>) -> Json<Value> {
-    let cfg = config.lock().await;
-    let version = fs::read_to_string(&cfg.version_path).unwrap_or_default();
-    Json(serde_json::json!({ "version": version.trim() }))
+async fn get_current_version_handler(_config: State<Arc<Mutex<AppConfig>>>) -> Json<Value> {
+    let version = env!("CARGO_PKG_VERSION").to_string();
+    Json(serde_json::json!({ "version": version }))
 }
 
 async fn get_latest_version_handler() -> Json<Value> {
@@ -383,15 +383,51 @@ async fn get_latest_version_handler() -> Json<Value> {
     match client.get(url).header("User-Agent", "node").send().await {
         Ok(resp) => {
             if let Ok(data) = resp.json::<Value>().await {
-                let version = data["tag_name"].as_str()
+                let mut version = data["tag_name"].as_str()
                     .or_else(|| data["name"].as_str())
-                    .unwrap_or("");
+                    .unwrap_or("")
+                    .to_string();
+                // Strip leading 'v' to match Cargo version format
+                if version.starts_with('v') {
+                    version = version[1..].to_string();
+                }
                 return Json(serde_json::json!({ "version": version }));
             }
         }
         Err(e) => log::error!("Failed to fetch latest release: {}", e),
     }
     Json(serde_json::json!({ "version": "" }))
+}
+
+async fn check_update_handler() -> Json<Value> {
+    let client = reqwest::Client::new();
+    let url = "https://api.github.com/repos/Fezalion/FezOverlay/releases/latest";
+    match client.get(url).header("User-Agent", "node").send().await {
+        Ok(resp) => {
+            if let Ok(data) = resp.json::<Value>().await {
+                let mut version = data["tag_name"].as_str()
+                    .or_else(|| data["name"].as_str())
+                    .unwrap_or("")
+                    .to_string();
+                // Strip leading 'v' to match Cargo version format
+                if version.starts_with('v') {
+                    version = version[1..].to_string();
+                }
+                let body = data["body"].as_str().unwrap_or("").to_string();
+                let date = data["published_at"].as_str().unwrap_or("").to_string();
+                let download_url = data["html_url"].as_str().unwrap_or("").to_string();
+                return Json(serde_json::json!({
+                    "version": version,
+                    "body": body,
+                    "date": date,
+                    "downloadUrl": download_url,
+                    "available": true
+                }));
+            }
+        }
+        Err(e) => log::error!("Failed to check for updates: {}", e),
+    }
+    Json(serde_json::json!({ "available": false }))
 }
 
 async fn get_twitch_auth_handler(State(config): State<Arc<Mutex<AppConfig>>>) -> Result<Json<Value>, StatusCode> {

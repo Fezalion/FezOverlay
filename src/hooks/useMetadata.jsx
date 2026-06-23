@@ -109,8 +109,8 @@ export function useMetadata() {
   });
 
   const [availableSubEffects, setAvailableSubEffects] = useState([]);
-  const [version, setVersion] = useState(null);
-  const [latestVersion, setLatestVersion] = useState(null);
+  const [version, setVersion] = useState("loading...");
+  const [latestVersion, setLatestVersion] = useState("loading...");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -372,21 +372,34 @@ export function useMetadata() {
   // Fetch version information
   const fetchVersionInfo = useCallback(async () => {
     try {
-      // Get current version
-      const currentVersionRes = await fetch("/api/currentversion");
-      if (currentVersionRes.ok) {
-        const currentData = await currentVersionRes.json();
-        if (currentData.version) setVersion(currentData.version);
+      const [currentRes, latestRes] = await Promise.all([
+        fetch("/api/currentversion"),
+        fetch("/api/latestversion"),
+      ]);
+
+      if (currentRes.ok) {
+        const data = await currentRes.json();
+        const ver = data.version || "";
+        if (ver) {
+          setVersion(ver);
+          console.log("[Version] Set current version:", ver);
+        } else {
+          console.warn("[Version] Current version empty in response:", data);
+        }
+      } else {
+        console.warn("[Version] currentversion HTTP", currentRes.status);
       }
 
-      // Get latest version
-      const latestVersionRes = await fetch("/api/latestversion");
-      if (latestVersionRes.ok) {
-        const latestData = await latestVersionRes.json();
-        if (latestData.version) setLatestVersion(latestData.version);
+      if (latestRes.ok) {
+        const data = await latestRes.json();
+        const ver = data.version || null;
+        setLatestVersion(ver);
+        console.log("[Version] Set latest version:", ver);
+      } else {
+        console.warn("[Version] latestversion HTTP", latestRes.status);
       }
     } catch (err) {
-      console.error("Error fetching version info:", err);
+      console.error("[Version] fetchVersionInfo error:", err);
     }
   }, []);
 
@@ -456,6 +469,7 @@ export function useMetadata() {
     const loadAllData = async () => {
       await fetchSettings();
       await fetchSubEffectTypes();
+      await fetchVersionInfo();
     };
 
     loadAllData();

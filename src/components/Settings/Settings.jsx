@@ -425,6 +425,43 @@ function Settings() {
           >
             {isSaving ? "Saving..." : "Save"}
           </button>
+
+          <button
+            onClick={async () => {
+              try {
+                const res = await fetch("/api/check-update");
+                const data = await res.json();
+                if (data.available && data.version !== version) {
+                  window.open(data.downloadUrl, "_blank");
+                }
+              } catch (err) {
+                console.error("Update check failed:", err);
+              }
+            }}
+            style={{
+              padding: "6px 14px",
+              fontSize: "11px",
+              fontWeight: "500",
+              fontFamily: "inherit",
+              color: "#fff",
+              background: "rgba(255,255,255,0.05)",
+              border: "1px solid rgba(255,255,255,0.1)",
+              borderRadius: "6px",
+              cursor: "pointer",
+              transition: "all 0.15s",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "rgba(255,255,255,0.08)";
+              e.currentTarget.style.color = "#fff";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "rgba(255,255,255,0.05)";
+              e.currentTarget.style.color = "#fff";
+            }}
+          >
+            Check for Updates
+          </button>
+
           <div
             style={{
               display: "flex",
@@ -435,8 +472,23 @@ function Settings() {
             }}
           >
             <span>v{version}</span>
-            {latestVersion !== version && (
-              <span style={{ color: "#feca57" }}>update: {latestVersion}</span>
+            {latestVersion && version && latestVersion !== version && (
+              <span
+                style={{ color: "#feca57", cursor: "pointer" }}
+                onClick={async () => {
+                  try {
+                    const res = await fetch("/api/check-update");
+                    const data = await res.json();
+                    if (data.available) {
+                      window.open(data.downloadUrl, "_blank");
+                    }
+                  } catch (err) {
+                    console.error("Failed to open update:", err);
+                  }
+                }}
+              >
+                update: {latestVersion}
+              </span>
             )}
           </div>
         </div>
