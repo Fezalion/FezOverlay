@@ -36,8 +36,54 @@ export default function EmoteOverlaySettings({ settings, updateSetting }) {
     transition: "all 0.15s",
   });
 
+  const resetButtonStyle = {
+    position: "absolute",
+    top: "14px",
+    right: "72px",
+    padding: "6px 10px",
+    fontSize: "10px",
+    fontWeight: "500",
+    color: "rgba(255,255,255,0.6)",
+    background: "rgba(255,255,255,0.05)",
+    border: "1px solid rgba(255,255,255,0.1)",
+    borderRadius: "6px",
+    cursor: "pointer",
+    fontFamily: "inherit",
+    transition: "all 0.15s",
+  };
+
   return (
-    <div style={{ maxWidth: "600px" }}>
+    <div style={{ maxWidth: "600px", position: "relative" }}>
+      <button
+        onClick={() => {
+          const defaultEffects = {
+            battleEventDuration: 60,
+            battleEventParticipants: 8,
+            battleEventChance: 5,
+            battleEventHp: 300,
+            battleEventDamage: 50,
+            battleEventAcceptPlebs: false,
+            battleEventDPSTracker: false,
+            battleEventDPSTrackerFloatLeft: false,
+            battleEventDPSTrackerLive: true,
+            battleEventDPSTrackerLiveFloatLeft: false,
+            battleEventLeaderboardFloatLeft: false,
+            battleEventShowSkillHistory: true,
+          };
+          Object.entries(defaultEffects).forEach(([key, val]) =>
+            updateSetting(key, val),
+          );
+        }}
+        style={resetButtonStyle}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.background = "rgba(255,255,255,0.08)";
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.background = "rgba(255,255,255,0.05)";
+        }}
+      >
+        Reset
+      </button>
       <EffectCard
         effectKey="battleEvent"
         label="Battle Event"
