@@ -26,6 +26,16 @@
       "csp": null
     }
   },
+  "plugins": {
+    "updater": {
+      "active": true,
+      "endpoints": [
+        "https://api.github.com/repos/Fezalion/FezOverlay/releases/latest"
+      ],
+      "dialog": true,
+      "pubkey": ""
+    }
+  },
   "bundle": {
     "active": true,
     "targets": ["nsis"],
