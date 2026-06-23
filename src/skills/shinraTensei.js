@@ -1,6 +1,6 @@
 export const shinraTensei = ({ showText, radialKnockback }) => ({
   name: "Shinra Tensei",
-  disabled: false,
+  disabled: true,
   effect: (participant) => {
     showText(participant, "🙏🏻 SHINRA TENSEI", "#ffee00ff");
 

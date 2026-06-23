@@ -1,6 +1,6 @@
 export const shield = ({ showText }) => ({
   name: "Shield",
-  disabled: false,
+  disabled: true,
   duration: 2000,
   effect: (p) => {
     showText(p, "🛡️ SHIELD", "#00aaff");

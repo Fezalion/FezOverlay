@@ -6,6 +6,7 @@ import { lightning } from "./lightning";
 import { shinraTensei } from "./shinraTensei";
 import { cyclone } from "./cyclone";
 import { judgmentCut } from "./judgmentCut";
+import { bananaBomb } from "./bananaBomb";
 
 export function createSkills(helpers) {
   return {
@@ -17,5 +18,6 @@ export function createSkills(helpers) {
     shinraTensei: shinraTensei(helpers),
     cyclone: cyclone(helpers),
     judgmentCut: judgmentCut(helpers),
+    bananaBomb: bananaBomb(helpers),
   };
 }

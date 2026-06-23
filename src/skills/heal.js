@@ -1,6 +1,6 @@
 export const heal = ({ battleSettings, showText }) => ({
   name: "Heal",
-  disabled: false,
+  disabled: true,
   effect: (p) => {
     if (!p.isAlive) return; // Skip if dead
     const healAmount = battleSettings.battleEventHp * 0.3;
