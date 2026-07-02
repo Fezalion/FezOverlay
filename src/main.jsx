@@ -1,15 +1,17 @@
-import { StrictMode, useEffect } from "react";
-import { BrowserRouter, Routes, Route, useNavigate } from "react-router-dom";
+import { StrictMode } from "react";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { NowPlaying } from "./components/NowPlaying";
 import Settings from "./components/Settings";
 import EmoteOverlay from "./components/EmoteOverlay";
 import BattleOverlay from "./components/BattleOverlay";
+import BattleOverlay2 from "./components/Battle2Overlay";
 import AuthCallback from "./AuthCallback";
 import YapMeter from "./components/YapMeter";
 import ChatCommands from "./components/ChatCommands";
 import ChatOverlay from "./components/ChatOverlay";
 import Music from "./components/MusicOverlay";
 import FihOverlay from "./components/Fih";
+import VideoStream from "./components/VideoStream";
 import "./index.css";
 import { setupGlobalErrorLogger } from "./utils/errorLogger";
 import RAPIER from "@dimforge/rapier2d-compat";
@@ -86,6 +88,7 @@ async function main() {
           <Route path="/playing" element={<NowPlaying />} />
           <Route path="/emotes" element={<EmoteOverlay />} />
           <Route path="/battle" element={<BattleOverlay />} />
+          <Route path="/battle2" element={<BattleOverlay2 />} />
           <Route path="/" element={<Settings />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/yapmeter" element={<YapMeter />} />
@@ -94,6 +97,7 @@ async function main() {
           <Route path="/chat" element={<ChatOverlay />} />
           <Route path="/music" element={<Music />} />
           <Route path="/fih" element={<FihOverlay />} />
+          <Route path="/video-stream" element={<VideoStream />} />
         </Routes>
       </BrowserRouter>
     </StrictMode>,
