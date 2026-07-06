@@ -11,13 +11,6 @@ export const omaewamou = ({ showText, findStrongestEnemy, dealDamage }) => ({
     showText(participant, "🫵 OMAE WA MOU SHINDEIRU");
     const target = findStrongestEnemy(participant);
 
-    if (!target || !target.body) {
-      showText(participant, "NANI");
-      return;
-    }
-
-    showText(target, "NANI");
-
     const svg = document.getElementById("effects-layer");
 
     // ── shared glow filter, created once ──────────────────────────────────────
@@ -40,7 +33,10 @@ export const omaewamou = ({ showText, findStrongestEnemy, dealDamage }) => ({
       const angle = Math.random() * Math.PI * 2;
       const halfDx = Math.cos(angle) * length * 0.5;
       const halfDy = Math.sin(angle) * length * 0.5;
-      const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+      const line = document.createElementNS(
+        "http://www.w3.org/2000/svg",
+        "line",
+      );
       line.setAttribute("stroke", color);
       line.setAttribute("stroke-width", width);
       line.setAttribute("stroke-linecap", "round");
@@ -86,7 +82,15 @@ export const omaewamou = ({ showText, findStrongestEnemy, dealDamage }) => ({
         const { x, y } = target.body.translation();
         const ox = (Math.random() - 0.5) * (target.sizeX ?? 50) * 0.6;
         const oy = (Math.random() - 0.5) * (target.sizeY ?? 50) * 0.6;
-        drawSlash(root, x + ox, y + oy, 22 + Math.random() * 14, "#ffffff", 1, 220);
+        drawSlash(
+          root,
+          x + ox,
+          y + oy,
+          22 + Math.random() * 14,
+          "#ffffff",
+          1,
+          220,
+        );
       }, delay);
     }
 
@@ -103,7 +107,7 @@ export const omaewamou = ({ showText, findStrongestEnemy, dealDamage }) => ({
 
       const { x, y } = target.body.translation();
 
-      showText(target, "北斗百裂拳!!", "#ff2b2b");
+      showText(target, "NANI!?", "#ff2b2b");
 
       if (root) {
         // Explosive burst of slashes converging on the target
@@ -127,7 +131,10 @@ export const omaewamou = ({ showText, findStrongestEnemy, dealDamage }) => ({
         }
 
         // Red flash + shatter ring at the moment of the kill
-        const flash = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        const flash = document.createElementNS(
+          "http://www.w3.org/2000/svg",
+          "circle",
+        );
         flash.setAttribute("cx", x);
         flash.setAttribute("cy", y);
         flash.setAttribute("r", 8);

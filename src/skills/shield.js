@@ -8,7 +8,7 @@ const SHATTER_SHARDS = 10;
 
 export const shield = ({ showText }) => ({
   name: "Shield",
-  disabled: true,
+  disabled: false,
   duration: SHIELD_DURATION,
   effect: (participant) => {
     if (!participant?.body) return;
@@ -55,7 +55,10 @@ export const shield = ({ showText }) => ({
       }).join(" ");
 
     // Static hex dome — rotates slowly for a "living barrier" feel
-    const hex = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+    const hex = document.createElementNS(
+      "http://www.w3.org/2000/svg",
+      "polygon",
+    );
     hex.setAttribute("points", hexPoints(R, 0));
     hex.setAttribute("fill", "rgba(0,170,255,0.08)");
     hex.setAttribute("stroke", "#00d2ff");
@@ -64,7 +67,10 @@ export const shield = ({ showText }) => ({
     root.appendChild(hex);
 
     // ── deploy flash — quick outward burst when the shield snaps into place ──
-    const flash = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    const flash = document.createElementNS(
+      "http://www.w3.org/2000/svg",
+      "circle",
+    );
     flash.setAttribute("r", "6");
     flash.setAttribute("fill", "none");
     flash.setAttribute("stroke", "#bff2ff");
@@ -83,7 +89,10 @@ export const shield = ({ showText }) => ({
     const ringInterval = setInterval(() => {
       if (!participant.body) return;
       const pos = participant.body.translation();
-      const ring = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+      const ring = document.createElementNS(
+        "http://www.w3.org/2000/svg",
+        "circle",
+      );
       ring.setAttribute("cx", pos.x);
       ring.setAttribute("cy", pos.y);
       ring.setAttribute("r", R * 0.6);
@@ -103,7 +112,10 @@ export const shield = ({ showText }) => ({
     // ── orbiting shimmer motes across the dome surface ────────────────────────
     const shimmerInterval = setInterval(() => {
       const angle = Math.random() * Math.PI * 2;
-      const spark = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+      const spark = document.createElementNS(
+        "http://www.w3.org/2000/svg",
+        "circle",
+      );
       spark.setAttribute("cx", Math.cos(angle) * R);
       spark.setAttribute("cy", Math.sin(angle) * R);
       spark.setAttribute("r", 1.5 + Math.random() * 1.5);
@@ -128,7 +140,10 @@ export const shield = ({ showText }) => ({
       }
       const pos = participant.body.translation();
       rotation += 0.4;
-      root.setAttribute("transform", `translate(${pos.x},${pos.y}) rotate(${rotation})`);
+      root.setAttribute(
+        "transform",
+        `translate(${pos.x},${pos.y}) rotate(${rotation})`,
+      );
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
@@ -142,11 +157,16 @@ export const shield = ({ showText }) => ({
       clearInterval(ringInterval);
       clearInterval(shimmerInterval);
 
-      const pos = participant.body ? participant.body.translation() : { x: 0, y: 0 };
+      const pos = participant.body
+        ? participant.body.translation()
+        : { x: 0, y: 0 };
 
       for (let i = 0; i < SHATTER_SHARDS; i++) {
         const a = (i / SHATTER_SHARDS) * Math.PI * 2 + Math.random() * 0.3;
-        const shard = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        const shard = document.createElementNS(
+          "http://www.w3.org/2000/svg",
+          "line",
+        );
         shard.setAttribute("x1", pos.x + Math.cos(a) * R);
         shard.setAttribute("y1", pos.y + Math.sin(a) * R);
         shard.setAttribute("x2", pos.x + Math.cos(a) * R);
@@ -159,7 +179,11 @@ export const shield = ({ showText }) => ({
         const len = 14 + Math.random() * 20;
         shard.animate(
           [
-            { x2: pos.x + Math.cos(a) * R, y2: pos.y + Math.sin(a) * R, opacity: 1 },
+            {
+              x2: pos.x + Math.cos(a) * R,
+              y2: pos.y + Math.sin(a) * R,
+              opacity: 1,
+            },
             {
               x2: pos.x + Math.cos(a) * (R + len),
               y2: pos.y + Math.sin(a) * (R + len),

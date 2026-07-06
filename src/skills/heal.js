@@ -5,7 +5,7 @@ const EFFECT_DURATION = 950; // ms the aura stays visible
 
 export const heal = ({ battleSettings, showText }) => ({
   name: "Heal",
-  disabled: true,
+  disabled: false,
   effect: (p) => {
     if (!p.isAlive || !p.body) return;
 
@@ -49,7 +49,10 @@ export const heal = ({ battleSettings, showText }) => ({
     const plus = document.createElementNS("http://www.w3.org/2000/svg", "g");
     plus.setAttribute("filter", "url(#heal-glow)");
     ["h", "v"].forEach((axis) => {
-      const bar = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+      const bar = document.createElementNS(
+        "http://www.w3.org/2000/svg",
+        "rect",
+      );
       const w = axis === "h" ? 26 : 8;
       const h = axis === "h" ? 8 : 26;
       bar.setAttribute("x", -w / 2);
@@ -60,18 +63,30 @@ export const heal = ({ battleSettings, showText }) => ({
       bar.setAttribute("fill", "#7dffb0");
       plus.appendChild(bar);
     });
-    plus.setAttribute("transform", `translate(${startPos.x},${startPos.y - R * 0.6}) scale(0.3)`);
+    plus.setAttribute(
+      "transform",
+      `translate(${startPos.x},${startPos.y - R * 0.6}) scale(0.3)`,
+    );
     svg.appendChild(plus);
     plus.animate(
       [
-        { transform: `translate(${startPos.x}px,${startPos.y - R * 0.6}px) scale(0.3)`, opacity: 1 },
-        { transform: `translate(${startPos.x}px,${startPos.y - R * 1.1}px) scale(1.1)`, opacity: 0 },
+        {
+          transform: `translate(${startPos.x}px,${startPos.y - R * 0.6}px) scale(0.3)`,
+          opacity: 1,
+        },
+        {
+          transform: `translate(${startPos.x}px,${startPos.y - R * 1.1}px) scale(1.1)`,
+          opacity: 0,
+        },
       ],
       { duration: 650, easing: "ease-out" },
     ).onfinish = () => plus.remove();
 
     // ── expanding pulse ring beneath the participant ──────────────────────────
-    const ring = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    const ring = document.createElementNS(
+      "http://www.w3.org/2000/svg",
+      "circle",
+    );
     ring.setAttribute("cx", startPos.x);
     ring.setAttribute("cy", startPos.y);
     ring.setAttribute("r", 6);
@@ -102,7 +117,10 @@ export const heal = ({ battleSettings, showText }) => ({
       const spawnX = pos.x + (Math.random() - 0.5) * R * 1.6;
       const spawnY = pos.y + R * 0.6;
 
-      const mote = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+      const mote = document.createElementNS(
+        "http://www.w3.org/2000/svg",
+        "circle",
+      );
       mote.setAttribute("cx", spawnX);
       mote.setAttribute("cy", spawnY);
       mote.setAttribute("r", 1.5 + Math.random() * 2);

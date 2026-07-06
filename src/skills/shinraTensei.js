@@ -6,7 +6,7 @@ const CRACK_COUNT = 10;
 
 export const shinraTensei = ({ showText, radialKnockback }) => ({
   name: "Shinra Tensei",
-  disabled: true,
+  disabled: false,
   effect: (participant) => {
     if (!participant.body) return;
 
@@ -40,7 +40,10 @@ export const shinraTensei = ({ showText, radialKnockback }) => ({
       setTimeout(() => {
         if (!participant.body) return;
         const pos = participant.body.translation();
-        const ring = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        const ring = document.createElementNS(
+          "http://www.w3.org/2000/svg",
+          "circle",
+        );
         ring.setAttribute("cx", pos.x);
         ring.setAttribute("cy", pos.y);
         ring.setAttribute("r", 220);
@@ -60,7 +63,10 @@ export const shinraTensei = ({ showText, radialKnockback }) => ({
     }
 
     // Glowing core that swells as the charge builds
-    const core = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    const core = document.createElementNS(
+      "http://www.w3.org/2000/svg",
+      "circle",
+    );
     core.setAttribute("fill", "rgba(255,238,0,0.35)");
     core.setAttribute("stroke", "#fff6b0");
     core.setAttribute("stroke-width", "1.5");
@@ -92,10 +98,15 @@ export const shinraTensei = ({ showText, radialKnockback }) => ({
         return;
       }
 
-      const pos = participant.body ? participant.body.translation() : { x: 0, y: 0 };
+      const pos = participant.body
+        ? participant.body.translation()
+        : { x: 0, y: 0 };
 
       // Blinding release flash
-      const flash = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+      const flash = document.createElementNS(
+        "http://www.w3.org/2000/svg",
+        "circle",
+      );
       flash.setAttribute("cx", pos.x);
       flash.setAttribute("cy", pos.y);
       flash.setAttribute("r", 10);
@@ -111,7 +122,10 @@ export const shinraTensei = ({ showText, radialKnockback }) => ({
       ).onfinish = () => flash.remove();
 
       // Expanding shockwave ring — the visual read of the actual knockback
-      const shockwave = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+      const shockwave = document.createElementNS(
+        "http://www.w3.org/2000/svg",
+        "circle",
+      );
       shockwave.setAttribute("cx", pos.x);
       shockwave.setAttribute("cy", pos.y);
       shockwave.setAttribute("r", 20);
@@ -131,7 +145,10 @@ export const shinraTensei = ({ showText, radialKnockback }) => ({
       // Radial ground-crack lines
       for (let i = 0; i < CRACK_COUNT; i++) {
         const a = (i / CRACK_COUNT) * Math.PI * 2 + Math.random() * 0.2;
-        const crack = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        const crack = document.createElementNS(
+          "http://www.w3.org/2000/svg",
+          "line",
+        );
         crack.setAttribute("x1", pos.x);
         crack.setAttribute("y1", pos.y);
         crack.setAttribute("x2", pos.x);
@@ -144,7 +161,11 @@ export const shinraTensei = ({ showText, radialKnockback }) => ({
         crack.animate(
           [
             { x2: pos.x, y2: pos.y, opacity: 0.9 },
-            { x2: pos.x + Math.cos(a) * len, y2: pos.y + Math.sin(a) * len, opacity: 0 },
+            {
+              x2: pos.x + Math.cos(a) * len,
+              y2: pos.y + Math.sin(a) * len,
+              opacity: 0,
+            },
           ],
           { duration: 500 + Math.random() * 200, easing: "ease-out" },
         ).onfinish = () => crack.remove();
@@ -154,7 +175,10 @@ export const shinraTensei = ({ showText, radialKnockback }) => ({
       for (let i = 0; i < DEBRIS_COUNT; i++) {
         const a = Math.random() * Math.PI * 2;
         const dist = 80 + Math.random() * 220;
-        const chip = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+        const chip = document.createElementNS(
+          "http://www.w3.org/2000/svg",
+          "rect",
+        );
         const s = 2 + Math.random() * 4;
         chip.setAttribute("x", pos.x);
         chip.setAttribute("y", pos.y);
