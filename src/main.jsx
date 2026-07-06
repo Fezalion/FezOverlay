@@ -11,7 +11,6 @@ import ChatCommands from "./components/ChatCommands";
 import ChatOverlay from "./components/ChatOverlay";
 import Music from "./components/MusicOverlay";
 import FihOverlay from "./components/Fih";
-import VideoStream from "./components/VideoStream";
 import "./index.css";
 import { setupGlobalErrorLogger } from "./utils/errorLogger";
 import RAPIER from "@dimforge/rapier2d-compat";
@@ -97,7 +96,6 @@ async function main() {
           <Route path="/chat" element={<ChatOverlay />} />
           <Route path="/music" element={<Music />} />
           <Route path="/fih" element={<FihOverlay />} />
-          <Route path="/video-stream" element={<VideoStream />} />
         </Routes>
       </BrowserRouter>
     </StrictMode>,
