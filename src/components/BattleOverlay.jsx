@@ -9,6 +9,20 @@ import { useBattleDPSTracker } from "../hooks/useDPSTracker";
 import { createEmoteElement } from "../utils/emoteEffects";
 import { createSkills } from "../skills";
 
+const STEER_MAX_SPEED = 200;
+const STEER_TURN_RATE = 2.0;
+const STEER_MAX_DT = 1 / 20;
+const PURSUIT_LOOKAHEAD = 0.28;
+const PURSUIT_ARRIVE_RADIUS = 150;
+const PURSUIT_MIN_SCALE = 0.12;
+const PERSONAL_SPACE_PAD = 8;
+const SEPARATION_SPEED = 0.3;
+const WALL_MARGIN = 130;
+const WALL_STEER_WEIGHT = 1.15;
+const CENTER_MIN_ALIVE = 4;
+const CENTER_MARGIN = 220;
+const CENTER_STEER_WEIGHT = 0.3;
+
 export default function BattleOverlay() {
   const toSmallCaps = (text) => {
     const caps = {
@@ -104,6 +118,7 @@ export default function BattleOverlay() {
   const battleRafRef = useRef(null);
   const isInitialized = useRef(false);
   const activeCooldownsRef = useRef(new Map());
+  const lastSteerTimeRef = useRef(null);
 
   // ------------------------------------------------------------------
   // Physics Helpers
@@ -476,7 +491,7 @@ export default function BattleOverlay() {
       }
 
       if (attacker && canGainMana) {
-        const manaGain = 15 + damage * 0.1;
+        const manaGain = 5 + damage * 0.12;
         attacker.mana = Math.min(attacker.maxMana, attacker.mana + manaGain);
         showManaGain(attacker, manaGain);
       }
@@ -494,7 +509,7 @@ export default function BattleOverlay() {
   );
 
   const radialKnockback = useCallback(
-    (caster, radius = 500, forceMagnitude = 15000000.0) => {
+    (caster, radius = 500, forceMagnitude = 1500000.0) => {
       const world = getWorld();
       if (!world) return;
 
@@ -586,11 +601,12 @@ export default function BattleOverlay() {
 
         const randomSkill = skills[Math.floor(Math.random() * skills.length)];
         const skill = specialSkills[randomSkill];
-        const skillExpiry = activeCooldownsRef.current.get(skill.name);
+        const cooldownKey = `${participant.id}:${skill.name}`;
+        const skillExpiry = activeCooldownsRef.current.get(cooldownKey);
 
         if (skillExpiry) {
           if (now < skillExpiry) return;
-          activeCooldownsRef.current.delete(skill.name);
+          activeCooldownsRef.current.delete(cooldownKey);
         }
 
         if (
@@ -609,7 +625,7 @@ export default function BattleOverlay() {
 
         skill.effect(participant);
         participant.mana = 0;
-        activeCooldownsRef.current.set(skill.name, Date.now() + 1000);
+        activeCooldownsRef.current.set(cooldownKey, Date.now() + 1000);
 
         if (skill.duration) {
           participant.effects.push({
@@ -975,7 +991,7 @@ export default function BattleOverlay() {
     const height = window.innerHeight;
     const centerX = width / 2;
     const centerY = height / 2;
-    const radius = Math.min(width, height) * 0.3;
+    const radius = Math.min(width, height) * 0.4;
 
     const availableEmotes = Array.from(emoteMap.keys()).filter((key) => {
       const emote = emoteMap.get(key);
@@ -1019,10 +1035,6 @@ export default function BattleOverlay() {
       );
 
       if (participant) {
-        const velocityStrength = 200;
-        const velX = (centerX - spawnX) * (velocityStrength / radius);
-        const velY = (centerY - spawnY) * (velocityStrength / radius);
-        participant.body.setLinvel({ x: velX, y: velY }, true);
         participants.push(participant);
         bodiesWithTimers.current.push(participant);
       }
@@ -1080,7 +1092,7 @@ export default function BattleOverlay() {
 
           const nx = dx / distance;
           const ny = dy / distance;
-          const bounceImpulse = 400000.0;
+          const bounceImpulse = 1000000.0;
 
           const scene = sceneRef.current;
           const sw = scene
@@ -1154,25 +1166,27 @@ export default function BattleOverlay() {
 
     const arenaCenterX = width * 0.5;
     const arenaCenterY = height * 0.45;
-
-    const now = Date.now();
     const aliveParticipants = battleParticipants.current.filter(
-      (p) => p.isAlive && p.body && now - (p.lastDamageTime || 0) > 150,
+      (p) => p.isAlive && p.body,
     );
 
     if (aliveParticipants.length < 2) return;
 
-    const WALL_MARGIN = 100;
-    const WALL_REPULSE = 6000.0;
+    const nowMs =
+      typeof performance !== "undefined" ? performance.now() : Date.now();
+    const lastMs = lastSteerTimeRef.current;
+    lastSteerTimeRef.current = nowMs;
+    const dt =
+      lastMs == null
+        ? 1 / 60
+        : Math.min(STEER_MAX_DT, Math.max(0, (nowMs - lastMs) / 1000));
 
     aliveParticipants.forEach((p1) => {
       const pos1 = p1.body.translation();
-      let forceX = 0;
-      let forceY = 0;
+      const vel1 = p1.body.linvel();
 
-      let closestEnemy = null;
+      let closest = null;
       let closestDist = Infinity;
-
       aliveParticipants.forEach((p2) => {
         if (p1.id === p2.id) return;
         const pos2 = p2.body.translation();
@@ -1181,61 +1195,86 @@ export default function BattleOverlay() {
         const dist = Math.sqrt(dx * dx + dy * dy);
         if (dist < closestDist) {
           closestDist = dist;
-          closestEnemy = { dx, dy, dist };
+          closest = p2;
         }
       });
 
-      if (closestEnemy && closestEnemy.dist > 10) {
-        const { dx, dy, dist } = closestEnemy;
-        const nx = dx / dist;
-        const ny = dy / dist;
+      let desiredX = 0;
+      let desiredY = 0;
 
-        const attractionScale = Math.min(1, closestDist / 400);
-        const baseStrength = aliveParticipants.length <= 2 ? 6000 : 4000;
-        const strength = baseStrength * attractionScale;
+      if (closest) {
+        const targetVel = closest.body.linvel();
+        const targetPos = closest.body.translation();
+        const aimX = targetPos.x + targetVel.x * PURSUIT_LOOKAHEAD;
+        const aimY = targetPos.y + targetVel.y * PURSUIT_LOOKAHEAD;
 
-        forceX += nx * strength;
-        forceY += ny * strength;
-      }
+        const dx = aimX - pos1.x;
+        const dy = aimY - pos1.y;
+        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
 
-      if (aliveParticipants.length >= 4) {
-        const toCenterX = arenaCenterX - pos1.x;
-        const toCenterY = arenaCenterY - pos1.y;
-        const distToCenter = Math.sqrt(
-          toCenterX * toCenterX + toCenterY * toCenterY,
-        );
+        const contactDist = (p1.sizeX + closest.sizeX) / 2 + PERSONAL_SPACE_PAD;
 
-        if (distToCenter > 200) {
-          const centerStrength = 2000;
-          forceX += (toCenterX / distToCenter) * centerStrength;
-          forceY += (toCenterY / distToCenter) * centerStrength;
+        if (closestDist < contactDist) {
+          desiredX = -(dx / dist) * STEER_MAX_SPEED * SEPARATION_SPEED;
+          desiredY = -(dy / dist) * STEER_MAX_SPEED * SEPARATION_SPEED;
+        } else {
+          const arriveScale =
+            closestDist < PURSUIT_ARRIVE_RADIUS
+              ? Math.max(PURSUIT_MIN_SCALE, closestDist / PURSUIT_ARRIVE_RADIUS)
+              : 1;
+
+          desiredX = (dx / dist) * STEER_MAX_SPEED * arriveScale;
+          desiredY = (dy / dist) * STEER_MAX_SPEED * arriveScale;
         }
       }
 
+      // ---- 2. Loose crowd centering (only with enough people alive) -----
+      if (aliveParticipants.length >= CENTER_MIN_ALIVE) {
+        const toCenterX = arenaCenterX - pos1.x;
+        const toCenterY = arenaCenterY - pos1.y;
+        const centerDist = Math.sqrt(
+          toCenterX * toCenterX + toCenterY * toCenterY,
+        );
+        if (centerDist > CENTER_MARGIN) {
+          desiredX +=
+            (toCenterX / centerDist) * STEER_MAX_SPEED * CENTER_STEER_WEIGHT;
+          desiredY +=
+            (toCenterY / centerDist) * STEER_MAX_SPEED * CENTER_STEER_WEIGHT;
+        }
+      }
+
+      let wallX = 0;
+      let wallY = 0;
       if (pos1.x < WALL_MARGIN) {
-        const t = 1 - pos1.x / WALL_MARGIN;
-        forceX += WALL_REPULSE * t * t;
+        wallX = 1 - pos1.x / WALL_MARGIN;
       } else if (pos1.x > width - WALL_MARGIN) {
-        const t = 1 - (width - pos1.x) / WALL_MARGIN;
-        forceX -= WALL_REPULSE * t * t;
+        wallX = -(1 - (width - pos1.x) / WALL_MARGIN);
       }
-
       if (pos1.y < WALL_MARGIN) {
-        const t = 1 - pos1.y / WALL_MARGIN;
-        forceY += WALL_REPULSE * t * t;
+        wallY = 1 - pos1.y / WALL_MARGIN;
       } else if (pos1.y > height - WALL_MARGIN) {
-        const t = 1 - (height - pos1.y) / WALL_MARGIN;
-        forceY -= WALL_REPULSE * t * t;
+        wallY = -(1 - (height - pos1.y) / WALL_MARGIN);
+      }
+      if (wallX !== 0 || wallY !== 0) {
+        const wallLen = Math.sqrt(wallX * wallX + wallY * wallY) || 1;
+        desiredX += (wallX / wallLen) * STEER_MAX_SPEED * WALL_STEER_WEIGHT;
+        desiredY += (wallY / wallLen) * STEER_MAX_SPEED * WALL_STEER_WEIGHT;
       }
 
-      p1.body.addForce({ x: forceX, y: forceY }, true);
-
-      const vel = p1.body.linvel();
-      const velMag = Math.sqrt(vel.x * vel.x + vel.y * vel.y);
-      if (velMag > 200) {
-        const scale = 200 / velMag;
-        p1.body.setLinvel({ x: vel.x * scale, y: vel.y * scale }, true);
+      // ---- 4. Re-normalize the combined vote to a sane top speed ---------
+      const desiredLen = Math.sqrt(desiredX * desiredX + desiredY * desiredY);
+      if (desiredLen > STEER_MAX_SPEED) {
+        const s = STEER_MAX_SPEED / desiredLen;
+        desiredX *= s;
+        desiredY *= s;
       }
+
+      // ---- 5. Smoothly blend actual velocity toward the desired one ------
+      const turnAmount = 1 - Math.exp(-STEER_TURN_RATE * dt);
+      const newVelX = vel1.x + (desiredX - vel1.x) * turnAmount;
+      const newVelY = vel1.y + (desiredY - vel1.y) * turnAmount;
+
+      p1.body.setLinvel({ x: newVelX, y: newVelY }, true);
     });
   }, []);
 
