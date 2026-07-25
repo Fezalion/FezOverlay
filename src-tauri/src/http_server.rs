@@ -10,10 +10,12 @@ use tokio::sync::Mutex;
 use tower_http::cors::CorsLayer;
 use futures_util::{SinkExt, StreamExt};
 use crate::config::{AppConfig, AppSettings};
+use crate::poe_watcher;
 use base64::Engine;
 use serde_json::Value;
 use std::collections::HashMap;
 use std::fs;
+use std::time::Duration;
 
 static AVAILABLE_SUB_EFFECTS: &[&str] = &[
     "magneticAttraction",
@@ -25,9 +27,12 @@ static AVAILABLE_SUB_EFFECTS: &[&str] = &[
 // In-memory state
 static mut NOW_PLAYING: Option<serde_json::Value> = None;
 static BATTLE_ACTIVE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+static HIDEOUT_WATCHER_ACTIVE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 // WebSocket clients
 static WS_CLIENTS: std::sync::LazyLock<tokio::sync::Mutex<Vec<tokio::sync::mpsc::UnboundedSender<ws::Message>>>> =
     std::sync::LazyLock::new(|| tokio::sync::Mutex::new(Vec::new()));
+static HIDEOUT_WATCHER: std::sync::LazyLock<tokio::sync::Mutex<Option<poe_watcher::LogWatcher>>> =
+    std::sync::LazyLock::new(|| tokio::sync::Mutex::new(None));
 
 pub async fn start_http_server(config: AppConfig) {
     let config = Arc::new(Mutex::new(config));
@@ -82,6 +87,8 @@ pub async fn start_http_server(config: AppConfig) {
         .route("/api/open-url", post(open_url_handler))
         .route("/api/refresh", post(refresh_handler))
         .route("/api/log-client-error", post(log_client_error_handler))
+        .route("/api/hideout-watcher", get(get_hideout_watcher_state_handler).post(set_hideout_watcher_state_handler))
+        .route("/api/hideout-log-path", get(get_hideout_log_path_handler).post(set_hideout_log_path_handler))
         // 2. WebSocket endpoint
         .route("/ws", get(ws_handler))
         // 3. SPA fallback - serves static files or index.html
@@ -882,6 +889,40 @@ async fn set_battle_state_handler(Json(body): Json<Value>) -> Json<Value> {
     Json(serde_json::json!({ "ok": true, "active": active }))
 }
 
+// Hideout Log Path handlers
+static HIDEOUT_LOG_PATH: std::sync::LazyLock<tokio::sync::Mutex<String>> =
+    std::sync::LazyLock::new(|| tokio::sync::Mutex::new(String::new()));
+
+async fn get_hideout_log_path_handler() -> Json<Value> {
+    let path = HIDEOUT_LOG_PATH.lock().await.clone();
+    if path.is_empty() {
+        // Return auto-detected path
+        if let Some(detected) = poe_watcher::detect_log_path() {
+            Json(serde_json::json!({ "path": detected.to_string_lossy() }))
+        } else {
+            Json(serde_json::json!({ "path": "" }))
+        }
+    } else {
+        Json(serde_json::json!({ "path": path }))
+    }
+}
+
+async fn set_hideout_log_path_handler(Json(body): Json<Value>) -> Json<Value> {
+    let path = body["path"].as_str().unwrap_or("").to_string();
+    
+    // Validate the path exists
+    let path_buf = std::path::PathBuf::from(&path);
+    if !path_buf.exists() {
+        return Json(serde_json::json!({
+            "ok": false,
+            "error": "The specified path does not exist."
+        }));
+    }
+    
+    *HIDEOUT_LOG_PATH.lock().await = path.clone();
+    Json(serde_json::json!({ "ok": true, "path": path }))
+}
+
 async fn get_config_path_handler(State(config): State<Arc<Mutex<AppConfig>>>) -> Json<Value> {
     let cfg = config.lock().await;
     let path = cfg.base_dir.to_string_lossy().to_string();
@@ -985,4 +1026,78 @@ async fn emote_proxy_handler(
         }
         _ => Err(StatusCode::BAD_GATEWAY),
     }
+}
+
+// Hideout Watcher handlers
+async fn get_hideout_watcher_state_handler() -> Json<Value> {
+    Json(serde_json::json!({
+        "active": HIDEOUT_WATCHER_ACTIVE.load(std::sync::atomic::Ordering::Relaxed)
+    }))
+}
+
+async fn set_hideout_watcher_state_handler(Json(body): Json<Value>) -> Json<Value> {
+    let active = body["active"].as_bool().unwrap_or(false);
+    
+    if active {
+        // Start the hideout watcher
+        if let Some(log_path) = poe_watcher::detect_log_path() {
+            let mut watcher = poe_watcher::LogWatcher::new(log_path);
+            // Enable fast polling for responsive hideout detection
+            watcher.set_fast_polling(true);
+            
+            // Start the watcher and get event receiver
+            match watcher.start() {
+                Ok(event_rx) => {
+                    *HIDEOUT_WATCHER.lock().await = Some(watcher);
+                    HIDEOUT_WATCHER_ACTIVE.store(true, std::sync::atomic::Ordering::Relaxed);
+                    
+                    // Spawn a task to poll for events and broadcast them
+                    tokio::spawn(async move {
+                        loop {
+                            if let Ok(event) = event_rx.try_recv() {
+                                if let Ok(msg) = serde_json::to_string(&serde_json::json!({
+                                    "type": "logEvent",
+                                    "event": event
+                                })) {
+                                    broadcast_ws(&msg).await;
+                                }
+                            } else {
+                                // No event available, sleep briefly
+                                tokio::time::sleep(Duration::from_millis(10)).await;
+                            }
+                            
+                            // Check if we should stop
+                            if !HIDEOUT_WATCHER_ACTIVE.load(std::sync::atomic::Ordering::Relaxed) {
+                                break;
+                            }
+                        }
+                    });
+                    
+                    log::info!("[HideoutWatcher] Started");
+                }
+                Err(e) => {
+                    log::error!("[HideoutWatcher] Failed to start: {}", e);
+                    return Json(serde_json::json!({
+                        "ok": false,
+                        "error": format!("Failed to start watcher: {}", e)
+                    }));
+                }
+            }
+        } else {
+            log::warn!("[HideoutWatcher] Could not find PoE log file");
+            return Json(serde_json::json!({
+                "ok": false,
+                "error": "PoE log file not found. Make sure Path of Exile is installed."
+            }));
+        }
+    } else {
+        // Stop the hideout watcher
+        HIDEOUT_WATCHER_ACTIVE.store(false, std::sync::atomic::Ordering::Relaxed);
+        if let Some(mut watcher) = HIDEOUT_WATCHER.lock().await.take() {
+            watcher.stop();
+        }
+        log::info!("[HideoutWatcher] Stopped");
+    }
+    
+    Json(serde_json::json!({ "ok": true, "active": active }))
 }

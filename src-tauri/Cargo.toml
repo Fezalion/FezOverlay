@@ -1,6 +1,6 @@
 [package]
 name = "fezoverlay"
-version = "1.0.15"
+version = "1.0.17"
 description = "FezOverlay - Tauri Backend"
 authors = ["Fezalion"]
 license = ""
@@ -38,6 +38,9 @@ tower-http = { version = "0.5", features = ["fs", "cors"] }
 tower = "0.4"
 env_logger = "0.11"
 tauri-plugin-single-instance = "2.4.2"
+anyhow = "1.0"
+notify = "6"
+lazy_static = "1.4"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 windows = { version = "0.58", features = ["Win32_System_Console"] }

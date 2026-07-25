@@ -1,5 +1,6 @@
 mod config;
 mod http_server;
+mod poe_watcher;
 
 use tauri::{
     menu::{MenuBuilder, MenuItemBuilder},
@@ -35,10 +36,11 @@ pub fn run() {
             // Tray setup
             let open_dashboard = MenuItemBuilder::with_id("page_settings", "Open Settings").build(app)?;
             let open_music = MenuItemBuilder::with_id("page_music", "Open Music").build(app)?;
+            let open_hideout = MenuItemBuilder::with_id("page_hideout", "Open Hideout Watcher").build(app)?;
             let quit = MenuItemBuilder::with_id("quit", "Quit Application").build(app)?;
 
             let tray_menu = MenuBuilder::new(app)
-                .items(&[&open_dashboard,&open_music,&quit])
+                .items(&[&open_dashboard, &open_music, &open_hideout, &quit])
                 .build()?;
 
             let _tray: tauri::tray::TrayIcon<Wry> = TrayIconBuilder::new()
@@ -63,6 +65,26 @@ pub fn run() {
                                 .title("Music Overlay")
                                 .inner_size(1280.0, 720.0)
                                 .resizable(true)
+                                .build();
+                            }
+                        }
+                        "page_hideout" => {
+                            if let Some(hideout_window) = app.get_webview_window("hideout") {
+                                let _ = hideout_window.show();
+                                let _ = hideout_window.unminimize();
+                                let _ = hideout_window.set_focus();
+                            } else {
+                                let _hideout_window = WebviewWindowBuilder::new(
+                                    app,
+                                    "hideout",
+                                    WebviewUrl::External("http://localhost:48000/hideout".parse().unwrap())
+                                )
+                                .title("Hideout Overlay")
+                                .inner_size(400.0, 600.0)
+                                .resizable(true)
+                                //.decorations(false)
+                                //.always_on_top(true)
+                                //.transparent(true)
                                 .build();
                             }
                         }

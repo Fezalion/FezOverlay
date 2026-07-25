@@ -1,0 +1,550 @@
+use anyhow::Result;
+use notify::{Config, RecommendedWatcher, RecursiveMode, Watcher};
+use regex::Regex;
+use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
+use std::fs::File;
+use std::io::{BufRead, BufReader, Seek, SeekFrom};
+use std::path::{Path, PathBuf};
+use std::sync::mpsc::{channel, Receiver, Sender, TryRecvError};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
+use std::thread;
+use std::time::{Duration, Instant};
+
+/// Events parsed from Client.txt
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "event_type", rename_all = "snake_case")]
+pub enum LogEvent {
+    ZoneEnter {
+        timestamp: String,
+        zone_name: String,
+    },
+    LevelUp {
+        timestamp: String,
+        character_name: String,
+        character_class: String,
+        level: u32,
+    },
+    Death {
+        timestamp: String,
+        character_name: String,
+    },
+    InstanceDetails {
+        timestamp: String,
+    },
+    Login {
+        timestamp: String,
+    },
+    KitavaAffliction {
+        timestamp: String,
+        penalty: i32,
+    },
+    NpcDialog {
+        timestamp: String,
+        npc_name: String,
+        dialog_text: String,
+    },
+    GeneratingLevel {
+        timestamp: String,
+        level: u32,
+        area_name: String,
+        seed: u64,
+    },
+    HideoutFound {
+        timestamp: String,
+        area_name: String,
+    },
+}
+
+/// Log watcher state
+pub struct LogWatcher {
+    log_path: PathBuf,
+    file_position: Arc<Mutex<u64>>,
+    watcher: Option<RecommendedWatcher>,
+    stop_tx: Option<Sender<()>>,
+    fast_polling: Arc<AtomicBool>,
+}
+
+impl LogWatcher {
+    /// Create a new log watcher for the given path
+    pub fn new(log_path: PathBuf) -> Self {
+        LogWatcher {
+            log_path,
+            file_position: Arc::new(Mutex::new(0)),
+            watcher: None,
+            stop_tx: None,
+            fast_polling: Arc::new(AtomicBool::new(false)),
+        }
+    }
+
+    /// Enable or disable fast polling mode (10ms instead of 100ms)
+    pub fn set_fast_polling(&self, enabled: bool) {
+        self.fast_polling.store(enabled, Ordering::Relaxed);
+    }
+
+    /// Start watching the log file and return a receiver for events
+    pub fn start(&mut self) -> Result<Receiver<LogEvent>> {
+        let log_path = self.log_path.clone();
+        let file_position = self.file_position.clone();
+
+        // Initialize position to end of file
+        if let Ok(metadata) = std::fs::metadata(&log_path) {
+            *file_position.lock().unwrap() = metadata.len();
+        }
+
+        let (stop_tx, stop_rx) = channel();
+        self.stop_tx = Some(stop_tx);
+
+        // Create channel for file change notifications
+        let (tx, rx) = channel();
+
+        // Create the file watcher with faster polling for responsive splits
+        let mut watcher = RecommendedWatcher::new(
+            move |res| {
+                if let Ok(event) = res {
+                    let _ = tx.send(event);
+                }
+            },
+            Config::default().with_poll_interval(Duration::from_millis(100)),
+        )?;
+
+        // Watch the log file's parent directory
+        if let Some(parent) = log_path.parent() {
+            watcher.watch(parent, RecursiveMode::NonRecursive)?;
+        }
+
+        self.watcher = Some(watcher);
+
+        // Create event channel
+        let (event_tx, event_rx) = channel();
+
+        // Spawn thread to handle file changes
+        let log_path_clone = log_path.clone();
+        let fast_polling = self.fast_polling.clone();
+        thread::spawn(move || {
+            Self::watch_loop(log_path_clone, file_position, rx, stop_rx, event_tx, fast_polling);
+        });
+
+        Ok(event_rx)
+    }
+
+    /// Stop watching the log file
+    pub fn stop(&mut self) {
+        if let Some(tx) = self.stop_tx.take() {
+            let _ = tx.send(());
+        }
+        self.watcher = None;
+    }
+
+    /// Main watch loop - uses active polling for reliable detection
+    fn watch_loop(
+        log_path: PathBuf,
+        file_position: Arc<Mutex<u64>>,
+        _rx: Receiver<notify::Event>,
+        stop_rx: Receiver<()>,
+        event_tx: Sender<LogEvent>,
+        fast_polling: Arc<AtomicBool>,
+    ) {
+        // Deduplication: track recent events to prevent duplicates
+        let mut recent_events: HashSet<String> = HashSet::new();
+        let mut last_cleanup = Instant::now();
+
+        loop {
+            // Check for stop signal
+            if stop_rx.try_recv().is_ok() {
+                break;
+            }
+
+            // Clear recent events cache every 5 seconds to prevent memory buildup
+            if last_cleanup.elapsed() > Duration::from_secs(5) {
+                recent_events.clear();
+                last_cleanup = Instant::now();
+            }
+
+            // Actively poll the file every 100ms for new content
+            if let Ok(events) = Self::read_new_lines(&log_path, &file_position) {
+                for event in events {
+                    // Create a dedup key from event data
+                    let dedup_key = Self::get_event_key(&event);
+
+                    // Skip if we've seen this exact event recently
+                    if recent_events.contains(&dedup_key) {
+                        continue;
+                    }
+
+                    recent_events.insert(dedup_key);
+                    // Send event through channel
+                    let _ = event_tx.send(event);
+                }
+            }
+
+            // Sleep briefly before next poll (10ms in fast mode, 100ms normal)
+            let interval = if fast_polling.load(Ordering::Relaxed) { 10 } else { 100 };
+            thread::sleep(Duration::from_millis(interval));
+        }
+    }
+
+    /// Generate a unique key for an event to detect duplicates
+    fn get_event_key(event: &LogEvent) -> String {
+        match event {
+            LogEvent::ZoneEnter { timestamp, zone_name } => {
+                format!("zone:{}:{}", timestamp, zone_name)
+            }
+            LogEvent::LevelUp { timestamp, character_name, level, .. } => {
+                format!("level:{}:{}:{}", timestamp, character_name, level)
+            }
+            LogEvent::Death { timestamp, character_name } => {
+                format!("death:{}:{}", timestamp, character_name)
+            }
+            LogEvent::InstanceDetails { timestamp } => {
+                format!("instance:{}", timestamp)
+            }
+            LogEvent::Login { timestamp } => {
+                format!("login:{}", timestamp)
+            }
+            LogEvent::KitavaAffliction { timestamp, penalty } => {
+                format!("kitava:{}:{}", timestamp, penalty)
+            }
+            LogEvent::NpcDialog { timestamp, npc_name, .. } => {
+                format!("npc_dialog:{}:{}", timestamp, npc_name)
+            }
+            LogEvent::GeneratingLevel { timestamp, seed, .. } => {
+                format!("generating_level:{}:{}", timestamp, seed)
+            }
+            LogEvent::HideoutFound { timestamp, area_name } => {
+                format!("hideout:{}:{}", timestamp, area_name)
+            }
+        }
+    }
+
+    /// Read new lines from the log file
+    fn read_new_lines(log_path: &Path, file_position: &Arc<Mutex<u64>>) -> Result<Vec<LogEvent>> {
+        let mut events = Vec::new();
+        let file = File::open(log_path)?;
+        let mut reader = BufReader::new(file);
+
+        let mut pos = file_position.lock().unwrap();
+        reader.seek(SeekFrom::Start(*pos))?;
+
+        let mut line = String::new();
+        while reader.read_line(&mut line)? > 0 {
+            if let Some(event) = Self::parse_line(&line) {
+                events.push(event);
+            }
+            line.clear();
+        }
+
+        *pos = reader.stream_position()?;
+        Ok(events)
+    }
+
+    /// Parse a log line into an event
+    fn parse_line(line: &str) -> Option<LogEvent> {
+        lazy_static::lazy_static! {
+            // Pattern: 2024/01/15 12:34:56 12345678 abc [INFO Client 1234] : You have entered The Coast.
+            // Note: PoE log format has "] : " before the message
+            static ref ZONE_ENTER: Regex = Regex::new(
+                r"(\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}).*\] :? ?You have entered (.+)\."
+            ).unwrap();
+
+            // Pattern: 2024/01/15 12:34:56 12345678 abc [INFO Client 1234] : CharName (Witch) is now level 10
+            static ref LEVEL_UP: Regex = Regex::new(
+                r"(\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}).*\] :? ?(.+?) \((.+?)\) is now level (\d+)"
+            ).unwrap();
+
+            // Pattern: 2024/01/15 12:34:56 12345678 abc [INFO Client 1234] : CharName has been slain.
+            static ref DEATH: Regex = Regex::new(
+                r"(\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}).*\] :? ?(.+?) has been slain\."
+            ).unwrap();
+
+            // Pattern: Got Instance Details
+            static ref INSTANCE_DETAILS: Regex = Regex::new(
+                r"(\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}).*\] :? ?Got Instance Details"
+            ).unwrap();
+
+            // Pattern: NPC dialog lines (boss voicelines)
+            // Match lines like: 2024/01/15 12:34:56 12345678 abc [INFO Client 1234] Merveil: You dare approach me?
+            // Skip player chat lines containing ] # or ] @ or ] $
+            static ref NPC_DIALOG: Regex = Regex::new(
+                r"(\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}).*\] (Brutus, the Warden|Merveil|Piety|Dominus|Daresso|King Kaom|Malachai|Avarius|Tukohama|Nessa|Silk): (.+)"
+            ).unwrap();
+
+            // Pattern: Connecting to instance server
+            static ref LOGIN: Regex = Regex::new(
+                r"(\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}).*\] :? ?Connecting to instance server"
+            ).unwrap();
+
+            // Pattern: Kitava resistance penalty (Act 5: -30%, Act 10: -60%)
+            // Act 5: "You have been permanently weakened by Kitava's cruel affliction. You now have -30% to all Resistances."
+            // Act 10: "You have been permanently weakened by Kitava's merciless affliction. You now have a total of -60% to all Resistances."
+            static ref KITAVA_AFFLICTION: Regex = Regex::new(
+                r"(\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}).*\] :? ?You have been permanently weakened by Kitava's .+ affliction\. You now have (?:a total of )?-(\d+)% to all Resistances\."
+            ).unwrap();
+
+            // Pattern: Generating level N area "AreaName" with seed S
+            // Example: 2023/12/19 20:42:49 ... [DEBUG Client ...] Generating level 83 area "MapWorldsBurialChambers" with seed 3304002195
+            static ref GENERATING_LEVEL: Regex = Regex::new(
+                r#"(\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}).*Generating level (\d+) area "([^"]+)" with seed (\d+)"#
+            ).unwrap();
+
+            // Pattern: Spawning discoverable Hideout in area "AreaName"
+            // Also matches: Spawning discoverable Hideout HideoutSewer (without "in area")
+            static ref HIDEOUT_FOUND: Regex = Regex::new(
+                r#"(\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}).*Spawning discoverable Hideout(?: in area "([^"]+)"| (\S+))"#
+            ).unwrap();
+        }
+
+        // Try to match zone enter
+        if let Some(caps) = ZONE_ENTER.captures(line) {
+            return Some(LogEvent::ZoneEnter {
+                timestamp: caps[1].to_string(),
+                zone_name: caps[2].to_string(),
+            });
+        }
+
+        // Try to match level up
+        if let Some(caps) = LEVEL_UP.captures(line) {
+            return Some(LogEvent::LevelUp {
+                timestamp: caps[1].to_string(),
+                character_name: caps[2].to_string(),
+                character_class: caps[3].to_string(),
+                level: caps[4].parse().unwrap_or(1),
+            });
+        }
+
+        // Try to match death
+        if let Some(caps) = DEATH.captures(line) {
+            return Some(LogEvent::Death {
+                timestamp: caps[1].to_string(),
+                character_name: caps[2].to_string(),
+            });
+        }
+
+        // Try to match instance details
+        if let Some(caps) = INSTANCE_DETAILS.captures(line) {
+            return Some(LogEvent::InstanceDetails {
+                timestamp: caps[1].to_string(),
+            });
+        }
+
+        // Try to match Kitava affliction
+        if let Some(caps) = KITAVA_AFFLICTION.captures(line) {
+            return Some(LogEvent::KitavaAffliction {
+                timestamp: caps[1].to_string(),
+                penalty: caps[2].parse().unwrap_or(30),
+            });
+        }
+
+        // Try to match NPC dialog (skip player chat lines)
+        if !line.contains("] #") && !line.contains("] @") && !line.contains("] $") {
+            if let Some(caps) = NPC_DIALOG.captures(line) {
+                return Some(LogEvent::NpcDialog {
+                    timestamp: caps[1].to_string(),
+                    npc_name: caps[2].to_string(),
+                    dialog_text: caps[3].to_string(),
+                });
+            }
+        }
+
+        // Try to match generating level (map instance creation)
+        if let Some(caps) = GENERATING_LEVEL.captures(line) {
+            return Some(LogEvent::GeneratingLevel {
+                timestamp: caps[1].to_string(),
+                level: caps[2].parse().unwrap_or(1),
+                area_name: caps[3].to_string(),
+                seed: caps[4].parse().unwrap_or(0),
+            });
+        }
+
+        // Try to match hideout found (for hideout farming)
+        if let Some(caps) = HIDEOUT_FOUND.captures(line) {
+            // Handle both formats: "in area "AreaName"" and just "HideoutName"
+            // caps[2] is for "in area "AreaName"" format, caps[3] is for just "HideoutName"
+            let area_name = if caps.get(2).map_or(false, |m| !m.as_str().is_empty()) {
+                caps[2].to_string()
+            } else if let Some(m) = caps.get(3) {
+                m.as_str().to_string()
+            } else {
+                return None;
+            };
+            return Some(LogEvent::HideoutFound {
+                timestamp: caps[1].to_string(),
+                area_name,
+            });
+        }
+
+        // Try to match login
+        if let Some(caps) = LOGIN.captures(line) {
+            return Some(LogEvent::Login {
+                timestamp: caps[1].to_string(),
+            });
+        }
+
+        None
+    }
+}
+
+/// Detect the PoE log path automatically
+pub fn detect_log_path() -> Option<PathBuf> {
+    let possible_paths = [
+        // Steam
+        r"C:\Program Files (x86)\Steam\steamapps\common\Path of Exile\logs\Client.txt",
+        // Standalone
+        r"C:\Program Files (x86)\Grinding Gear Games\Path of Exile\logs\Client.txt",
+        // Epic Games
+        r"C:\Program Files\Epic Games\PathOfExile\logs\Client.txt",
+        // Common custom Steam library locations
+        r"D:\Steam\steamapps\common\Path of Exile\logs\Client.txt",
+        r"D:\SteamLibrary\steamapps\common\Path of Exile\logs\Client.txt",
+        r"E:\Steam\steamapps\common\Path of Exile\logs\Client.txt",
+        r"E:\SteamLibrary\steamapps\common\Path of Exile\logs\Client.txt",
+    ];
+
+    for path_str in &possible_paths {
+        let path = PathBuf::from(path_str);
+        if path.exists() {
+            return Some(path);
+        }
+    }
+
+    None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_zone_enter() {
+        // Test with colon format (actual PoE format)
+        let line = "2024/01/15 12:34:56 12345678 abc [INFO Client 1234] : You have entered The Coast.";
+        let event = LogWatcher::parse_line(line);
+        assert!(matches!(event, Some(LogEvent::ZoneEnter { zone_name, .. }) if zone_name == "The Coast"));
+    }
+
+    #[test]
+    fn test_parse_zone_enter_no_colon() {
+        // Test without colon format (backwards compatibility)
+        let line = "2024/01/15 12:34:56 12345678 abc [INFO Client 1234] You have entered The Coast.";
+        let event = LogWatcher::parse_line(line);
+        assert!(matches!(event, Some(LogEvent::ZoneEnter { zone_name, .. }) if zone_name == "The Coast"));
+    }
+
+    #[test]
+    fn test_parse_level_up() {
+        let line = "2024/01/15 12:34:56 12345678 abc [INFO Client 1234] : TestChar (Witch) is now level 10";
+        let event = LogWatcher::parse_line(line);
+        assert!(matches!(
+            event,
+            Some(LogEvent::LevelUp { character_name, character_class, level, .. })
+            if character_name == "TestChar" && character_class == "Witch" && level == 10
+        ));
+    }
+
+    #[test]
+    fn test_parse_kitava_act5() {
+        let line = "2021/04/29 06:47:13 130346843 bad [INFO Client 17428] : You have been permanently weakened by Kitava's cruel affliction. You now have -30% to all Resistances.";
+        let event = LogWatcher::parse_line(line);
+        assert!(matches!(event, Some(LogEvent::KitavaAffliction { penalty, .. }) if penalty == 30));
+    }
+
+    #[test]
+    fn test_parse_kitava_act10() {
+        let line = "2021/04/29 22:27:18 186752375 bad [INFO Client 2900] : You have been permanently weakened by Kitava's merciless affliction. You now have a total of -60% to all Resistances.";
+        let event = LogWatcher::parse_line(line);
+        assert!(matches!(event, Some(LogEvent::KitavaAffliction { penalty, .. }) if penalty == 60));
+    }
+
+    #[test]
+    fn test_parse_death() {
+        let line = "2024/01/15 12:34:56 12345678 abc [INFO Client 1234] : TestChar has been slain.";
+        let event = LogWatcher::parse_line(line);
+        assert!(matches!(event, Some(LogEvent::Death { character_name, .. }) if character_name == "TestChar"));
+    }
+
+    #[test]
+    fn test_parse_merveil_dialog() {
+        let line = "2024/01/15 12:34:56 12345678 abc [INFO Client 1234] Merveil: You dare approach me, exile?";
+        let event = LogWatcher::parse_line(line);
+        assert!(matches!(
+            event,
+            Some(LogEvent::NpcDialog { npc_name, dialog_text, .. })
+            if npc_name == "Merveil" && dialog_text == "You dare approach me, exile?"
+        ));
+    }
+
+    #[test]
+    fn test_parse_piety_dialog() {
+        let line = "2024/01/15 12:34:56 12345678 abc [INFO Client 1234] Piety: You are too late, exile!";
+        let event = LogWatcher::parse_line(line);
+        assert!(matches!(
+            event,
+            Some(LogEvent::NpcDialog { npc_name, dialog_text, .. })
+            if npc_name == "Piety" && dialog_text == "You are too late, exile!"
+        ));
+    }
+
+    #[test]
+    fn test_parse_brutus_dialog() {
+        let line = "2024/01/15 12:34:56 12345678 abc [INFO Client 1234] Brutus, the Warden: You will know my misery. Come and share it with me.";
+        let event = LogWatcher::parse_line(line);
+        assert!(matches!(
+            event,
+            Some(LogEvent::NpcDialog { npc_name, .. })
+            if npc_name == "Brutus, the Warden"
+        ));
+    }
+
+    #[test]
+    fn test_npc_dialog_ignores_player_chat() {
+        // Player chat with # (global)
+        let line = "2024/01/15 12:34:56 12345678 abc [INFO Client 1234] # Merveil: fake message";
+        let event = LogWatcher::parse_line(line);
+        assert!(event.is_none());
+
+        // Player chat with @ (whisper)
+        let line = "2024/01/15 12:34:56 12345678 abc [INFO Client 1234] @ Piety: fake message";
+        let event = LogWatcher::parse_line(line);
+        assert!(event.is_none());
+
+        // Player chat with $ (trade)
+        let line = "2024/01/15 12:34:56 12345678 abc [INFO Client 1234] $ Merveil: selling stuff";
+        let event = LogWatcher::parse_line(line);
+        assert!(event.is_none());
+    }
+
+    #[test]
+    fn test_parse_hideout_found() {
+        let line = r#"2024/01/15 12:34:56 12345678 abc [DEBUG Client 1234] Spawning discoverable Hideout in area "MapWorldsTerrace""#;
+        let event = LogWatcher::parse_line(line);
+        assert!(matches!(
+            event,
+            Some(LogEvent::HideoutFound { area_name, .. })
+            if area_name == "MapWorldsTerrace"
+        ));
+    }
+
+    #[test]
+    fn test_parse_hideout_found_arboreal() {
+        let line = r#"2024/01/15 12:34:56 12345678 abc [DEBUG Client 1234] Spawning discoverable Hideout in area "MapWorldsBurialChambers""#;
+        let event = LogWatcher::parse_line(line);
+        assert!(matches!(
+            event,
+            Some(LogEvent::HideoutFound { area_name, .. })
+            if area_name == "MapWorldsBurialChambers"
+        ));
+    }
+
+    #[test]
+    fn test_parse_hideout_found_sewer() {
+        // Format without "in area" - just "Spawning discoverable Hideout HideoutSewer"
+        let line = r#"2026/07/16 16:15:22 7755703 b5a51721 [INFO Client 34300] Spawning discoverable Hideout HideoutSewer"#;
+        let event = LogWatcher::parse_line(line);
+        assert!(matches!(
+            event,
+            Some(LogEvent::HideoutFound { area_name, .. })
+            if area_name == "HideoutSewer"
+        ));
+    }
+}
