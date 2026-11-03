@@ -13,10 +13,6 @@ import fih_feed from "../utils/fih/feed.png";
 import fih_stare from "../utils/fih/fih_stare.png";
 
 const BASE_RADIUS = 10;
-const SIZE_PER_EAT = 0.12;
-const MAX_SIZE = 4;
-const DECAY_START_MS = 15000;
-const DECAY_RATE = 0.00003;
 
 // Movement tuning
 const MOVEMENT = {
@@ -41,6 +37,62 @@ const MOVEMENT = {
   teleportReappearMs: 420,
 };
 
+const CLONES = {
+  eatsPerClone: 3,
+  max: 10,
+  scale: 0.35,
+  taper: 0.03,
+  minTaperScale: 0.6,
+  spacing: 16,
+  anchorGap: 1.3,
+  followRate: 6,
+  followFalloff: 0.35,
+  minFollowRate: 2.5,
+  popInMs: 300,
+  deathStaggerMs: 70,
+  deathMs: 380,
+};
+
+const TAU = Math.PI * 2;
+const SPIN_EASE_PORTION = 0.4;
+const SPIN_FULL_PORTION = 1 - SPIN_EASE_PORTION;
+
+function beginSpin(state, now) {
+  const duration =
+    MOVEMENT.spinMinMs +
+    Math.random() * (MOVEMENT.spinMaxMs - MOVEMENT.spinMinMs);
+  const dir = Math.random() < 0.5 ? -1 : 1;
+  const wantedSpeed = 3.5 + Math.random() * 3.5; // rad/s
+  const areaFactor = SPIN_FULL_PORTION + SPIN_EASE_PORTION / 3;
+  const turns = Math.max(
+    1,
+    Math.round((wantedSpeed * (duration / 1000) * areaFactor) / TAU),
+  );
+
+  state.mode = "spin";
+  state.actionStartedAt = now;
+  state.actionUntil = now + duration;
+  state.spinDuration = duration;
+  state.spinTotalAngle = dir * turns * TAU;
+}
+
+function spinAt(state, now) {
+  const D = state.spinDuration || 1;
+  const elapsed = Math.max(0, Math.min(D, now - state.actionStartedAt));
+  const total = state.spinTotalAngle || 0;
+  const omega = total / (D * (SPIN_FULL_PORTION + SPIN_EASE_PORTION / 3)); // rad/ms
+  const tFull = D * SPIN_FULL_PORTION;
+  const E = D * SPIN_EASE_PORTION;
+
+  if (elapsed <= tFull) return { angle: omega * elapsed, speed: omega * 1000 };
+
+  const s = 1 - (elapsed - tFull) / E;
+  return {
+    angle: omega * tFull + omega * (E / 3) * (1 - s * s * s),
+    speed: omega * s * s * 1000,
+  };
+}
+
 export default function FihOverlay() {
   const sceneRef = useRef(null);
   const fishCanvasRef = useRef(null);
@@ -49,7 +101,15 @@ export default function FihOverlay() {
   const facingRightRef = useRef(false);
   const gulpScaleRef = useRef(1);
   const isAlive = useRef(true);
-  const spinAngleRef = useRef(0);
+  const spinFxRef = useRef({
+    active: false,
+    settling: false,
+    angle: 0,
+    vel: 0,
+    dir: 1,
+    target: 0,
+  });
+  const tiltRef = useRef(0);
 
   const movementRef = useRef({
     mode: "dart",
@@ -74,11 +134,13 @@ export default function FihOverlay() {
   });
 
   const fishSizeRef = useRef(1);
-  const lastEatTimeRef = useRef(null);
+
+  // Clone chain
+  const clonesRef = useRef([]);
+  const eatCountRef = useRef(0);
 
   // Bubble tracking
   const bubblesRef = useRef([]);
-  const bubbleSpawnTimerRef = useRef(0);
 
   const [isDebug, setIsDebug] = useState(false);
   const [activeSubs, setActiveSubs] = useState([]);
@@ -91,33 +153,6 @@ export default function FihOverlay() {
     x: Math.random() * window.innerWidth,
     y: Math.random() * window.innerHeight,
   });
-
-  const applyPhysicsSize = useCallback((body, newSize) => {
-    const world = engineRef.current;
-    if (!world || !body) return;
-    try {
-      const colliderHandle = body.collider(0);
-      if (colliderHandle === undefined || colliderHandle === null) return;
-      const collider = world.getCollider(colliderHandle);
-      if (!collider) return;
-
-      const targetRadius = BASE_RADIUS * newSize;
-      collider.setRadius(targetRadius);
-
-      const intensity = 15;
-      const dynamicDamping = 0.03 + Math.pow(newSize - 1, 1.5) * intensity;
-      body.setLinearDamping(dynamicDamping);
-
-      const currentVel = body.linvel();
-      const massBrake = 0.85;
-      body.setLinvel(
-        { x: currentVel.x * massBrake, y: currentVel.y * massBrake },
-        true,
-      );
-    } catch (e) {
-      console.warn("applyPhysicsSize error", e);
-    }
-  }, []);
 
   const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
@@ -155,6 +190,54 @@ export default function FihOverlay() {
   const scheduleNextIdleAction = useCallback((now) => {
     movementRef.current.nextActionAt =
       now + randomBetween(MOVEMENT.actionMinMs, MOVEMENT.actionMaxMs);
+  }, []);
+
+  const spawnClone = useCallback(() => {
+    const fish = fishRef.current;
+    if (!fish) return;
+
+    const chain = clonesRef.current;
+    const living = chain.filter((c) => !c.dying);
+    if (living.length >= CLONES.max) return;
+
+    const tail = living.length ? living[living.length - 1] : fish.translation();
+    const now = performance.now();
+
+    chain.push({
+      x: tail.x,
+      y: tail.y,
+      facingRight: facingRightRef.current,
+      spawnedAt: now,
+      wobble: Math.random() * Math.PI * 2,
+      dying: false,
+      dieAt: 0,
+      dieStartedAt: null,
+      deathP: 0,
+      dead: false,
+    });
+
+    for (let i = 0; i < 3; i++) {
+      bubblesRef.current.push({
+        x: tail.x + (Math.random() - 0.5) * 16,
+        y: tail.y + (Math.random() - 0.5) * 16,
+        text: Math.random() > 0.5 ? "o" : "O",
+        opacity: 1,
+        vx: (Math.random() - 0.5) * 0.6,
+        vy: -Math.random() * 0.8 - 0.3,
+        size: 8 + Math.random() * 6,
+      });
+    }
+  }, []);
+
+  const killClones = useCallback((now) => {
+    let order = 0;
+    clonesRef.current.forEach((c) => {
+      if (c.dying) return;
+      c.dying = true;
+      c.dieAt = now + order * CLONES.deathStaggerMs;
+      order++;
+    });
+    eatCountRef.current = 0;
   }, []);
 
   const startTeleport = useCallback(
@@ -198,6 +281,8 @@ export default function FihOverlay() {
               life: 1,
               scale: fishSizeRef.current,
             });
+
+            killClones(now);
 
             fish.setTranslation(to, true);
 
@@ -262,17 +347,7 @@ export default function FihOverlay() {
           }
 
           if (roll < 0.42) {
-            state.mode = "spin";
-            state.actionStartedAt = now;
-            const duration = randomBetween(
-              MOVEMENT.spinMinMs,
-              MOVEMENT.spinMaxMs,
-            );
-            state.actionUntil = now + duration;
-            state.spinDuration = duration;
-            state.baseSpinSpeed =
-              (3.5 + Math.random() * 3.5) * (Math.random() < 0.5 ? -1 : 1);
-            state.spinSpeed = state.baseSpinSpeed;
+            beginSpin(state, now);
             state.target = pickFarPoint(fish);
             return;
           }
@@ -301,19 +376,10 @@ export default function FihOverlay() {
           }
         }
 
-        if (state.mode === "spin") {
-          const duration = state.spinDuration || 1500;
-          const remaining = Math.max(0, state.actionUntil - now);
-
-          const spinFactor = Math.min(1, remaining / (duration * 0.4));
-          state.spinSpeed =
-            (state.baseSpinSpeed || 5) * Math.pow(spinFactor, 2);
-
-          if (now >= state.actionUntil) {
-            state.mode = "wander";
-            state.target = pickFarPoint(fish);
-            scheduleNextIdleAction(now);
-          }
+        if (state.mode === "spin" && now >= state.actionUntil) {
+          state.mode = "wander";
+          state.target = pickFarPoint(fish);
+          scheduleNextIdleAction(now);
         }
 
         if (state.mode === "stare") {
@@ -411,7 +477,7 @@ export default function FihOverlay() {
         );
       }
     },
-    [pickFarPoint, scheduleNextIdleAction, startTeleport],
+    [pickFarPoint, scheduleNextIdleAction, startTeleport, killClones],
   );
 
   const handlePhysicsStep = useCallback(
@@ -441,11 +507,9 @@ export default function FihOverlay() {
 
         const velocity = fish.linvel();
 
-        // Face the correct direction based on horizontal movement
         if (velocity.x > 0.1) facingRightRef.current = true;
         else if (velocity.x < -0.1) facingRightRef.current = false;
 
-        // Distance-based collision detection
 
         const fishPos2 = fish.translation();
         const eatRadius = (BASE_RADIUS + 30) * fishSizeRef.current;
@@ -463,13 +527,11 @@ export default function FihOverlay() {
             subBodies.current.delete(sub.handle);
             world.removeRigidBody(sub);
 
-            fishSizeRef.current = Math.min(
-              MAX_SIZE,
-              fishSizeRef.current + SIZE_PER_EAT,
-            );
-            lastEatTimeRef.current = Date.now();
-            applyPhysicsSize(fish, fishSizeRef.current);
-
+            eatCountRef.current += 1;
+            if (eatCountRef.current >= CLONES.eatsPerClone) {
+              eatCountRef.current = 0;
+              spawnClone();
+            }
             gulpScaleRef.current = 1.25;
             setTimeout(() => {
               gulpScaleRef.current = 1;
@@ -482,7 +544,7 @@ export default function FihOverlay() {
         console.error("Manual physics step error:", error);
       }
     },
-    [applyPhysicsSize, updateMovement],
+    [updateMovement, spawnClone],
   );
 
   const { engineRef } = usePhysicsEngine(handlePhysicsStep);
@@ -524,35 +586,26 @@ export default function FihOverlay() {
     [engineRef],
   );
 
-  // Debug toggle and spawn test
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === " " || e.code === "Space") setIsDebug((prev) => !prev);
       if (e.key === "a") spawnSubBubble("fih", "red");
+      if (e.key === "c") spawnClone(); // debug: spawn a clone
 
       const fish = fishRef.current;
       const state = movementRef.current;
       const now = performance.now();
 
-      // Trigger Spin Event
       if (e.key === "s") {
-        state.mode = "spin";
-        state.actionStartedAt = now;
-        state.actionUntil =
-          now + randomBetween(MOVEMENT.spinMinMs, MOVEMENT.spinMaxMs);
-        state.spinSpeed =
-          (3.5 + Math.random() * 3.5) * (Math.random() < 0.5 ? -1 : 1);
-        if (fish) fish.setLinvel({ x: 0, y: 0 }, true);
+        beginSpin(state, now);
       }
 
-      // Trigger Dart Event
       if (e.key === "d" && fish) {
         state.mode = "dart";
         state.actionUntil = now + randomBetween(500, 1000);
         state.target = pickFarPoint(fish);
       }
 
-      // Trigger Stare Event
       if (e.key === "g") {
         state.mode = "stare";
         state.actionStartedAt = now;
@@ -565,7 +618,6 @@ export default function FihOverlay() {
         state.stareScale = rollStareScale();
       }
 
-      // Trigger Teleport Event
       if (e.key === "t" && fish) {
         startTeleport(fish, now);
       }
@@ -573,7 +625,7 @@ export default function FihOverlay() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [spawnSubBubble, pickFarPoint, startTeleport]);
+  }, [spawnSubBubble, pickFarPoint, startTeleport, spawnClone]);
 
   const subscriberTrackerRef = useRef(subscriberTracker);
   useEffect(() => {
@@ -689,42 +741,6 @@ export default function FihOverlay() {
       const currentFish = fishRef.current;
       fishCtx.clearRect(0, 0, fishCanvas.width, fishCanvas.height);
 
-      // Size decay and bubble spawning
-      const lastEat = lastEatTimeRef.current;
-      if (lastEat !== null && currentFish) {
-        const msSinceEat = Date.now() - lastEat;
-        if (msSinceEat > DECAY_START_MS && fishSizeRef.current > 1) {
-          const prevSize = fishSizeRef.current;
-          fishSizeRef.current = Math.max(
-            1,
-            fishSizeRef.current - DECAY_RATE * dtMs,
-          );
-
-          if (Math.abs(prevSize - fishSizeRef.current) > 0.001) {
-            applyPhysicsSize(currentFish, fishSizeRef.current);
-          }
-
-          bubbleSpawnTimerRef.current += dtMs;
-          if (bubbleSpawnTimerRef.current > 200) {
-            bubbleSpawnTimerRef.current = 0;
-            const angle = currentFish.rotation();
-            const fishPos = currentFish.translation();
-            const spawnDist = BASE_RADIUS * fishSizeRef.current;
-            const directionMod = facingRightRef.current ? -1 : 1;
-
-            bubblesRef.current.push({
-              x: fishPos.x + Math.cos(angle) * spawnDist * directionMod,
-              y: fishPos.y + Math.sin(angle) * spawnDist,
-              text: Math.random() > 0.5 ? "o" : "O",
-              opacity: 1,
-              vx: (Math.random() - 0.5) * 0.4,
-              vy: -Math.random() * 0.8 - 0.3,
-              size: 12 + Math.random() * 8,
-            });
-          }
-        }
-      }
-
       // Render Bubbles
       bubblesRef.current.forEach((b) => {
         b.x += b.vx;
@@ -772,6 +788,185 @@ export default function FihOverlay() {
 
       fx.afterImages = fx.afterImages.filter((ghost) => ghost.life > 0);
 
+      const dtSec = dtMs / 1000;
+      const moveState = movementRef.current;
+      const spinFx = spinFxRef.current;
+
+      if (moveState.mode === "spin") {
+        const { angle, speed } = spinAt(moveState, now);
+        spinFx.active = true;
+        spinFx.settling = false;
+        spinFx.angle = angle;
+        spinFx.vel = speed;
+        spinFx.dir = Math.sign(moveState.spinTotalAngle) || 1;
+      } else if (spinFx.active) {
+        spinFx.active = false;
+        const dir = spinFx.dir;
+        let target =
+          dir > 0
+            ? Math.ceil(spinFx.angle / TAU - 1e-4) * TAU
+            : Math.floor(spinFx.angle / TAU + 1e-4) * TAU;
+        if ((target - spinFx.angle) * dir < Math.abs(spinFx.vel) * 0.35) {
+          target += dir * TAU;
+        }
+
+        if (Math.abs(target - spinFx.angle) < 0.02) {
+          spinFx.angle = 0;
+          spinFx.vel = 0;
+        } else {
+          spinFx.target = target;
+          spinFx.settling = true;
+        }
+      }
+
+      if (spinFx.settling) {
+        const k = 50;
+        const c = 2 * Math.sqrt(k);
+        const sdt = Math.min(dtSec, 0.033);
+        spinFx.vel += (k * (spinFx.target - spinFx.angle) - c * spinFx.vel) * sdt;
+        spinFx.angle += spinFx.vel * sdt;
+
+        if (
+          Math.abs(spinFx.target - spinFx.angle) < 0.01 &&
+          Math.abs(spinFx.vel) < 0.1
+        ) {
+          spinFx.settling = false;
+          spinFx.angle = 0;
+          spinFx.vel = 0;
+        }
+      }
+
+      const spinAngle = spinFx.active || spinFx.settling ? spinFx.angle : 0;
+
+      if (currentFish) {        
+        const v = currentFish.linvel();
+        const sp = Math.hypot(v.x, v.y);
+        let targetTilt = 0;
+        if (moveState.mode === "chase" && sp > 8) {
+          const dir = facingRightRef.current ? 1 : -1;
+          targetTilt = Math.atan2(v.y * dir, Math.max(Math.abs(v.x), 1e-3));
+        }
+        tiltRef.current +=
+          (targetTilt - tiltRef.current) * (1 - Math.exp(-10 * dtSec));
+      }
+
+      if (currentFish) {
+        const fishPos0 = currentFish.translation();
+        const chain = clonesRef.current;
+
+        let leader = fishPos0;
+        let leaderIsFish = true;
+        let linkIndex = 0;
+
+        chain.forEach((c) => {
+          const prevX = c.x;
+          const prevY = c.y;
+
+          if (!c.dying) {            
+            const gap = leaderIsFish
+              ? BASE_RADIUS * fishSizeRef.current * CLONES.anchorGap +
+                CLONES.spacing
+              : CLONES.spacing;
+            const dx = leader.x - c.x;
+            const dy = leader.y - c.y;
+            const dist = Math.hypot(dx, dy) || 0.001;
+
+            let tx = c.x;
+            let ty = c.y;
+            if (dist > gap) {
+              tx = leader.x - (dx / dist) * gap;
+              ty = leader.y - (dy / dist) * gap;
+            }
+
+            const rate = Math.max(
+              CLONES.minFollowRate,
+              CLONES.followRate - linkIndex * CLONES.followFalloff,
+            );
+            const k = 1 - Math.exp(-rate * dtSec);
+            c.x += (tx - c.x) * k;
+            c.y += (ty - c.y) * k;
+
+            c.linkIndex = linkIndex;
+            leader = c;
+            leaderIsFish = false;
+            linkIndex++;
+          }
+
+          const vx = c.x - prevX;
+          const vy = c.y - prevY;
+          c.moving = Math.hypot(vx, vy) / Math.max(dtSec, 0.001) > 8;
+          if (vx > 0.05) c.facingRight = true;
+          else if (vx < -0.05) c.facingRight = false;
+
+          let targetTilt = 0;
+          if (!c.dying && c.moving) {
+            const dir = c.facingRight ? 1 : -1;
+            targetTilt = Math.atan2(vy * dir, Math.max(Math.abs(vx), 1e-3));
+          }
+          c.tilt = (c.tilt || 0) + (targetTilt - (c.tilt || 0)) * (1 - Math.exp(-10 * dtSec));
+
+          if (c.dying && now >= c.dieAt) {
+            if (c.dieStartedAt === null) {
+              c.dieStartedAt = now;
+              fx.afterImages.push({
+                x: c.x,
+                y: c.y,
+                life: 1,
+                scale: CLONES.scale * 2,
+                isArrivalRing: true,
+              });
+              for (let i = 0; i < 3; i++) {
+                bubblesRef.current.push({
+                  x: c.x + (Math.random() - 0.5) * 12,
+                  y: c.y + (Math.random() - 0.5) * 12,
+                  text: Math.random() > 0.5 ? "o" : "O",
+                  opacity: 1,
+                  vx: (Math.random() - 0.5) * 0.8,
+                  vy: -Math.random() * 0.9 - 0.3,
+                  size: 8 + Math.random() * 6,
+                });
+              }
+            }
+            c.deathP = Math.min(1, (now - c.dieStartedAt) / CLONES.deathMs);
+            if (c.deathP >= 1) c.dead = true;
+          }
+        });
+
+        clonesRef.current = chain.filter((c) => !c.dead);
+
+        for (let i = clonesRef.current.length - 1; i >= 0; i--) {
+          const c = clonesRef.current[i];
+          const frameIndex = c.moving
+            ? 1 + (Math.floor(now / 150 + c.wobble * 2) % 3)
+            : 0;
+          const img = fishImages[frameIndex];
+          const baseW = img.naturalWidth || 80;
+          const baseH = img.naturalHeight || 80;
+
+          const taper = Math.max(
+            CLONES.minTaperScale,
+            1 - (c.linkIndex || 0) * CLONES.taper,
+          );
+          const t = Math.min(1, (now - c.spawnedAt) / CLONES.popInMs);
+          const back = 1.70158;
+          const popScale = 1 + (back + 1) * Math.pow(t - 1, 3) + back * Math.pow(t - 1, 2);
+          const deathScale = 1 - c.deathP * c.deathP;
+
+          const s = CLONES.scale * taper * popScale * deathScale;
+          const w = baseW * s;
+          const h = baseH * s;
+          const bob = Math.sin(now / 300 + c.wobble) * 2;
+
+          fishCtx.save();
+          fishCtx.globalAlpha = 1 - c.deathP;
+          fishCtx.translate(c.x, c.y + bob);
+          fishCtx.rotate(c.deathP * 6 + spinAngle + (c.tilt || 0));
+          if (c.facingRight) fishCtx.scale(-1, 1);
+          fishCtx.drawImage(img, -w / 2, -h / 2, w, h);
+          fishCtx.restore();
+        }
+      }
+
       // Draw the Fish
       if (currentFish) {
         const velocity = currentFish.linvel();
@@ -789,13 +984,7 @@ export default function FihOverlay() {
         const movementState = movementRef.current;
         const visualFx = visualFxRef.current;
 
-        let angle = currentFish.rotation();
-        if (movementState.mode === "spin") {
-          spinAngleRef.current += (movementState.spinSpeed * dtMs) / 1000;
-          angle += spinAngleRef.current;
-        } else {
-          spinAngleRef.current = 0;
-        }
+        const angle = currentFish.rotation() + tiltRef.current + spinAngle;
 
         fishCtx.save();
         fishCtx.globalAlpha = visualFx.teleportAlpha;
@@ -813,7 +1002,6 @@ export default function FihOverlay() {
           movementState.mode === "stare" ? movementState.stareBlend || 0 : 0;
         const baseAlpha = visualFx.teleportAlpha;
 
-        // Swim/idle sprite fades out as the stare sprite fades in.
         fishCtx.globalAlpha = baseAlpha * (1 - stareBlend);
         fishCtx.drawImage(img, -w / 2, -h / 2, w, h);
 
@@ -858,7 +1046,7 @@ export default function FihOverlay() {
       cancelAnimationFrame(animFrame);
       window.removeEventListener("resize", handleResize);
     };
-  }, [engineRef, applyPhysicsSize]);
+  }, [engineRef]);
 
   return (
     <div
