@@ -53,6 +53,22 @@ const CLONES = {
   deathMs: 380,
 };
 
+const SPEECH_LINES = [
+  "Hey @{user}, are you paying attention?",
+  "I'm watching you, @{user}...",
+  "Did someone say fish food? What about you, @{user}?",
+  "Why is everyone staring at me? Especially @{user}.",
+  "Glub glub... @{user} is acting sus af.",
+  "Hey @{user}, fuck you in particular.",
+  "Don't mind me, just fucking floating here judging @{user}.",
+  "Plot twist: @{user} is actually a furry.",
+  "Initializing staring contest with @{user}...",
+  "Can someone feed me already? @{user}, you look extra sus today.",
+  "Thank you @{user} for feeding me and my kids. I will remember this.",
+  "Finally, some good fucking food. Thanks @{user}.",
+  "This day was beautiful until @{user} showed up.",
+];
+
 const TAU = Math.PI * 2;
 const SPIN_EASE_PORTION = 0.4;
 const SPIN_FULL_PORTION = 1 - SPIN_EASE_PORTION;
@@ -141,6 +157,12 @@ export default function FihOverlay() {
 
   // Bubble tracking
   const bubblesRef = useRef([]);
+
+  // Speech bubble states & refs
+  const [activeSpeech, setActiveSpeech] = useState(null);
+  const [fishPos, setFishPos] = useState({ x: 0, y: 0 });
+  const recentSpeechIndices = useRef([]);
+  const recentChatUsers = useRef([]);
 
   const [isDebug, setIsDebug] = useState(false);
   const [activeSubs, setActiveSubs] = useState([]);
@@ -486,6 +508,9 @@ export default function FihOverlay() {
       if (!isAlive.current || !world || !fish) return;
 
       try {
+        const fishTranslation = fish.translation();
+        setFishPos({ x: fishTranslation.x, y: fishTranslation.y });
+
         const positions = Array.from(subBodies.current.values()).map((body) => {
           const pos = body.translation();
           return {
@@ -509,7 +534,6 @@ export default function FihOverlay() {
 
         if (velocity.x > 0.1) facingRightRef.current = true;
         else if (velocity.x < -0.1) facingRightRef.current = false;
-
 
         const fishPos2 = fish.translation();
         const eatRadius = (BASE_RADIUS + 30) * fishSizeRef.current;
@@ -586,11 +610,135 @@ export default function FihOverlay() {
     [engineRef],
   );
 
+  const subscriberTrackerRef = useRef(subscriberTracker);
+  useEffect(() => {
+    subscriberTrackerRef.current = subscriberTracker;
+  }, [subscriberTracker]);
+
+  const getRandomUserAndColor = () => {
+    let targetUser = "Chat";
+    let userColor = "#ffcc00";
+
+    const tracker = subscriberTrackerRef.current;
+    if (tracker && tracker.getSubscriberCount() > 0) {
+      const selected = tracker.getRandomSubscribers(1);
+      if (selected && selected.length > 0) {
+        targetUser = selected[0].username || selected[0].displayName || "Chat";
+        userColor = selected[0].color || userColor;
+      }
+    } else if (recentChatUsers.current.length > 0) {
+      targetUser =
+        recentChatUsers.current[
+          Math.floor(Math.random() * recentChatUsers.current.length)
+        ];
+    }
+    return { targetUser, userColor };
+  };
+
+  const triggerSpeechEvent = useCallback(async () => {
+    const fish = fishRef.current;
+    if (!fish || !isAlive.current) return;
+
+    let parts = [];
+    let targetUser = "";
+    let userColor = "#ffcc00";
+    let fullTextLength = 0;
+
+    let isJoke = Math.random() < 0.5;
+
+    if (isJoke) {
+      try {
+        const response = await fetch(
+          "https://v2.jokeapi.dev/joke/Programming,Miscellaneous,Pun,Spooky,Christmas?blacklistFlags=racist&type=single"
+        );
+        const data = await response.json();
+        const jokeText =
+          data.joke || "Why did the fish cross the road? To get away from chat!";
+
+        const { targetUser: u, userColor: c } = getRandomUserAndColor();
+        targetUser = u;
+        userColor = c;
+
+        const formattedJoke = `${jokeText}`;
+        fullTextLength = formattedJoke.length;
+      } catch (err) {
+        isJoke = false;
+      }
+    }
+
+    if (!isJoke) {
+      let availableIndices = [];
+      for (let i = 0; i < SPEECH_LINES.length; i++) {
+        if (!recentSpeechIndices.current.includes(i)) {
+          availableIndices.push(i);
+        }
+      }
+      if (availableIndices.length === 0) {
+        recentSpeechIndices.current = [];
+        availableIndices = SPEECH_LINES.map((_, i) => i);
+      }
+      const chosenIndex =
+        availableIndices[Math.floor(Math.random() * availableIndices.length)];
+      recentSpeechIndices.current.push(chosenIndex);
+      if (recentSpeechIndices.current.length > 5) {
+        recentSpeechIndices.current.shift();
+      }
+
+      const { targetUser: u, userColor: c } = getRandomUserAndColor();
+      targetUser = u;
+      userColor = c;
+
+      const template = SPEECH_LINES[chosenIndex];
+      parts = template.split("@{user}");
+      fullTextLength = template.replace("{user}", targetUser).length;
+    }
+
+    const durationMs = clamp(fullTextLength * 150, 5000, 15000);
+
+    const state = movementRef.current;
+    const now = performance.now();
+    state.mode = "stare";
+    state.actionStartedAt = now;
+    state.actionUntil = now + durationMs;
+    state.stareDuration = durationMs;
+    state.stareScale = rollStareScale();
+
+    setActiveSpeech({
+      parts,
+      username: targetUser,
+      userColor,
+      textLength: fullTextLength,
+    });
+
+    setTimeout(() => {
+      setActiveSpeech(null);
+    }, durationMs);
+  }, []);
+
+  useEffect(() => {
+    let speechTimer;
+
+    const scheduleNext = () => {
+      const intervalMs = randomBetween(30, 120) * 1000;
+      speechTimer = setTimeout(() => {
+        triggerSpeechEvent();
+        scheduleNext();
+      }, intervalMs);
+    };
+
+    scheduleNext();
+    return () => clearTimeout(speechTimer);
+  }, [triggerSpeechEvent]);
+
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === " " || e.code === "Space") setIsDebug((prev) => !prev);
       if (e.key === "a") spawnSubBubble("fih", "red");
-      if (e.key === "c") spawnClone(); // debug: spawn a clone
+      if (e.key === "c") spawnClone();
+
+      if (e.key === "v" || e.key === "V") {
+        triggerSpeechEvent();
+      }
 
       const fish = fishRef.current;
       const state = movementRef.current;
@@ -625,12 +773,13 @@ export default function FihOverlay() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [spawnSubBubble, pickFarPoint, startTeleport, spawnClone]);
-
-  const subscriberTrackerRef = useRef(subscriberTracker);
-  useEffect(() => {
-    subscriberTrackerRef.current = subscriberTracker;
-  }, [subscriberTracker]);
+  }, [
+    spawnSubBubble,
+    pickFarPoint,
+    startTeleport,
+    spawnClone,
+    triggerSpeechEvent,
+  ]);
 
   function randomBetween(min, max) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -662,19 +811,19 @@ export default function FihOverlay() {
     if (!client) return;
 
     const handleMessage = (channel, userstate, message, self) => {
-      console.log(settings.redeemFeed);
-      console.log(userstate);
-      console.log(userstate["custom-reward-id"] === settings.redeemFeed);
+      const username = userstate["display-name"] || userstate["username"];
+      if (username && !recentChatUsers.current.includes(username)) {
+        recentChatUsers.current.push(username);
+        if (recentChatUsers.current.length > 20) recentChatUsers.current.shift();
+      }
+
       if (userstate["custom-reward-id"] === settings.redeemFeed) {
         const tracker = subscriberTrackerRef.current;
         if (!tracker) return;
-        console.log("we passed tracker check");
         const available = tracker.getSubscriberCount();
         const spawnCount = Math.min(available, 5);
-        console.log("spawncount:", spawnCount);
         if (spawnCount > 0) {
           const selectedSubscribers = tracker.getRandomSubscribers(spawnCount);
-          console.log("selected subs:", selectedSubscribers);
           selectedSubscribers.forEach((sub, index) => {
             setTimeout(() => {
               const name = sub.username || sub.displayName;
@@ -696,7 +845,6 @@ export default function FihOverlay() {
 
     const world = engineRef.current;
     const padding = 0.2;
-    // Create the fish body
     const bodyDesc = RAPIER.RigidBodyDesc.dynamic()
       .setTranslation(
         (Math.random() * (1 - padding * 2) + padding) * window.innerWidth,
@@ -759,14 +907,13 @@ export default function FihOverlay() {
 
       fx.afterImages.forEach((ghost) => {
         ghost.life -= dtMs / 280;
-        const progress = 1 - Math.max(0, ghost.life);
 
         fishCtx.save();
         fishCtx.translate(ghost.x, ghost.y);
 
         if (ghost.isArrivalRing) {
-          // Local shockwave ring expanding outwards from the fish
-          const expandRadius = BASE_RADIUS * ghost.scale * (1 + progress * 3.5);
+          const expandRadius =
+            BASE_RADIUS * ghost.scale * (1 + (1 - ghost.life) * 3.5);
           fishCtx.globalAlpha = Math.max(0, ghost.life);
           fishCtx.beginPath();
           fishCtx.arc(0, 0, expandRadius, 0, Math.PI * 2);
@@ -774,7 +921,6 @@ export default function FihOverlay() {
           fishCtx.lineWidth = 3 * ghost.life;
           fishCtx.stroke();
         } else {
-          // Departure ghost outline
           fishCtx.globalAlpha = Math.max(0, ghost.life) * 0.4;
           fishCtx.beginPath();
           fishCtx.arc(0, 0, BASE_RADIUS * ghost.scale * 1.2, 0, Math.PI * 2);
@@ -949,7 +1095,8 @@ export default function FihOverlay() {
           );
           const t = Math.min(1, (now - c.spawnedAt) / CLONES.popInMs);
           const back = 1.70158;
-          const popScale = 1 + (back + 1) * Math.pow(t - 1, 3) + back * Math.pow(t - 1, 2);
+          const popScale =
+            1 + (back + 1) * Math.pow(t - 1, 3) + back * Math.pow(t - 1, 2);
           const deathScale = 1 - c.deathP * c.deathP;
 
           const s = CLONES.scale * taper * popScale * deathScale;
@@ -1048,6 +1195,14 @@ export default function FihOverlay() {
     };
   }, [engineRef]);
 
+  const maxBubbleWidth = 320;
+  const safeX = clamp(
+    fishPos.x,
+    maxBubbleWidth / 2 + 10,
+    window.innerWidth - maxBubbleWidth / 2 - 10,
+  );
+  const safeY = clamp(fishPos.y - 65, 80, window.innerHeight - 10);
+
   return (
     <div
       style={{
@@ -1071,6 +1226,60 @@ export default function FihOverlay() {
         ref={fishCanvasRef}
         style={{ position: "absolute", inset: 0, pointerEvents: "none" }}
       />
+
+      {/* Dynamic Following & Wrapped Speech Bubble Element */}
+      {activeSpeech && (
+        <div
+          style={{
+            position: "absolute",
+            left: safeX,
+            top: safeY,
+            transform: "translate(-50%, -100%)",
+            backgroundColor: "rgba(255, 255, 255, 0.95)",
+            color: "#111",
+            padding: "10px 14px",
+            borderRadius: "12px",
+            fontSize: "14px",
+            fontWeight: "bold",
+            pointerEvents: "none",
+            maxWidth: `${maxBubbleWidth}px`,
+            width: "max-content",
+            whiteSpace: "normal",
+            wordBreak: "break-word",
+            boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
+            border: "2px solid #333",
+            fontFamily: "monospace",
+            zIndex: 100,
+          }}
+        >
+          {activeSpeech.parts[0]}
+          <span style={{ color: activeSpeech.userColor }}>
+            @{activeSpeech.username}
+          </span>
+          {activeSpeech.parts[1]}
+
+          {/* Speech bubble tail pointer pointing towards fish */}
+          <div
+            style={{
+              content: '""',
+              position: "absolute",
+              bottom: "-7px",
+              left: `${clamp(
+                50 + ((fishPos.x - safeX) / maxBubbleWidth) * 100,
+                15,
+                85,
+              )}%`,
+              transform: "translateX(-50%)",
+              width: 0,
+              height: 0,
+              borderLeft: "6px solid transparent",
+              borderRight: "6px solid transparent",
+              borderTop: "7px solid #333",
+            }}
+          />
+        </div>
+      )}
+
       {activeSubs.map((sub) => (
         <div
           key={sub.id}
