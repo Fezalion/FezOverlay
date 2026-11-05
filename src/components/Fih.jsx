@@ -908,13 +908,13 @@ export default function FihOverlay() {
 
       fx.afterImages.forEach((ghost) => {
         ghost.life -= dtMs / 280;
+        const progress = 1 - Math.max(0, ghost.life);
 
         fishCtx.save();
         fishCtx.translate(ghost.x, ghost.y);
 
         if (ghost.isArrivalRing) {
-          const expandRadius =
-            BASE_RADIUS * ghost.scale * (1 + (1 - ghost.life) * 3.5);
+          const expandRadius = BASE_RADIUS * ghost.scale * (1 + progress * 3.5);
           fishCtx.globalAlpha = Math.max(0, ghost.life);
           fishCtx.beginPath();
           fishCtx.arc(0, 0, expandRadius, 0, Math.PI * 2);
