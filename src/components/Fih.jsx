@@ -659,8 +659,9 @@ export default function FihOverlay() {
         targetUser = u;
         userColor = c;
 
-        const formattedJoke = `${jokeText}`;
-        fullTextLength = formattedJoke.length;
+        const formattedJoke = `Hey @{user}, ${jokeText}`;
+        parts = formattedJoke.split("@{user}");
+        fullTextLength = formattedJoke.replace("{user}", targetUser).length;
       } catch (err) {
         isJoke = false;
       }
