@@ -4,6 +4,12 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing release tag to rebuild (e.g. v1.0.19)"
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -21,9 +27,28 @@ jobs:
 
     runs-on: ${{ matrix.platform }}
     steps:
+      - name: Resolve release tag
+        id: release
+        shell: pwsh
+        run: |
+          if ("${{ github.event_name }}" -eq "workflow_dispatch") {
+            $tag = "${{ inputs.tag }}"
+          } else {
+            $tag = "${{ github.ref_name }}"
+          }
+
+          if ($tag -notmatch '^v.+') {
+            throw "Invalid release tag: $tag"
+          }
+
+          echo "tag=$tag" >> $env:GITHUB_OUTPUT
+          echo "version=$($tag -replace '^v', '')" >> $env:GITHUB_OUTPUT
+          echo "Release tag: $tag"
+
       - name: Checkout code
         uses: actions/checkout@v4
         with:
+          ref: ${{ steps.release.outputs.tag }}
           fetch-depth: 0
 
       - name: Set up Node.js
@@ -32,29 +57,22 @@ jobs:
           node-version: "22"
           cache: "npm"
 
-      - name: Get version from tag
-        id: get_version
-        run: |
-          $tag = "${{ github.ref_name }}"
-          $version = $tag -replace '^v', ''
-          echo "version=$version" >> $env:GITHUB_OUTPUT
-          echo "tag=$tag" >> $env:GITHUB_OUTPUT
-          echo "Version: $version"
-          echo "Tag: $tag"
-
       - name: Generate changelog from commits
         id: changelog
+        shell: pwsh
         run: |
-          # Determine previous tag (if any)
-          $currentTag = "${{ github.ref_name }}"
+          $currentTag = "${{ steps.release.outputs.tag }}"
           Write-Host "Current tag: $currentTag"
+
           $allTags = git tag --sort=-creatordate
           $previousTag = $null
+
           if ($allTags) {
             $tagsArray = $allTags -split "`n" | Where-Object { $_ -ne $currentTag }
-            if ($tagsArray -and $tagsArray.Count -gt 0) { $previousTag = $tagsArray[0].Trim() }
+            if ($tagsArray -and $tagsArray.Count -gt 0) {
+              $previousTag = $tagsArray[0].Trim()
+            }
           }
-          if (-not $previousTag) { Write-Host "No previous tag found, using initial commit range" }
 
           if ($previousTag) {
             $range = "$previousTag..$currentTag"
@@ -64,8 +82,8 @@ jobs:
 
           Write-Host "Commit range: $range"
 
-          # Get commits in the range and format as markdown list
           $commits = git log --pretty=format:'%h %s (%an)' $range
+
           if (-not $commits) {
             $body = "No changes listed for this release."
           } else {
@@ -73,10 +91,8 @@ jobs:
             $body += ($commits -split "`n" | ForEach-Object { "- $_`n" }) -join ""
           }
 
-          # Fallback body if empty
-          if (-not $body) { $body = "No changes listed for this release." }
+          Write-Host "Generated changelog:`n$body"
 
-          Write-Host "Generated changelog:\n$body"
           echo "changelog<<EOF" >> $env:GITHUB_OUTPUT
           echo $body >> $env:GITHUB_OUTPUT
           echo "EOF" >> $env:GITHUB_OUTPUT
@@ -103,11 +119,10 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: "FezOverlay ${{ github.ref_name }}"
+          tagName: ${{ steps.release.outputs.tag }}
+          releaseName: "FezOverlay ${{ steps.release.outputs.tag }}"
           releaseBody: |
             ${{ steps.changelog.outputs.changelog }}
-
           releaseDraft: false
           prerelease: false
           args: ${{ matrix.args }}
